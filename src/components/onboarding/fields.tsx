@@ -1,0 +1,131 @@
+"use client";
+
+import { cn } from "@/lib/utils";
+import { DAYS } from "@/lib/onboarding";
+import type { DayOfWeek } from "@/types";
+
+export function DayChips({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (days: DayOfWeek[]) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {DAYS.map((day) => {
+        const selected = value.includes(day.value);
+        return (
+          <button
+            key={day.value}
+            type="button"
+            onClick={() => {
+              const next = selected
+                ? value.filter((d) => d !== day.value)
+                : [...value, day.value];
+              onChange(next as DayOfWeek[]);
+            }}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+              selected
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-muted-foreground hover:bg-secondary",
+            )}
+          >
+            {day.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export function ChoiceChips<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onChange(option.value)}
+          className={cn(
+            "rounded-full border px-3.5 py-2 text-sm font-semibold transition-colors",
+            value === option.value
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-card text-muted-foreground hover:bg-secondary",
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function SegmentedNotify({
+  value,
+  onChange,
+}: {
+  value: "every_time" | "only_missed";
+  onChange: (value: "every_time" | "only_missed") => void;
+}) {
+  return (
+    <div className="flex overflow-hidden rounded-xl border">
+      {(
+        [
+          ["every_time", "Every time"],
+          ["only_missed", "Only if missed"],
+        ] as const
+      ).map(([key, label]) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => onChange(key)}
+          className={cn(
+            "flex-1 px-3 py-2.5 text-sm font-semibold transition-colors",
+            value === key ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground",
+          )}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function WhatsAppPreview({
+  title,
+  message,
+}: {
+  title: string;
+  message: string;
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border">
+      <div className="bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground">
+        {title}
+      </div>
+      <div className="bg-[#E9EDE3] p-3 dark:bg-[#1a2421]">
+        <div className="max-w-[92%] rounded-2xl rounded-tl-md bg-[#DCF8C6] px-3 py-2 text-sm leading-relaxed text-foreground shadow-sm dark:bg-[#2a4034]">
+          {message}
+          <span className="mt-1 block text-right font-mono text-[10px] text-[#6b8f6f]">
+            Preview ✓✓
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="text-xs text-sos">{message}</p>;
+}

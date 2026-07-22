@@ -1,0 +1,197 @@
+  html {
+    scroll-behavior: smooth;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 22%, transparent);
+  }
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-sage: var(--sage);
+  --color-sos: var(--sos);
+  --color-sos-soft: var(--sos-soft);
+  --color-amber-soft: var(--amber-soft);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-fraunces);
+  --font-mono: var(--font-ibm-plex-mono);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 6px);
+}
+
+:root {
+  --radius: 1rem;
+
+  /* ElderWise brand — warm light (default) */
+  --background: #eff2ed;
+  --foreground: #1e2b27;
+  --card: #ffffff;
+  --card-foreground: #1e2b27;
+  --popover: #ffffff;
+  --popover-foreground: #1e2b27;
+  --primary: #1f4b45;
+  --primary-foreground: #f7faf8;
+  --secondary: #dce8e4;
+  --secondary-foreground: #1f4b45;
+  --muted: #e7ece7;
+  --muted-foreground: #5c6b64;
+  --accent: #e3a23c;
+  --accent-foreground: #1e2b27;
+  --destructive: #b8433a;
+  --destructive-foreground: #fff8f7;
+  --border: #d9ded7;
+  --input: #d9ded7;
+  --ring: #1f4b45;
+  --success: #5c8c6b;
+  --success-foreground: #f4faf6;
+  --warning: #e3a23c;
+  --warning-foreground: #1e2b27;
+  --info: #4a6d7c;
+  --info-foreground: #f3f8fa;
+  --sage: #dce8e4;
+  --sos: #b8433a;
+  --sos-soft: #f6e1de;
+  --amber-soft: #fbebd3;
+  --sidebar: #f7faf8;
+  --sidebar-foreground: #1e2b27;
+  --sidebar-border: #d9ded7;
+  --sidebar-accent: #dce8e4;
+  --sidebar-accent-foreground: #1f4b45;
+}
+
+.dark {
+  --background: #121a18;
+  --foreground: #e8eeea;
+  --card: #1a2421;
+  --card-foreground: #e8eeea;
+  --popover: #1a2421;
+  --popover-foreground: #e8eeea;
+  --primary: #8fb5ad;
+  --primary-foreground: #10201c;
+  --secondary: #24332f;
+  --secondary-foreground: #dce8e4;
+  --muted: #24332f;
+  --muted-foreground: #a3b0aa;
+  --accent: #e3a23c;
+  --accent-foreground: #1e2b27;
+  --destructive: #d97a72;
+  --destructive-foreground: #2a1210;
+  --border: #2e3c37;
+  --input: #2e3c37;
+  --ring: #8fb5ad;
+  --success: #7aa788;
+  --success-foreground: #102016;
+  --warning: #e3a23c;
+  --warning-foreground: #1e2b27;
+  --info: #7aa0b0;
+  --info-foreground: #10181c;
+  --sage: #24332f;
+  --sos: #d97a72;
+  --sos-soft: #3a221f;
+  --amber-soft: #3a2e1c;
+  --sidebar: #15201d;
+  --sidebar-foreground: #e8eeea;
+  --sidebar-border: #2e3c37;
+  --sidebar-accent: #24332f;
+  --sidebar-accent-foreground: #dce8e4;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 22%, transparent);
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-fraunces), ui-serif, Georgia, serif;
+    font-weight: 500;
+  }
+
+  .font-mono,
+  time,
+  [data-metric] {
+    font-family: var(--font-ibm-plex-mono), ui-monospace, monospace;
+  }
+
+  .text-larger {
+    font-size: 112.5%;
+  }
+
+  .contrast-boost {
+    --muted-foreground: #3d4a44;
+  }
+
+  .dark.contrast-boost {
+    --muted-foreground: #c5d0cb;
+  }
+
+  .reduce-motion *,
+  .reduce-motion *::before,
+  .reduce-motion *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
