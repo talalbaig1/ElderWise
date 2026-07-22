@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | PRD.md — v1.5 |
+| **Document** | PRD.md — v1.6 |
 | **Date** | 14 July 2026 |
 | **Format** | AIGF Framework 9 (F9) PRD structure + technical build sections |
 | **Audience** | Development team, Cursor, Claude Code |
@@ -103,6 +103,8 @@ This split is the central design constraint: **the person who uses the product i
 **Cardinality:** one CT **may manage multiple EPs** (1 → many). Each EP has exactly one CT (owner), one LCT, and zero-or-one Doctor.
 
 **Data isolation:** a CT must never see another CT's EP data. Enforced at the database layer (see `Architecture.md` — Row-Level Security).
+
+**Front-end names for these roles:** the UI uses friendlier labels — **Loved One** (EP), **Care Partner** (CT), **Local Buddy** (LCT), **Family Doctor** (DR). Same entities throughout.
 
 ---
 
@@ -300,7 +302,7 @@ Medication additionally carries **medicine name(s), time(s), and dosage**.
 ### 9.3 Additional MVP requirements on the data model
 
 - **Timezone** fields for EP, CT, and Doctor (LCT inherits EP's).
-- **Escalation configuration** — held **per EP, per domain**.
+- **Escalation configuration** — held **per routine** (per medication, per food routine, per health routine), matching the front-end model. Each routine carries its own reminder delay and CT-notification setting. *(Supersedes the earlier per-EP-per-domain granularity, 22 Jul.)*
 - **Auth / user identity** for the CT, with **one CT → many EPs**.
 - **Doctor share-link tokens** — scoped to one EP, revocable.
 - **Elder consent** — CT attestation (who, when) **and** in-channel confirmation timestamp (M16). Scheduling is gated on the latter.
@@ -434,6 +436,7 @@ Demo Day ships the **MVP**. Should- and Could-have items are not permitted to en
 
 | Date | Version | Change |
 |---|---|---|
+| 22 Jul 2026 | 1.6 | **Reconciled with Sama's front-end build.** Escalation/notification granularity moved from per-EP-per-domain to **per-routine** (adopting the finer-grained front-end model). Added front-end ↔ role-code mapping (Loved One=EP, Care Partner=CT, Local Buddy=LCT, Family Doctor=DR) and flagged front-end fields that are v2/Could-have stubs. Front-end gaps to be patched by Cursor are specified in `patch_frontend.md`: elder consent (M16), elder address (M17), medication two-step response (M12), Google OAuth, buddy/doctor "added" acknowledgement. |
 | 14 Jul 2026 | 1.5 | Three changes forced by Meta platform rules (verified against live Meta docs): **M12 restated** — templates cannot carry a dropdown, so the medication check-in names all scheduled medicines in the body with three buttons (*Yes, all* / *Some of them* / *Not yet*), with the dropdown as a follow-up; **M16 added — elder consent**, a two-layer opt-in (CT attestation + in-channel confirmation), with **no check-in scheduled until the elder confirms**; **M17 added — elder address**, mandatory, because the SOS message to the Local Caregiver must say where to go. |
 | 14 Jul 2026 | 1.4 | NFR-10 changed from an (unmeasurable) availability target to a **demo-day readiness checklist**. |
 | 14 Jul 2026 | 1.3 | Fourth round: STT provider shortlisted to **Google Speech-to-Text or ElevenLabs** (final pick pending); scheduled check-in accuracy window set to **±5 minutes** (NFR-6). |

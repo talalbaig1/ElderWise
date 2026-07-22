@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.2 |
+| **Document** | Architecture.md — v1.3 |
 | **Date** | 14 July 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` (v1.3) · `Rules.md` · `Phases.md` |
@@ -222,15 +222,43 @@ care_partners ──┐
 | `enabled` | boolean | the Enable toggle |
 | `frequency` | jsonb | **Fully configurable** (FR-ON-4). Local times in the elder's tz, e.g. `{"times": ["08:00","20:00"]}`. No fixed 3×/day. |
 | `ct_notification` | enum(`every_interaction`,`only_missed`) | M6 |
-| `reminder_delay_minutes` | integer | **default 30** (M5) |
 | `escalate_to` | enum(`care_partner`) | Only the CT escalates. LCT/Doctor are SOS-only. Enum kept for v2 headroom. |
-| `escalation_enabled` | boolean | default true |
 
-**`medications`** — brand names, because generics differ by country.
+> **Reconciled with the front end (22 Jul):** the front end models **`escalationMinutes` and `notifyCarePartner` per individual routine** (per medication, per food routine, per health routine) — finer-grained than one setting per domain, and a genuine improvement. **We adopt the front-end model.** `reminder_delay_minutes` (default 30) and `notify_care_partner` therefore live on each routine row (`medications`, `food_routines`, `health_routines` below), **not** on `domain_configs`. `domain_configs` retains the domain-level `enabled` toggle and the shared `frequency`/`ct_notification` defaults, which individual routines may override.
+
+**`medications`** — one row per medicine. Field names reconciled with the front-end `Medication` type (22 Jul).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `elder_id` | uuid FK | |
+| `enabled` | boolean | per-medicine toggle (FE `enabled`) |
+| `name` | text | brand name — generics differ by country |
+| `dosage` | text | numeric-as-text, e.g. `500` |
+| `dosage_unit` | text | e.g. `mg` (FE `dosageUnit`) |
+| `times` | text[] | local wall-clock, elder tz |
+| `days_of_week` | text[] | FE `daysOfWeek` |
+| `start_date` | date | |
+| `end_date` | date | nullable |
+| `timing_preference` | enum(`before_food`,`after_food`,`no_preference`) | FE `timingPreference` |
+| `instructions` | text | nullable |
+| `notify_care_partner` | enum(`every_time`,`only_missed`) | **per-medicine** (M6) — FE `notifyCarePartner` |
+| `escalation_minutes` | integer | **per-medicine**, default 30, min 5 max 240 (FE `escalationMinutes`) |
+| `active` | boolean | |
+
+**`food_routines`** — one row per meal check-in (FE `FoodRoutine`).
 
 | Column | Type |
 |---|---|
-| `id` uuid PK · `elder_id` uuid FK · `name` text · `dosage` text · `times` text[] (local, elder tz) · `active` boolean |
+| `id` uuid PK · `elder_id` uuid FK · `enabled` bool · `meal_name` text · `meal_type` enum(`breakfast`,`lunch`,`dinner`,`snack`,`custom`) · `check_in_time` time (local) · `start_date` date · `end_date` date null · `days_of_week` text[] · `frequency` enum(`daily`,`weekly`,`custom`) · `notify_care_partner` enum · `escalation_minutes` int (default 45) · `notes` text |
+
+**`health_routines`** — one row per wellness check-in (FE `HealthRoutine`).
+
+| Column | Type |
+|---|---|
+| `id` uuid PK · `elder_id` uuid FK · `enabled` bool · `name` text · `type` enum(`sleep`,`blood_pressure`,`blood_sugar`,`water_intake`,`exercise`,`mood`,`weight`,`general_wellness`,`custom`) · `frequency` enum(`daily`,`every_2_days`,`weekly`,`custom`) · `time` time (local) · `start_date` date · `end_date` date null · `days_of_week` text[] · `question` text · `answer_type` enum(`yes_no`,`number`,`mood`,`short_text`) · `notify_care_partner` enum · `escalation_minutes` int (default 60) · `typical_bedtime` time null · `typical_wake_time` time null |
+
+> **Escalation defaults differ by domain in the front end** (medication 30 min, food 45, health 60). These are **defaults**, editable per routine. The old blanket "30 across the board" is superseded.
 
 **`checkins`** — one row per scheduled check-in occurrence. The heart of the system.
 
@@ -311,6 +339,32 @@ Index: `(elder_id, domain, scheduled_for)` and `(status, scheduled_for)` — the
 
 ---
 
+## 5.3 Front-end ↔ schema naming map
+
+The front end uses friendly UI labels; the schema and the rest of the docs use role codes. **Same entities, different names** — the build must treat these as identical.
+
+| Front-end name | Docs / schema | Role code |
+|---|---|---|
+| **Loved One** | Elderly Patient | **EP** |
+| **Care Partner** | Care Partner / Target Customer | **CT** |
+| **Local Buddy** | Local Caregiver | **LCT** |
+| **Family Doctor** | Doctor | **DR** |
+
+Field-name convention: the front end is `camelCase` (`whatsappNumber`, `escalationMinutes`); the database is `snake_case` (`whatsapp_number`, `escalation_minutes`). The API/data layer maps between them.
+
+## 5.4 Front-end concepts that are v2 / Could-have stubs — do NOT build the backend for these yet
+
+The front-end type model defines several fields ahead of scope. They are allowed to exist as **typed stubs** so the UI compiles, but **no backend, workflow, or table should be built for them in the MVP** unless listed as Must-have.
+
+| Front-end concept | Status | Note |
+|---|---|---|
+| `NotificationMethod` = `sms` / `email` / `push` | **Could-have (C8)** | MVP is **WhatsApp only**. The enum may exist; only `whatsapp` is wired. |
+| `VoiceJournalEntry.transcript` / `aiSummary` / `mood` / `themes` | **Could-have (C2)** | Voice **journaling** is a hard-coded demo screen. (Note: voice **reply** transcription for check-ins **is** Must-have — M4a — a different feature.) |
+| `UserSettings` WhatsApp quiet hours / daily digest | **Out of scope** | Not in the PRD. Render if present, but no backend. |
+| `HealthRoutine.answerType` = `number` / `mood` / `short_text` | **Should/Could** | MVP health check-ins are **Yes/No** (`yes_no`). Richer answer types are later. |
+| `SOSEvent.averageResponseMinutes`, `callsMade` | Demo/analytics | Not core MVP logic. |
+| `dateOfBirth`, `gender` on Loved One | Optional | Collected if offered; not required by any MVP workflow. |
+
 ## 6. Data isolation (RLS) — P4
 
 Every table above carries a path to `care_partners.id`. RLS is enabled on **all** of them, with policies of the form:
@@ -385,7 +439,7 @@ Six workflows. Each is a separate n8n workflow so they can be built, tested, and
 
 ### WF-3 · Response handler, reminder & escalation
 - **On response:** write to `checkins` (+ `checkin_medication_items` for medication), set `status = responded`. Fire WF-6 if the CT's config is `every_interaction`.
-- **Reminder sweep (cron):** find `checkins` where `status = sent` and `now() > sent_at + reminder_delay_minutes` (default **30**, per-domain configurable). Send **exactly one** reminder → `status = reminded`, set `reminder_sent_at`.
+- **Reminder sweep (cron):** find `checkins` where `status = sent` and `now() > sent_at + escalation_minutes` (read from the **routine** that owns the check-in — per-medicine / per-food / per-health, default 30/45/60). Send **exactly one** reminder → `status = reminded`, set `reminder_sent_at`.
 - **Missed sweep (cron):** find `checkins` where `status = reminded` and the delay has elapsed again → `status = missed`, set `missed_at`, run the escalation from `domain_configs` → **escalate to the CT only** (LCT and Doctor are never contacted on a missed check-in) → fire WF-6.
 
 ### WF-4 · SOS orchestrator — **the critical path (P2)**
@@ -566,6 +620,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | Date | Version | Change |
 |---|---|---|
+| 22 Jul 2026 | 1.3 | **Reconciled with Sama's front-end build.** Adopted the front end's **per-routine** escalation/notification model (finer-grained than per-domain) — `escalation_minutes` + `notify_care_partner` now live on `medications`, `food_routines`, `health_routines` (defaults 30/45/60), not on `domain_configs`. Expanded the three routine tables to match the front-end types exactly. Added §5.3 (front-end ↔ schema naming map: Loved One=EP, Care Partner=CT, Local Buddy=LCT, Family Doctor=DR) and §5.4 (v2/Could-have front-end stubs the MVP backend must NOT build: extra notification channels, voice-journal AI fields, quiet hours, rich health answer types). |
 | 14 Jul 2026 | 1.2 | Meta platform rules verified against live docs. `elders` gains **`address` (NOT NULL)**, **`consent_attested_by_ct` / `consent_attested_at`**, **`consent_confirmed_at`**. **WF-1 now gates on consent** — NULL means nothing is ever scheduled for that elder. WF-2 routes the welcome confirmation and the medication *Some of them* → free-form interactive list. §9 records that templates cannot carry a list, that the 24-hour window can, and that Meta requires recipient opt-in. WhatsApp Flows logged as a v2 path, explicitly not now. |
 | 14 Jul 2026 | 1.1 | SOS dashboard-resolution mechanism settled: **authenticated server-side webhook, Next.js → n8n** (fast path) **plus a `sos_events.status` re-check before every nudge** (safety net; the DB remains the source of truth). Recorded as the single documented exception to P1. A-3 reframed from an availability target to a demo-day readiness checklist. |
 | 14 Jul 2026 | 1.0 | Initial architecture. Decisions taken: **Meta WhatsApp Cloud API direct** (not Twilio); **OpenAI** for LLM; **n8n owns the entire message path, Next.js owns the dashboard, they meet only at the database**; **n8n cron is the only scheduler** (no pg_cron); **no RAG / pgvector anywhere** — the "RAG" in the team's flow diagrams was a naming slip for a relational lookup, now formally corrected; **Supabase Auth with email+password and Google OAuth**; **Sentry** for error tracking, weighted to the SOS path; **Supabase free tier, Dev + Prod projects**; single self-hosted n8n instance. Denormalised spreadsheet-shaped schema normalised into relational tables with no change to fields or behaviour. |
