@@ -58,6 +58,13 @@ export const lovedOneSchema = z.object({
   dateOfBirth: z.string().optional(),
   timeZone: z.string().trim().min(1, "Time zone is required"),
   relationshipToCarePartner: z.string().trim().min(1, "Relationship is required"),
+  address: z
+    .string()
+    .trim()
+    .min(1, "Address is required — the Local Buddy needs it in an emergency"),
+  consentAttestedByCarePartner: z.boolean().refine((value) => value === true, {
+    message: "Please confirm that your Loved One has agreed to receive ElderWise messages",
+  }),
 });
 
 export const carePartnerSchema = z.object({
@@ -202,6 +209,8 @@ export function createDefaultDraft(
       dateOfBirth: "",
       timeZone,
       relationshipToCarePartner: "Parent",
+      address: "",
+      consentAttestedByCarePartner: false,
     },
     carePartner: {
       firstName: seed?.firstName ?? "",
@@ -319,12 +328,19 @@ export function applyOnboardingDraft(
     gender: "prefer_not_to_say" as Gender,
     dateOfBirth: draft.lovedOne.dateOfBirth || undefined,
     preferredLanguage: "en",
+    address: draft.lovedOne.address,
     timeZone: draft.lovedOne.timeZone,
     relationshipToCarePartner: draft.lovedOne.relationshipToCarePartner,
     wellbeingStatus: "stable",
     carePartnerId,
     localBuddyId: buddyId,
     doctorId,
+    consentAttestedByCarePartner: true,
+    consentAttestedAt: now,
+    // TODO(backend): consentConfirmedAt is set by the n8n WhatsApp flow when the
+    // elder responds "Yes" to the welcome message. Until then it stays null and
+    // NO check-ins are scheduled. Front end only displays this status.
+    consentConfirmedAt: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -390,8 +406,11 @@ export function applyOnboardingDraft(
     timingPreference: "no_preference" as MedicationTiming,
     notifyCarePartner: item.notifyCarePartner,
     escalationMinutes: item.escalationMinutes,
+    // TODO(backend/n8n): "Yes, all" records all; "Some of them" opens the 24h window
+    // and sends a free-form interactive list of this elder's medicines; "Not yet" arms
+    // the reminder. Templates cannot carry a dropdown — see Templates.md §1.1.
     whatsappMessageTemplate:
-      "Hi {name}, it is time for your {medicine}, {dosage} {unit}. Have you taken it?",
+      "Good morning {name} — it's {time}, time for your medicines: {medicineList}. Did you take them? [Yes, all] [Some of them] [Not yet]",
     createdAt: now,
     updatedAt: now,
   }));

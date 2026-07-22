@@ -17,6 +17,7 @@ import {
   Utensils,
 } from "lucide-react";
 import { MetricCard } from "@/components/shared/metric-card";
+import { ConsentStatusBadge } from "@/components/shared/consent-status-badge";
 import { StatusPill } from "@/components/shared/status-pill";
 import { Timeline } from "@/components/shared/timeline";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -135,6 +136,9 @@ export default function DashboardPage() {
             <span className="font-semibold text-foreground">{lovedOne.firstName}</span> is
             doing · {model.wellbeingMessage}
           </p>
+          <div className="mt-3">
+            <ConsentStatusBadge lovedOne={lovedOne} />
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Select

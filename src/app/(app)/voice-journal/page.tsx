@@ -99,7 +99,13 @@ export default function VoiceJournalPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-sm font-medium text-primary">Voice Journal</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-medium text-primary">Voice Journal</p>
+          {/* TODO(v2 / Could-have C2): live journaling is out of MVP — hard-coded demo only (FR-DB-6). */}
+          <Badge variant="secondary" className="font-mono">
+            Demo preview
+          </Badge>
+        </div>
         <h1 className="font-display text-3xl tracking-tight md:text-4xl">
           Recordings & summaries
         </h1>

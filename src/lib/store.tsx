@@ -96,6 +96,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setStoreState({
         ...saved,
         settings: normalizeSettings(saved.settings),
+        lovedOnes: (saved.lovedOnes ?? []).map((lo) => ({
+          ...lo,
+          address: lo.address ?? "",
+          consentAttestedByCarePartner: lo.consentAttestedByCarePartner ?? false,
+          consentAttestedAt: lo.consentAttestedAt ?? "",
+          consentConfirmedAt: lo.consentConfirmedAt ?? null,
+        })),
         foodRoutines: (saved.foodRoutines ?? []).map((item) => ({
           ...item,
           startDate: item.startDate || today,

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { FieldError } from "@/components/onboarding/fields";
 import { useOnboarding } from "@/components/onboarding/onboarding-context";
 import { WizardShell } from "@/components/onboarding/wizard-shell";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { lovedOneSchema } from "@/lib/onboarding";
@@ -13,6 +14,7 @@ export function LovedOneStep() {
   const { draft, patchDraft, setStep } = useOnboarding();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const value = draft.lovedOne;
+  const displayName = value.firstName.trim() || "your Loved One";
 
   const onNext = () => {
     const parsed = lovedOneSchema.safeParse(value);
@@ -96,6 +98,47 @@ export function LovedOneStep() {
             />
             <FieldError message={errors.relationshipToCarePartner} />
           </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="lo-address">Address</Label>
+          <Input
+            id="lo-address"
+            value={value.address}
+            placeholder="Street, apartment, city"
+            onChange={(e) => patchDraft({ lovedOne: { ...value, address: e.target.value } })}
+          />
+          <p className="text-xs text-muted-foreground">
+            We only share this with your Local Buddy during an emergency.
+          </p>
+          <FieldError message={errors.address} />
+        </div>
+        <div className="space-y-2">
+          <label className="flex items-start gap-3 text-sm">
+            <Checkbox
+              checked={value.consentAttestedByCarePartner}
+              onCheckedChange={(checked) =>
+                patchDraft({
+                  lovedOne: {
+                    ...value,
+                    consentAttestedByCarePartner: checked === true,
+                  },
+                })
+              }
+              className="mt-0.5"
+              aria-invalid={Boolean(errors.consentAttestedByCarePartner)}
+            />
+            <span className="leading-relaxed text-muted-foreground">
+              <span className="font-medium text-foreground">
+                I confirm that {displayName} has agreed to receive daily ElderWise check-in
+                messages on WhatsApp.
+              </span>
+              <span className="mt-1 block text-xs">
+                Their number is used only for these check-ins and emergency alerts. They can stop
+                at any time by replying STOP.
+              </span>
+            </span>
+          </label>
+          <FieldError message={errors.consentAttestedByCarePartner} />
         </div>
       </div>
     </WizardShell>

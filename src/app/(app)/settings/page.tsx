@@ -18,6 +18,7 @@ import {
   Watch,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -316,7 +317,7 @@ export default function SettingsPage() {
                 </Field>
                 <Field label="Preferred notification method" className="sm:col-span-2">
                   <Select
-                    value={profile.preferredNotificationMethod}
+                    value="whatsapp"
                     onValueChange={(v) =>
                       setProfile((p) => ({
                         ...p,
@@ -329,9 +330,16 @@ export default function SettingsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                      <SelectItem value="sms">SMS</SelectItem>
-                      <SelectItem value="email">Email</SelectItem>
-                      <SelectItem value="push">Push</SelectItem>
+                      {/* TODO(v2 / Could-have C8): SMS / email / push — Coming soon */}
+                      <SelectItem value="sms" disabled>
+                        SMS · Coming soon
+                      </SelectItem>
+                      <SelectItem value="email" disabled>
+                        Email · Coming soon
+                      </SelectItem>
+                      <SelectItem value="push" disabled>
+                        Push · Coming soon
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </Field>
@@ -351,19 +359,24 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* TODO(v2 / Could-have C8): MVP is WhatsApp only — SMS / email / push stay visible but not live. */}
                 <ToggleRow
                   id="email-n"
                   label="Email notifications"
                   description="Account and weekly report emails"
-                  checked={settings.emailNotifications}
-                  onChange={(v) => patchSettings({ emailNotifications: v })}
+                  checked={false}
+                  onChange={() => undefined}
+                  disabled
+                  badge="Coming soon"
                 />
                 <ToggleRow
                   id="push-n"
                   label="Push notifications"
                   description="In-app and browser push (demo)"
-                  checked={settings.pushNotifications}
-                  onChange={(v) => patchSettings({ pushNotifications: v })}
+                  checked={false}
+                  onChange={() => undefined}
+                  disabled
+                  badge="Coming soon"
                 />
                 <ToggleRow
                   id="wa-n"
@@ -551,37 +564,21 @@ export default function SettingsPage() {
                   id="wa-quiet"
                   label="Quiet hours"
                   description="Pause non-urgent WhatsApp messages overnight"
-                  checked={settings.whatsappQuietHoursEnabled}
-                  onChange={(v) => patchSettings({ whatsappQuietHoursEnabled: v })}
+                  checked={false}
+                  onChange={() => undefined}
+                  // TODO(v2): quiet hours are out of MVP scope
+                  badge="Coming soon"
+                  disabled
                 />
-                {settings.whatsappQuietHoursEnabled ? (
-                  <div className="grid gap-4 rounded-xl border bg-secondary/40 p-4 sm:grid-cols-2">
-                    <Field label="Quiet hours start">
-                      <Input
-                        type="time"
-                        value={settings.whatsappQuietHoursStart}
-                        onChange={(e) =>
-                          patchSettings({ whatsappQuietHoursStart: e.target.value })
-                        }
-                      />
-                    </Field>
-                    <Field label="Quiet hours end">
-                      <Input
-                        type="time"
-                        value={settings.whatsappQuietHoursEnd}
-                        onChange={(e) =>
-                          patchSettings({ whatsappQuietHoursEnd: e.target.value })
-                        }
-                      />
-                    </Field>
-                  </div>
-                ) : null}
                 <ToggleRow
                   id="wa-digest"
                   label="Daily digest"
                   description="One evening summary of routines and journals"
-                  checked={settings.whatsappDailyDigest}
-                  onChange={(v) => patchSettings({ whatsappDailyDigest: v })}
+                  checked={false}
+                  onChange={() => undefined}
+                  // TODO(v2): daily digest is out of MVP scope
+                  badge="Coming soon"
+                  disabled
                 />
                 <ToggleRow
                   id="wa-sos"
@@ -813,22 +810,38 @@ function ToggleRow({
   description,
   checked,
   onChange,
+  disabled,
+  badge,
 }: {
   id: string;
   label: string;
   description: string;
   checked: boolean;
   onChange: (value: boolean) => void;
+  disabled?: boolean;
+  badge?: string;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 rounded-xl border px-4 py-3">
+    <div
+      className={cn(
+        "flex items-start justify-between gap-4 rounded-xl border px-4 py-3",
+        disabled && "opacity-70",
+      )}
+    >
       <div className="space-y-0.5">
-        <Label htmlFor={id} className="text-sm font-medium">
-          {label}
-        </Label>
+        <div className="flex flex-wrap items-center gap-2">
+          <Label htmlFor={id} className="text-sm font-medium">
+            {label}
+          </Label>
+          {badge ? (
+            <Badge variant="secondary" className="font-mono text-[10px]">
+              {badge}
+            </Badge>
+          ) : null}
+        </div>
         <p className="text-xs text-muted-foreground">{description}</p>
       </div>
-      <Switch id={id} checked={checked} onCheckedChange={onChange} />
+      <Switch id={id} checked={checked} onCheckedChange={onChange} disabled={disabled} />
     </div>
   );
 }

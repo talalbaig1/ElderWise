@@ -27,10 +27,17 @@ export function createBlankLovedOne(carePartnerId: string): LovedOne {
     whatsappNumber: "",
     gender: "prefer_not_to_say",
     preferredLanguage: "en",
+    address: "",
     timeZone,
     relationshipToCarePartner: "",
     wellbeingStatus: "unknown",
     carePartnerId,
+    consentAttestedByCarePartner: false,
+    consentAttestedAt: "",
+    // TODO(backend): consentConfirmedAt is set by the n8n WhatsApp flow when the
+    // elder responds "Yes" to the welcome message. Until then it stays null and
+    // NO check-ins are scheduled. Front end only displays this status.
+    consentConfirmedAt: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -53,8 +60,11 @@ export function createBlankMedication(lovedOneId: string): Medication {
     timingPreference: "no_preference",
     notifyCarePartner: "only_missed",
     escalationMinutes: 30,
+    // TODO(backend/n8n): "Yes, all" records all; "Some of them" opens the 24h window
+    // and sends a free-form interactive list of this elder's medicines; "Not yet" arms
+    // the reminder. Templates cannot carry a dropdown — see Templates.md §1.1.
     whatsappMessageTemplate:
-      "Hi {name}, it is time for your {medicine}, {dosage} {unit}. Have you taken it?",
+      "Good morning {name} — it's {time}, time for your medicines: {medicineList}. Did you take them? [Yes, all] [Some of them] [Not yet]",
     createdAt: now,
     updatedAt: now,
   };

@@ -21,6 +21,7 @@ import {
 } from "@/components/loved-ones/routine-tabs";
 import { ChoiceChips } from "@/components/onboarding/fields";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ConsentStatusBadge } from "@/components/shared/consent-status-badge";
 import { StatusPill } from "@/components/shared/status-pill";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -125,8 +126,9 @@ export default function LovedOneProfilePage() {
               {lovedOne.relationshipToCarePartner}
               {age != null ? ` · Age ${age}` : ""}
             </p>
-            <div className="mt-2">
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusPill kind="wellbeing" status={lovedOne.wellbeingStatus} />
+              <ConsentStatusBadge lovedOne={lovedOne} />
             </div>
           </div>
         </div>

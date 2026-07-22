@@ -345,7 +345,7 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
             <RoutineCard
               key={item.id}
               title={item.name}
-              subtitle={`${item.time} · ${item.startDate}${item.endDate ? ` → ${item.endDate}` : ""}`}
+              subtitle={`${item.time} · ${item.startDate}${item.endDate ? ` → ${item.endDate}` : ""} · Answer: ${item.answerType === "yes_no" ? "Yes/No" : `${item.answerType} (Coming soon)`}`}
               enabled={item.enabled}
               onToggle={(enabled) =>
                 setStore((prev) => ({
@@ -417,13 +417,31 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
                   }
                 />
               </Field>
+              {/* TODO(v2): MVP health check-ins are Yes/No only — number / mood / short_text later. */}
+              <Field label="Answer type">
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 text-sm">
+                  <span>Yes / No</span>
+                  <Badge variant="secondary" className="font-mono text-[10px]">
+                    MVP
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    Number, mood, and short text — Coming soon
+                  </span>
+                </div>
+              </Field>
             </div>
           ) : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>
               Cancel
             </Button>
-            <Button onClick={() => editing && save(editing)}>Save</Button>
+            <Button
+              onClick={() =>
+                editing && save({ ...editing, answerType: "yes_no" })
+              }
+            >
+              Save
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -131,7 +131,8 @@ export interface LovedOne {
   gender: Gender;
   dateOfBirth?: string;
   preferredLanguage: string;
-  address?: string;
+  /** Mandatory for SOS — shared with Local Buddy in an emergency (M17). */
+  address: string;
   timeZone: string;
   relationshipToCarePartner: string;
   avatarUrl?: string;
@@ -139,6 +140,16 @@ export interface LovedOne {
   carePartnerId: ID;
   localBuddyId?: ID;
   doctorId?: ID;
+  /** Layer (a) — CT attestation at onboarding (M16). Elder-only; not for buddy/doctor. */
+  consentAttestedByCarePartner: boolean;
+  consentAttestedAt: string;
+  /**
+   * Layer (b) — elder's in-channel WhatsApp confirmation.
+   * TODO(backend): consentConfirmedAt is set by the n8n WhatsApp flow when the
+   * elder responds "Yes" to the welcome message. Until then it stays null and
+   * NO check-ins are scheduled. Front end only displays this status.
+   */
+  consentConfirmedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

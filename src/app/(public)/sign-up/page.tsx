@@ -86,6 +86,26 @@ function SignUpForm() {
       }
     >
       <form onSubmit={onSubmit} className="space-y-5" noValidate>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          size="lg"
+          onClick={() => {
+            // TODO(backend): Supabase Google OAuth
+            toast.message("Google sign-up coming soon", {
+              description: "Email and password still work for this demo.",
+            });
+          }}
+        >
+          Continue with Google
+        </Button>
+        <div className="relative text-center">
+          <span className="bg-card px-3 text-xs uppercase tracking-[0.12em] text-muted-foreground">
+            or
+          </span>
+          <div className="absolute inset-x-0 top-1/2 -z-10 h-px bg-border" />
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="firstName">First name</Label>

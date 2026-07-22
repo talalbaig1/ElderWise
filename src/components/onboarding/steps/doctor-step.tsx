@@ -56,6 +56,11 @@ export function DoctorStep() {
         <p className="rounded-2xl bg-sage/60 px-4 py-3 text-sm text-primary">
           Family Doctors are notified for urgent situations — not day-to-day check-ins.
         </p>
+        <p className="rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
+          We&apos;ll send {value.name.trim() || "them"} a one-time WhatsApp message letting them
+          know you&apos;ve added them as {draft.lovedOne.firstName.trim() || "your Loved One"}
+          &apos;s doctor, so they&apos;re expecting alerts if there&apos;s ever an emergency.
+        </p>
         <div className="space-y-2">
           <Label htmlFor="doc-name">Doctor name</Label>
           <Input

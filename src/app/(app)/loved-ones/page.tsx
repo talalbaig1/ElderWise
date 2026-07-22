@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ConsentStatusBadge } from "@/components/shared/consent-status-badge";
 import { StatusPill } from "@/components/shared/status-pill";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -80,11 +81,22 @@ export default function LovedOnesPage() {
       toast.error("Relationship is required");
       return;
     }
+    if (!draft.address.trim()) {
+      toast.error("Address is required — the Local Buddy needs it in an emergency");
+      return;
+    }
+    const now = new Date().toISOString();
     const next = {
       ...draft,
       firstName: draft.firstName.trim(),
       surname: draft.surname.trim(),
-      updatedAt: new Date().toISOString(),
+      address: draft.address.trim(),
+      consentAttestedByCarePartner: draft.consentAttestedByCarePartner,
+      consentAttestedAt: draft.consentAttestedByCarePartner
+        ? draft.consentAttestedAt || now
+        : "",
+      consentConfirmedAt: null,
+      updatedAt: now,
     };
     setStore((prev) => ({
       ...prev,
@@ -230,8 +242,9 @@ export default function LovedOnesPage() {
                         {lo.relationshipToCarePartner}
                         {age != null ? ` · Age ${age}` : ""}
                       </p>
-                      <div className="mt-2">
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
                         <StatusPill kind="wellbeing" status={lo.wellbeingStatus} />
+                        <ConsentStatusBadge lovedOne={lo} />
                       </div>
                     </div>
                   </div>
@@ -349,6 +362,17 @@ export default function LovedOnesPage() {
                 value={draft.timeZone}
                 onChange={(e) => setDraft({ ...draft, timeZone: e.target.value })}
               />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Address</Label>
+              <Input
+                placeholder="Street, apartment, city"
+                value={draft.address}
+                onChange={(e) => setDraft({ ...draft, address: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                We only share this with your Local Buddy during an emergency.
+              </p>
             </div>
           </div>
           <DialogFooter>

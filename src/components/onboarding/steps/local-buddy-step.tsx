@@ -57,6 +57,11 @@ export function LocalBuddyStep() {
           A Local Buddy is someone nearby who can respond in person during an SOS. Highly
           recommended, but you can add them later.
         </p>
+        <p className="rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
+          We&apos;ll send {value.name.trim() || "them"} a one-time WhatsApp message letting them
+          know you&apos;ve added them as an emergency contact, so they&apos;re expecting alerts if
+          there&apos;s ever an emergency.
+        </p>
         <div className="space-y-2">
           <Label htmlFor="buddy-name">Name</Label>
           <Input
