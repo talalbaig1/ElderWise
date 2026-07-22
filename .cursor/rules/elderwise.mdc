@@ -1,0 +1,39 @@
+---
+description: ElderWise project guardrails — Track A only, non-negotiables, docs-as-spec
+alwaysApply: true
+---
+
+# ElderWise — agent rules
+
+Authority when conflicted: `PRD.md` > `Architecture.md` > `Rules.md` > `Phases.md` > agent suggestion. Fix docs; don't work around them in code.
+
+## Track ownership (Track A only)
+
+- **Build:** Next.js dashboard, onboarding, auth UI, care circle, SOS history/display, reports, settings — anything a human clicks.
+- **Do NOT build:** n8n workflows, Meta/WhatsApp send/receive, scheduling, reminders, escalation, STT, SOS dispatch/nudges (WF-4). That is **Track B** (Robert / n8n).
+- Systems meet **only at Supabase**. Next.js never sends WhatsApp. n8n never renders UI. n8n never calls Next.js.
+- **One exception:** authenticated **server-side** SOS-resolution webhook Next.js → n8n (`Architecture.md`). Not a precedent for a second exception.
+- SOS UI cascade / `active|acknowledged|…` = **display only**. Real behaviour = parallel CT + optional LCT + optional Doctor, 4 nudges / 2 min, `sos_events.status` `open|resolved`.
+
+## Non-negotiables (N1–N6)
+
+| # | Rule |
+|---|---|
+| **N1** | Never diagnose / medical advice / clinical inference — facts only, route to humans. |
+| **N2** | SOS path is sacred — no silent failure, no auto-close, never behind routine traffic. |
+| **N3** | Never guess for the elder — re-ask if unclear. |
+| **N4** | Never add to elder surface area — WhatsApp only; no app/login for the elder. |
+| **N5** | Elder consents herself; silence ≠ consent; nothing scheduled until `consent_confirmed_at` is set. |
+| **N6** | Data isolation via **RLS on every table** — not app-code hope. |
+
+## Working rules
+
+- Before code: read `PRD.md`, `Architecture.md`, `Rules.md`, `Templates.md`. **Docs are the spec; the codebase may be wrong.**
+- Do not invent features, fields, tables, or endpoints. Uncertain → **ask**; never fill gaps with a confident guess.
+- Must-haves only unless team lead expands scope (`Rules.md` S1–S3).
+- Schema: migration in `/supabase/migrations` with **RLS in the same migration**. No ad-hoc Supabase dashboard edits.
+- Secrets: never client-side; never in `NEXT_PUBLIC_*`. Service-role key = server/n8n only.
+- **No RAG / pgvector / embeddings** — care-circle lookup is relational (`Architecture.md` §3.1).
+- Naming: `Architecture.md` §5.5 glossary (Loved One=EP, Care Partner=CT, Local Buddy=LCT, Family Doctor=DR; check-in/SOS status maps).
+- Stack is fixed (`Architecture.md` §3). No new deps/services without asking.
+- Product spelling: **ElderWise**. English-only MVP copy.
