@@ -5,10 +5,10 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.3 |
+| **Document** | Architecture.md — v1.4 |
 | **Date** | 14 July 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
-| **Companion docs** | `PRD.md` (v1.3) · `Rules.md` · `Phases.md` |
+| **Companion docs** | `PRD.md` (v1.7) · `Rules.md` (v1.3) · `Phases.md` (v1.3) |
 
 > This document describes **how ElderWise is built**. `PRD.md` describes **what it does**. Where the two disagree, `PRD.md` wins and this document is wrong and must be fixed.
 
@@ -143,7 +143,7 @@ auth.users (Supabase)
     │ 1:1
 care_partners ──┐
     │ 1:many    │
-  elders ───────┼── 1:1  ── local_caregivers
+  elders ───────┼── 0..1 ── local_caregivers   (optional — skippable at onboarding)
     │           ├── 0..1 ── doctors
     │           ├── 1:many ── doctor_share_links
     │           ├── 1:many ── medications
@@ -181,14 +181,14 @@ care_partners ──┐
 | `gender` | text | |
 | `whatsapp_number` | text UNIQUE | E.164. The inbound-webhook lookup key — **must be indexed**. |
 | `timezone` | text | IANA. **All schedules fire in this timezone** (M14). |
-| `address` | text **NOT NULL** | **Mandatory** (M17). The Local Caregiver's SOS message carries it — they exist to physically reach her. |
+| `address` | text **NOT NULL** | **Mandatory** (M17), even if Local Buddy is skipped. When an LCT exists, their SOS message carries it — they exist to physically reach her. |
 | `consent_attested_by_ct` | boolean | The CT's onboarding attestation (M16a). |
 | `consent_attested_at` | timestamptz | |
 | `consent_confirmed_at` | timestamptz | **The elder's in-channel confirmation** (M16b). **NULL ⇒ schedule nothing.** |
 | `active` | boolean | |
 | `created_at` | timestamptz | |
 
-**`local_caregivers`** — LCT. SOS-only. **Inherits the elder's timezone** (no `timezone` column, by design).
+**`local_caregivers`** — LCT / Local Buddy. SOS-only. **Optional at onboarding** (front end: `skipLocalBuddy`). **Inherits the elder's timezone** (no `timezone` column, by design). If no LCT is set, SOS is handled by the Care Partner (CT is always present); LCT WhatsApp notification is **conditional** on a row existing. Elder `address` remains **NOT NULL** regardless.
 
 | Column | Type |
 |---|---|
@@ -301,6 +301,8 @@ Index: `(elder_id, domain, scheduled_for)` and `(status, scheduled_for)` — the
 
 **`sos_events`**
 
+> **SOS has two layers — do not confuse them.** See WF-4 and `Architecture.md` §5.5. **`sos_events.status` (`open` \| `resolved`) is the source of truth** for dispatch. Front-end SOS states (`active` \| `acknowledged` \| `resolved` \| `cancelled`) and the sequential demo cascade are a **display mapping** only — not a second workflow.
+
 | Column | Type | Notes |
 |---|---|---|
 | `id` | uuid PK | |
@@ -364,6 +366,45 @@ The front-end type model defines several fields ahead of scope. They are allowed
 | `HealthRoutine.answerType` = `number` / `mood` / `short_text` | **Should/Could** | MVP health check-ins are **Yes/No** (`yes_no`). Richer answer types are later. |
 | `SOSEvent.averageResponseMinutes`, `callsMade` | Demo/analytics | Not core MVP logic. |
 | `dateOfBirth`, `gender` on Loved One | Optional | Collected if offered; not required by any MVP workflow. |
+
+## 5.5 Canonical glossary
+
+**One vocabulary, two surfaces.** Front-end UI labels and docs/schema role codes name the same entities. Prefer the role code in schema, n8n, and migrations; prefer the UI label in product copy. When they differ, this section is the source of truth. Other docs should point here rather than inventing parallel mappings.
+
+### Roles
+
+| Front-end / UI | Docs / schema | Role code | Notes |
+|---|---|---|---|
+| **Loved One** | Elderly Patient | **EP** | WhatsApp-only end user. Never logs into the dashboard. |
+| **Care Partner** | Care Partner / Target Customer | **CT** | Primary user and buyer. Always present. Owns the dashboard. |
+| **Local Buddy** | Local Caregiver | **LCT** | SOS-only. **Optional at onboarding** (`skipLocalBuddy`). If absent, SOS is handled by the CT. |
+| **Family Doctor** | Doctor | **DR** | Optional. SOS + read-only share link. No account in the MVP. |
+
+Field-name convention remains: front end `camelCase` ↔ database `snake_case` (see §5.3).
+
+### Check-in status — UI display vs backend source of truth
+
+The front end (`CheckInStatus`) and the database (`checkins.status`) use different enums. **Backend `checkins.status` is the source of truth for the message path.** UI statuses are a **display mapping** over it. Do not invent new schema values to match UI labels one-for-one without a migration decision.
+
+| UI (`CheckInStatus`) | Backend (`checkins.status`) | Relation |
+|---|---|---|
+| `upcoming` | `scheduled` | Not yet due / not yet fired. |
+| `pending` | `sent` | Check-in dispatched; awaiting reply. |
+| `delayed` | `reminded` | One reminder already sent; still waiting. |
+| `taken` | `responded` | Affirmative / completed answer recorded (e.g. yes, medicines taken). |
+| `missed` | `missed` | Direct match — no reply after the reminder path. |
+| `skipped` | *(no dedicated backend status)* | UI-only / future. Do not invent a schema value in this doc pass. |
+
+Negative or partial medication answers that still count as a recorded response remain backend `responded`, with detail in `response_value` / `checkin_medication_items` — the UI may show a non-`taken` label for those cases without changing the backend enum.
+
+### SOS status — display vs dispatch
+
+| Layer | States / behaviour | Authority |
+|---|---|---|
+| **Display (front end)** | `active` \| `acknowledged` \| `resolved` \| `cancelled`; sequential visual cascade (Loved One → Care Partner → Local Buddy → Family Doctor) on a demo timer | Presentation only |
+| **Dispatch (n8n / DB)** | `sos_events.status` = `open` \| `resolved`; parallel notify CT + LCT (if present) + Doctor (if present); 4 nudges, 2 min apart | **Source of truth** |
+
+See WF-4 for the full dispatch rules. The display cascade must **not** replace Meeting-11 parallel dispatch.
 
 ## 6. Data isolation (RLS) — P4
 
@@ -443,9 +484,18 @@ Six workflows. Each is a separate n8n workflow so they can be built, tested, and
 - **Missed sweep (cron):** find `checkins` where `status = reminded` and the delay has elapsed again → `status = missed`, set `missed_at`, run the escalation from `domain_configs` → **escalate to the CT only** (LCT and Doctor are never contacted on a missed check-in) → fire WF-6.
 
 ### WF-4 · SOS orchestrator — **the critical path (P2)**
+
+> **SOS has two layers — do not confuse them.**
+>
+> **(A) SOS display layer (front end / presentation only).** The dashboard UI may show states `active | acknowledged | resolved | cancelled` and a sequential visual cascade (Loved One → Care Partner → Local Buddy → Family Doctor) that advances on a demo timer. This is presentation for the care-partner portal and demo UX. It is **not** the dispatch algorithm.
+>
+> **(B) SOS dispatch logic (backend / n8n — actual behaviour).** On trigger, notify **CT + LCT (if present) + Doctor (if present) in parallel, immediately**; then **4 nudges, 2 minutes apart**, to every unresolved recipient; any of CT / LCT / Doctor may resolve via **WhatsApp or dashboard**; if all 4 nudges exhaust with no resolution, the event **stays open** (never auto-closes). This is the Meeting-11 decision and must be preserved.
+>
+> **Source of truth:** `sos_events.status` is `open | resolved`. Front-end SOS states are a **display mapping** over that (and demo cascade metadata), not a second workflow.
+
 - **Trigger:** SOS from WF-2. Runs **immediately**; must never wait behind routine traffic.
-- Creates `sos_events` (`status = open`), resolves the elder's care circle (CT + LCT + Doctor) — **a relational lookup, not RAG** (§3.1).
-- Fans out WhatsApp messages to all three in parallel; writes `sos_notifications` rows.
+- Creates `sos_events` (`status = open`), resolves the elder's care circle via a **relational lookup** of CT + optional LCT + optional Doctor (§3.1 — not RAG).
+- Fans out WhatsApp messages **in parallel** to every contact that exists: **CT always**; **LCT only if a `local_caregivers` row exists**; **Doctor only if onboarded**. Writes `sos_notifications` rows. If no LCT is set, SOS is still handled by the CT (always present).
 - **Nudge loop: 4 nudges, 2 minutes apart** (M7). Each nudge goes to every recipient who has not yet resolved.
 - **Resolution — two paths, both must work (M14b):**
   1. **WhatsApp** — any recipient replies/taps to resolve → WF-2 routes it here.
@@ -456,6 +506,7 @@ Six workflows. Each is a separate n8n workflow so they can be built, tested, and
 - **Safety net — the database remains the source of truth.** Before sending **every** nudge, WF-4 re-reads `sos_events.status` and aborts if it is `resolved`. If the webhook is dropped, delayed, or n8n restarts mid-sequence, the loop still stops on its own. A missed webhook must never mean a resolved SOS keeps pinging the doctor.
 - On resolution: stop all nudges, record `resolved_by_role`, `resolved_by_id`, `resolved_channel`, `resolved_at`.
 - **If all 4 nudges are exhausted with no resolution:** the nudge sequence ends and the SOS **remains `open`** on the dashboard until a human resolves it. It does not auto-close. It does not disappear.
+- **Do not** replace this parallel dispatch with the front-end sequential cascade. The cascade is display-only (§5.5).
 
 ### WF-5 · Voice reply → STT
 - Download the audio from the Meta media endpoint → store in the Supabase Storage bucket → write `voice_replies.audio_path`.
@@ -620,6 +671,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | Date | Version | Change |
 |---|---|---|
+| 22 Jul 2026 | 1.4 | **Docs ↔ front-end reconciliation.** Added **§5.5 Canonical glossary** (roles + check-in UI↔backend status map + SOS display vs dispatch). Documented **SOS as two layers**: front-end display (`active`/`acknowledged`/`resolved`/`cancelled` + demo cascade) vs n8n dispatch (parallel CT + optional LCT + optional Doctor; 4 nudges / 2 min; `sos_events.status` = `open`\|`resolved` is source of truth). **Local Buddy / LCT made optional** at onboarding (`local_caregivers` 0..1); SOS always notifies CT; LCT alert conditional. Elder address remains mandatory. |
 | 22 Jul 2026 | 1.3 | **Reconciled with Sama's front-end build.** Adopted the front end's **per-routine** escalation/notification model (finer-grained than per-domain) — `escalation_minutes` + `notify_care_partner` now live on `medications`, `food_routines`, `health_routines` (defaults 30/45/60), not on `domain_configs`. Expanded the three routine tables to match the front-end types exactly. Added §5.3 (front-end ↔ schema naming map: Loved One=EP, Care Partner=CT, Local Buddy=LCT, Family Doctor=DR) and §5.4 (v2/Could-have front-end stubs the MVP backend must NOT build: extra notification channels, voice-journal AI fields, quiet hours, rich health answer types). |
 | 14 Jul 2026 | 1.2 | Meta platform rules verified against live docs. `elders` gains **`address` (NOT NULL)**, **`consent_attested_by_ct` / `consent_attested_at`**, **`consent_confirmed_at`**. **WF-1 now gates on consent** — NULL means nothing is ever scheduled for that elder. WF-2 routes the welcome confirmation and the medication *Some of them* → free-form interactive list. §9 records that templates cannot carry a list, that the 24-hour window can, and that Meta requires recipient opt-in. WhatsApp Flows logged as a v2 path, explicitly not now. |
 | 14 Jul 2026 | 1.1 | SOS dashboard-resolution mechanism settled: **authenticated server-side webhook, Next.js → n8n** (fast path) **plus a `sos_events.status` re-check before every nudge** (safety net; the DB remains the source of truth). Recorded as the single documented exception to P1. A-3 reframed from an availability target to a demo-day readiness checklist. |

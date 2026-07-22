@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | PRD.md — v1.6 |
+| **Document** | PRD.md — v1.7 |
 | **Date** | 14 July 2026 |
 | **Format** | AIGF Framework 9 (F9) PRD structure + technical build sections |
 | **Audience** | Development team, Cursor, Claude Code |
@@ -86,7 +86,7 @@ This split is the central design constraint: **the person who uses the product i
 ### 4.2 Wow factor
 
 - **Zero adoption cost for the elderly person.** No app, no device, no login, no learning. The product lives inside a chat thread they already open every day.
-- **The care circle is a graph, not a person.** Care Partner → Local Caregiver → Doctor, each with a defined trigger. An SOS reaches everyone who can physically help within seconds.
+- **The care circle is a graph, not a person.** Care Partner → Local Caregiver (optional) → Doctor (optional), each with a defined trigger. An SOS reaches everyone who can physically help within seconds — **CT always**; LCT and Doctor only if onboarded.
 - **A record, not a rumour.** Weeks of check-ins become a downloadable, doctor-ready report — with no diagnosis and no interpretation, just facts.
 
 ---
@@ -97,14 +97,14 @@ This split is the central design constraint: **the person who uses the product i
 |---|---|---|---|---|---|
 | **EP** | Elderly Patient | WhatsApp only | Receives all scheduled check-ins | Can trigger SOS | No |
 | **CT** | Care Partner / Target Customer (**primary user, buyer**) | Web dashboard + WhatsApp | Yes — **configurable** (on every interaction / only-if-missed) | Yes | **Full** (owner) |
-| **LCT** | Local Caregiver — someone who does **not** live with the EP but is physically within reach in an emergency | WhatsApp | **Never** | Yes | No |
+| **LCT** | Local Caregiver / **Local Buddy** (UI) — someone who does **not** live with the EP but is physically within reach in an emergency. **Optional at onboarding.** | WhatsApp | **Never** | Yes — **only if onboarded** | No |
 | **DR** | Doctor (**optional**, gated behind explicit approval at onboarding) | WhatsApp + web dashboard (via share link) | **Never** | Yes | **Read-only, via a revocable share link — no account** (see M15) |
 
-**Cardinality:** one CT **may manage multiple EPs** (1 → many). Each EP has exactly one CT (owner), one LCT, and zero-or-one Doctor.
+**Cardinality:** one CT **may manage multiple EPs** (1 → many). Each EP has exactly one CT (owner), **zero-or-one LCT** (optional — skippable at onboarding; front end: `skipLocalBuddy`), and zero-or-one Doctor. If no LCT is set, SOS is handled by the CT (always present). Vocabulary: see `Architecture.md` §5.5.
 
 **Data isolation:** a CT must never see another CT's EP data. Enforced at the database layer (see `Architecture.md` — Row-Level Security).
 
-**Front-end names for these roles:** the UI uses friendlier labels — **Loved One** (EP), **Care Partner** (CT), **Local Buddy** (LCT), **Family Doctor** (DR). Same entities throughout.
+**Front-end names for these roles:** the UI uses friendlier labels — **Loved One** (EP), **Care Partner** (CT), **Local Buddy** (LCT), **Family Doctor** (DR). Same entities throughout (`Architecture.md` §5.3 / §5.5).
 
 ---
 
@@ -116,14 +116,14 @@ This split is the central design constraint: **the person who uses the product i
 
 | # | Feature |
 |---|---|
-| M1 | **Onboarding form** — four contact groups: Elderly Patient, Care Partner (primary), Local Caregiver, Doctor (optional). |
+| M1 | **Onboarding form** — four contact groups: Elderly Patient, Care Partner (primary), Local Caregiver (**optional**), Doctor (optional). |
 | M2 | **Food / Medication / Health sub-forms** — each with an Enable toggle, **fully configurable frequency**, and a CT-notification setting. Medication additionally captures medicine **name, time, and dosage**. |
 | M3 | **WhatsApp Business API messaging** to the EP using **Meta-approved templates with Yes/No buttons** (feasibility confirmed — buttons are possible via templates). |
 | M4 | **Response capture — text (Yes/No button) and voice reply** → written to the database. |
 | M4a | **Voice-reply transcription (STT)** — voice replies are transcribed so the system can determine the answer accurately (Yes / No, or which medicine was taken) and act on it exactly as it would on a button tap. A voice reply is a **first-class response**, not a second-class one. Audio is retained alongside the transcript. |
 | M5 | **Missed-response rule** — default: **one reminder after 30 minutes**; if still no reply → mark the check-in *missed* and **escalate to the Care Partner (CT)**. The escalation policy is **an editable configuration**, held **per EP, per domain**, set at onboarding and changeable in Settings. Escalation never reaches the LCT or Doctor — they remain **SOS-only**. |
 | M6 | **Care-partner notifications** — configurable: on every interaction, or only when a check-in is missed. **WhatsApp only.** |
-| M7 | **SOS flow** — EP triggers → **immediately** notify CT + LCT + Doctor via WhatsApp + update dashboard. **WhatsApp-first: 4 nudges, 2 minutes apart**, stopping early if the SOS is resolved. |
+| M7 | **SOS flow** — EP triggers → **immediately** notify CT + LCT (if present) + Doctor (if present) via WhatsApp + update dashboard. **WhatsApp-first: 4 nudges, 2 minutes apart**, stopping early if the SOS is resolved. |
 | M8 | **Care-partner web dashboard** — daily adherence %, health, food, SOS panel, care-circle profile, daily summary, PDF report. |
 | M9 | **Database** — per-domain schemas (Medication / Health / Food) + a separate SOS schema. |
 | M10 | **Both process flows built** — normal reminder flow and SOS flow. |
@@ -132,7 +132,7 @@ This split is the central design constraint: **the person who uses the product i
 | M13 | **Authentication** — CT signup/signin for the dashboard. *(Promoted from Won't-have → Must-have, 14 Jul 2026.)* |
 | M14b | **SOS resolution** — any recipient (CT / LCT / Doctor) can resolve an SOS **either by replying on WhatsApp or by acting on the dashboard** (both channels supported). Resolving stops the nudge sequence and records who resolved it and when. |
 | M16 | **Elder consent (opt-in)** — two layers. **(a)** At onboarding the CT must explicitly attest that the elderly person has agreed to receive ElderWise messages; the attestation, the attesting CT, and a timestamp are stored. **(b)** The elder must then **confirm in-channel** by responding to the welcome message. **No check-in is scheduled until (b) has happened.** WhatsApp requires recipient opt-in; a family member cannot consent on someone's behalf inside the channel. |
-| M17 | **Elder address** — captured at onboarding and **mandatory**. The Local Caregiver's entire purpose is to *physically reach the elder in an emergency*; the SOS message to them must carry the address. |
+| M17 | **Elder address** — captured at onboarding and **mandatory** (even if Local Buddy is skipped). When an LCT exists, the SOS message to them must carry the address so they can physically reach the elder. |
 | M15 | **Doctor share link** — read-only dashboard access for the Doctor via a **tokenised, revocable share link scoped to a single EP**. No doctor account, no password, no signup. A full doctor login role is deferred to v2. |
 | M14 | **Multi-timezone support** — independent timezones stored for **EP, CT, and Doctor**. The **LCT inherits the EP's timezone**. All schedules fire in the **EP's** local time; all dashboard timestamps render in the **viewer's** timezone. *(Promoted to Must-have, 14 Jul 2026.)* |
 
@@ -181,7 +181,7 @@ This split is the central design constraint: **the person who uses the product i
 | ID | Requirement |
 |---|---|
 | FR-ON-1 | A CT signs up, authenticates, and completes a multi-step onboarding form. |
-| FR-ON-2 | The form captures four contact groups. **Elderly Patient:** WhatsApp details, name, surname, gender, **timezone**, **address (mandatory — needed for SOS)**. **Care Partner:** WhatsApp details, name, direct contact number, **timezone**. **Local Caregiver:** WhatsApp details, name, direct contact number (timezone inherited from the EP). **Doctor (optional):** WhatsApp details, name, direct contact number, address, **timezone**. |
+| FR-ON-2 | The form captures four contact groups. **Elderly Patient:** WhatsApp details, name, surname, gender, **timezone**, **address (mandatory — needed for SOS; required even if Local Buddy is skipped)**. **Care Partner:** WhatsApp details, name, direct contact number, **timezone**. **Local Caregiver (optional — skippable):** WhatsApp details, name, direct contact number (timezone inherited from the EP). **Doctor (optional):** WhatsApp details, name, direct contact number, address, **timezone**. |
 | FR-ON-3 | Three sub-forms follow. **Food:** Enable · Frequency · CT Notification. **Medication:** Enable · Medicine Name(s) · Time(s) · Dosage · CT Notification. **Health:** Enable · Frequency · CT Notification. |
 | FR-ON-4 | **Frequency is fully configurable per domain**, set by the CT at onboarding and overridable in Settings. There is no fixed 3×/day schedule. |
 | FR-ON-5 | The escalation policy (default: 1 reminder after 30 min → escalate to the CT) is presented at onboarding and is **editable per EP, per domain**. |
@@ -216,15 +216,23 @@ This split is the central design constraint: **the person who uses the product i
 
 ### 7.4 SOS (FR-SOS)
 
+> **SOS has two layers — do not confuse them.**
+>
+> **(A) SOS display layer (front end / presentation only).** The dashboard UI may show states `active | acknowledged | resolved | cancelled` and a sequential visual cascade (Loved One → Care Partner → Local Buddy → Family Doctor) that advances on a demo timer. This is presentation for the care-partner portal and demo UX. It is **not** the dispatch algorithm.
+>
+> **(B) SOS dispatch logic (backend / n8n — actual behaviour).** On trigger, notify **CT + LCT (if present) + Doctor (if present) in parallel, immediately**; then **4 nudges, 2 minutes apart**, to every unresolved recipient; any of CT / LCT / Doctor may resolve via **WhatsApp or dashboard**; if all 4 nudges exhaust with no resolution, the event **stays open** (never auto-closes). This is the Meeting-11 decision and must be preserved.
+>
+> **Source of truth:** `sos_events.status` is `open | resolved`. Front-end SOS states are a **display mapping** over that (and demo cascade metadata), not a second workflow. Vocabulary: `Architecture.md` §5.5.
+
 | ID | Requirement |
 |---|---|
 | FR-SOS-1 | The EP can raise an SOS from WhatsApp at any time (outside the check-in schedule). |
-| FR-SOS-2 | An SOS agent reads the EP's SOS record (RAG over the DB) to assemble the contact set and message context. |
-| FR-SOS-3 | The SOS is dispatched via WhatsApp to **CT + LCT + Doctor** simultaneously and **immediately** (no batching, no delay, no queue behind routine traffic). **The message to the Local Caregiver carries the elder's address** (M17). |
+| FR-SOS-2 | An SOS agent assembles the contact set and message context via a **relational lookup** of the elder's care circle in the database (CT + optional LCT + optional Doctor) — **not RAG / not embeddings** (`Architecture.md` §3.1). |
+| FR-SOS-3 | The SOS is dispatched via WhatsApp **immediately** (no batching, no delay, no queue behind routine traffic) to **CT always**, plus **LCT if onboarded**, plus **Doctor if onboarded**, **in parallel**. **When an LCT exists, their message carries the elder's address** (M17). If no LCT is set, SOS is still handled by the CT. |
 | FR-SOS-3a | **Nudges: 4 in total, 2 minutes apart**, sent to every recipient who has not yet resolved the SOS. The sequence stops early the moment the SOS is resolved. |
-| FR-SOS-3b | **Resolution:** any one of CT, LCT, or Doctor can resolve an SOS, **via a WhatsApp reply or via the dashboard** — both paths must work. Resolving stops the nudge sequence and records the resolving party and the timestamp. |
+| FR-SOS-3b | **Resolution:** any one of CT, LCT (if present), or Doctor (if present) can resolve an SOS, **via a WhatsApp reply or via the dashboard** — both paths must work. Resolving stops the nudge sequence and records the resolving party and the timestamp. |
 | FR-SOS-3c | If all 4 nudges are exhausted with no resolution, the nudge sequence ends and the SOS remains **open / unresolved** on the dashboard SOS panel until a human resolves it. |
-| FR-SOS-4 | The dashboard SOS panel updates immediately; the event is written to SOS History. |
+| FR-SOS-4 | The dashboard SOS panel updates immediately; the event is written to SOS History. Display states and the sequential cascade are presentation only — see the two-layer note above. |
 | FR-SOS-5 | Voice-call escalation (SIP trunk) is **out of scope** for the MVP. |
 | FR-SOS-6 | The SOS path is the highest-reliability path in the system. Failures here are the most severe class of defect. |
 
@@ -268,18 +276,21 @@ Onboarding
 ```
 EP triggers SOS (WhatsApp)
    → SOS Agent
-   → DB (RAG — assemble care circle + context)
-   → Dispatch WhatsApp message, in parallel:
-        ├── Care Partner (CT)
-        ├── Local Caregiver (LCT)
-        └── Doctor (if onboarded)
-   → Delivery is IMMEDIATE
+   → DB (relational lookup — assemble care circle + context; not RAG)
+   → Dispatch WhatsApp message IMMEDIATELY, in parallel, to every contact that exists:
+        ├── Care Partner (CT) — always
+        ├── Local Caregiver (LCT) — only if onboarded
+        └── Doctor — only if onboarded
    → 4 nudges, 2 minutes apart, to every recipient who has not resolved
    → Resolved by ANY of CT / LCT / Doctor — via WhatsApp reply OR dashboard action
         → nudges stop immediately; resolver + timestamp recorded
    → If all 4 nudges exhausted with no resolution → SOS stays OPEN on the dashboard
    → Update dashboard (SOS panel + SOS History)
+        (UI may show active|acknowledged|resolved|cancelled + a demo cascade —
+         presentation only; sos_events.status open|resolved is source of truth)
 ```
+
+> Display vs dispatch: see §7.4 and `Architecture.md` §5.5 / WF-4. Do **not** treat the front-end sequential cascade as the real notify order.
 
 ---
 
@@ -345,7 +356,7 @@ Locked in Meeting 12 (7 July 2026).
 | **Database / Auth / Storage** | **Supabase** (Postgres, Auth, Storage, RLS) |
 | **Automation / agents** | **n8n** (schedule triggers, reminder dispatch, response handling, SOS routing) — Robert; three servers ready |
 | **Messaging** | **WhatsApp Business API** (Meta-approved templates with Yes/No buttons) — Talal is the account holder |
-| **AI / LLM** | Reminder agent, SOS agent (RAG over the DB), message generation |
+| **AI / LLM** | Reminder agent, SOS care-circle assembly (**relational lookup**, not RAG), message generation |
 | **Speech-to-text** | **Google Speech-to-Text** or **ElevenLabs** — shortlisted; final pick pending (OQ-5b). Used for voice-reply transcription (M4a). Whisper is **not** the choice. |
 | **Repo** | **GitHub** — branch per member → merge to stable `main` |
 | **Deployment** | Vercel (front-end) |
@@ -436,6 +447,7 @@ Demo Day ships the **MVP**. Should- and Could-have items are not permitted to en
 
 | Date | Version | Change |
 |---|---|---|
+| 22 Jul 2026 | 1.7 | **Docs ↔ front-end reconciliation.** Documented **SOS as two layers** (display vs dispatch) in §7.4 / §8.2 — Meeting-11 parallel dispatch preserved; FE cascade is presentation only. **Local Buddy / LCT made optional** at onboarding; SOS always notifies CT; LCT alert conditional; elder address still mandatory. Removed stale **RAG** wording (FR-SOS-2, §8.2, §11) — care circle is a relational lookup. Pointed vocabulary at `Architecture.md` §5.5. |
 | 22 Jul 2026 | 1.6 | **Reconciled with Sama's front-end build.** Escalation/notification granularity moved from per-EP-per-domain to **per-routine** (adopting the finer-grained front-end model). Added front-end ↔ role-code mapping (Loved One=EP, Care Partner=CT, Local Buddy=LCT, Family Doctor=DR) and flagged front-end fields that are v2/Could-have stubs. Front-end gaps to be patched by Cursor are specified in `patch_frontend.md`: elder consent (M16), elder address (M17), medication two-step response (M12), Google OAuth, buddy/doctor "added" acknowledgement. |
 | 14 Jul 2026 | 1.5 | Three changes forced by Meta platform rules (verified against live Meta docs): **M12 restated** — templates cannot carry a dropdown, so the medication check-in names all scheduled medicines in the body with three buttons (*Yes, all* / *Some of them* / *Not yet*), with the dropdown as a follow-up; **M16 added — elder consent**, a two-layer opt-in (CT attestation + in-channel confirmation), with **no check-in scheduled until the elder confirms**; **M17 added — elder address**, mandatory, because the SOS message to the Local Caregiver must say where to go. |
 | 14 Jul 2026 | 1.4 | NFR-10 changed from an (unmeasurable) availability target to a **demo-day readiness checklist**. |

@@ -4,10 +4,10 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.2 |
+| **Document** | Phases.md — v1.3 |
 | **Date** | 14 July 2026 |
 | **Demo Day** | **Saturday 29 August 2026** — 46 days from today |
-| **Companion docs** | `PRD.md` (v1.4) · `Architecture.md` (v1.1) · `Rules.md` (v1.1) · `Templates.md` (to be created) |
+| **Companion docs** | `PRD.md` (v1.7) · `Architecture.md` (v1.4) · `Rules.md` (v1.3) · `Templates.md` (v1.2) |
 
 ---
 
@@ -86,7 +86,7 @@ Nothing else can start cleanly until these are done. Several are already overdue
 ## 4. TRACK A — Dashboard (Next.js)
 
 ### A0 · Front-end reconciliation patch *(immediate — before wiring)*
-Sama's front end is substantially built (all screens, typed domain model, onboarding wizard, SOS cascade). A reconciliation pass on 22 Jul found it predates three decisions and must be patched **before** it is wired to the database. **Owner: Cursor**, per `patch_frontend.md`. The patch adds: **elder consent** (M16 — CT attestation + read-only confirmation-status badge), **elder address** (M17), the **medication two-step response** (M12), **Google OAuth**, and a buddy/doctor "added" acknowledgement. Docs were realigned the same day (PRD 1.6, Architecture 1.3): the front end's **per-routine** escalation model was adopted into the schema.
+Sama's front end is substantially built (all screens, typed domain model, onboarding wizard, SOS cascade). A reconciliation pass on 22 Jul found it predates three decisions and must be patched **before** it is wired to the database. **Owner: Cursor**, per `patch_frontend.md`. The patch adds: **elder consent** (M16 — CT attestation + read-only confirmation-status badge), **elder address** (M17), the **medication two-step response** (M12), **Google OAuth**, and a buddy/doctor "added" acknowledgement. Docs were realigned the same day and again for vocabulary/SOS layers (`Architecture.md` §5.5): the front end's **per-routine** escalation model was adopted into the schema; **SOS display vs dispatch** are documented as two layers (FE cascade is presentation only; Meeting-11 parallel dispatch is the real behaviour); **Local Buddy is optional**. Vocabulary: Loved One / Care Partner / Local Buddy / Family Doctor ↔ EP / CT / LCT / DR — see `Architecture.md` §5.5.
 
 **🚪 GATE A0.** Patch applied; consent + address collected in onboarding; no design regressions. Then proceed to A1/A2.
 
@@ -290,6 +290,7 @@ The proposal is a **second channel (Telegram)** so the demo can run even if temp
 
 | Date | Version | Change |
 |---|---|---|
+| 22 Jul 2026 | 1.3 | **Docs ↔ front-end reconciliation.** Companion doc versions bumped. A0 note updated: SOS display vs dispatch are two layers; Local Buddy optional; vocabulary points at `Architecture.md` §5.5. |
 | 22 Jul 2026 | 1.2 | Added **A0 — front-end reconciliation patch** (owner: Cursor, per `patch_frontend.md`) as a gate before DB wiring, following the review of Sama's build. |
 | 14 Jul 2026 | 1.1 | `Templates.md` complete (0.6 done). **B1.5 added — the consent flow, which gates every other check-in and must therefore be built first.** Onboarding (A2.4) now carries the mandatory elder address and the CT consent attestation. Gate B extended to require a consent confirmation before any check-in. |
 | 14 Jul 2026 | 1.0 | Initial phase plan. Two parallel tracks (dashboard / message path), because Meta template approval is an uncontrollable long-lead dependency and must not wait behind the dashboard build. Track A follows Akhil's screens → database → auth sequence, amended so that step 2 uses a **seeded auth user with RLS enabled from the first migration** rather than a no-auth database — avoiding an RLS retrofit and the X1 release blocker. Security gate scheduled as a dedicated block (17–22 Aug). Channel go/no-go set for 9 Aug. Team reduced to 10 (Patrick Correya departed); 5 members and 8 work items remain unowned. |

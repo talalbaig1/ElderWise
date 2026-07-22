@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.2 |
+| **Document** | Rules.md — v1.3 |
 | **Date** | 14 July 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` (v1.4) · `Architecture.md` (v1.1) · `Phases.md` |
@@ -102,7 +102,7 @@ From `Architecture.md` §1 (P1). These are the walls that let eleven people work
 | **D6** | **No contact detail is stored twice.** Contacts live in `care_partners`, `elders`, `local_caregivers`, `doctors` — and are referenced by foreign key everywhere else. The old spreadsheet-shaped schema repeated phone numbers in every domain row; a number changed in one place and stale in two others is a missed SOS. |
 | **D7** | **Audio files go in Supabase Storage.** The database stores the object path, never the file. |
 | **D9** | **`elders.consent_confirmed_at` is a hard gate, not a flag.** Any code path that schedules or sends a check-in must check it first. A NULL means that elder has not agreed to be messaged. |
-| **D10** | **`elders.address` is NOT NULL.** The Local Caregiver's SOS message carries it. Their whole purpose is to physically reach her; without an address they cannot. |
+| **D10** | **`elders.address` is NOT NULL.** Mandatory even if Local Buddy / LCT is skipped. When an LCT exists, their SOS message carries the address — their purpose is to physically reach her. |
 | **D8** | **Foreign keys and indexes are not optional.** In particular `elders.whatsapp_number` must be indexed — the inbound webhook hits it on every single message. |
 
 ---
@@ -145,7 +145,7 @@ Defaults, not dogma. Consistency across eleven contributors matters more than an
 | **C3** | **Server components by default.** `"use client"` only where interactivity actually requires it. |
 | **C4** | **Data fetching happens on the server.** Never expose a query to the browser that RLS isn't protecting. |
 | **C5** | **No `console.log` in committed code.** Errors go to Sentry. |
-| **C6** | **Name things after the domain.** `elder`, `care_partner`, `local_caregiver`, `doctor`, `checkin`, `sos_event`. Not `user1`, `user2`, `contact_b`. The next person to read this code is a teammate in a different timezone at midnight. |
+| **C6** | **Name things after the domain.** `elder`, `care_partner`, `local_caregiver`, `doctor`, `checkin`, `sos_event`. Not `user1`, `user2`, `contact_b`. UI labels (Loved One, Local Buddy, Family Doctor) map to these — see `Architecture.md` §5.5. The next person to read this code is a teammate in a different timezone at midnight. |
 | **C7** | **The product is spelled *ElderWise*.** Not ElderVoice. Not Elder Wise. It slips in meetings; it does not slip in the codebase. |
 | **C8** | **Every user-facing string is in English** (NFR-9). Multi-language is v2 — but don't hardcode strings in a way that makes v2 a rewrite. |
 
@@ -292,6 +292,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 22 Jul 2026 | 1.3 | **Docs ↔ front-end reconciliation.** Pointed domain naming (C6) at `Architecture.md` §5.5 glossary. Clarified D10: elder address remains mandatory when Local Buddy is optional; LCT SOS message carries address only when an LCT exists. |
 | 14 Jul 2026 | 1.2 | **N5 added — the elderly person must consent, herself** (two-layer opt-in; silence is not consent; nothing scheduled until `consent_confirmed_at` is set). Old N5 (data isolation) becomes N6. D9/D10 added: consent is a hard gate; `elders.address` is NOT NULL. Forbidden list: messaging an unconfirmed elder; WhatsApp Flows. |
 | 14 Jul 2026 | 1.1 | Added **§14 Security review regime** — a five-pass audit (secrets · PII flow · pre-deploy · deep logic · attacker's view) adapted from the Mayank Shah "5 Security Checks" and "7 Vulnerabilities of Vibe-Coded Apps" guides, **plus Pass 6: twelve ElderWise-specific attacks** (cross-family IDOR, forged SOS resolution, forged WhatsApp webhook, share-link abuse, service-role key leakage via n8n exports, voice-bucket exposure, elder enumeration, SOS spam, PII in Sentry, prompt injection via transcript, long-input DoS, ReDoS). Gate runs at MVP completion and before every version. X1 and X2 are release blockers. |
 | 14 Jul 2026 | 1.0 | Initial rules. Codifies the five non-negotiables, scope discipline, AI-agent rules, architectural boundaries, database/n8n/security/code/copy standards, git workflow for 11 contributors, definition of done, and the forbidden list. |

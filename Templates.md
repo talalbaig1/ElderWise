@@ -4,12 +4,12 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · Team Lead: Talal Baig |
-| **Document** | Templates.md — v1.1 |
+| **Document** | Templates.md — v1.2 |
 | **Date** | 14 July 2026 |
 | **Purpose** | Every message ElderWise sends. The submission and approval tracker for Meta. |
 | **Owner** | Talal (submission) · Sama + Reema (copy & tone) |
 | **Status** | 🔴 **Nothing submitted yet. This is the critical path** (`Phases.md` §7). |
-| **Companion docs** | `PRD.md` (v1.4) · `Architecture.md` (v1.1) · `Rules.md` (v1.1) · `Phases.md` (v1.0) |
+| **Companion docs** | `PRD.md` (v1.7) · `Architecture.md` (v1.4) · `Rules.md` (v1.3) · `Phases.md` (v1.3) |
 
 ---
 
@@ -265,7 +265,8 @@ From `Rules.md` §9. These are not suggestions.
 ---
 
 ### 11 · `elderwise_sos_alert_lct`
-**Audience:** Local Caregiver — **the person who can physically get there**
+**Audience:** Local Caregiver / Local Buddy — **the person who can physically get there**
+**Sent only if an LCT is onboarded.** Local Buddy is **optional** at onboarding (`Architecture.md` §5.5). If none is set, this template is **not** sent; SOS is still handled by the Care Partner (CT always notified via template 10).
 
 > 🚨 EMERGENCY — {{1}} has raised an SOS and needs help.
 > Time: {{2}}
@@ -274,7 +275,7 @@ From `Rules.md` §9. These are not suggestions.
 
 **Variables:** `{{1}}` = `Fatima` · `{{2}}` = `2:14 PM` · `{{3}}` = `12 Rose Street, Apt 4`
 **Buttons:** `[ I'm on my way ]` ← resolves the SOS
-**Source of `{{3}}`:** `elders.address` — **mandatory at onboarding** (M17). This person exists to physically reach her. Without the address, they cannot.
+**Source of `{{3}}`:** `elders.address` — **mandatory at onboarding** (M17), including when Local Buddy is skipped. This person exists to physically reach her; without the address they cannot.
 
 ---
 
@@ -388,6 +389,7 @@ Sent immediately when the elder triggers an SOS — she must not be left in sile
 
 | Date | Version | Change |
 |---|---|---|
+| 22 Jul 2026 | 1.2 | **Docs ↔ front-end reconciliation.** Template 11 (`elderwise_sos_alert_lct`) noted as **conditional** — sent only when a Local Buddy / LCT exists; SOS still always alerts the CT. Elder address remains mandatory. Vocabulary aligned with `Architecture.md` §5.5. |
 | 14 Jul 2026 | 1.1 | **All three blockers resolved and verified against Meta's live docs (Context7).** Medication check-in: three quick-reply buttons with **every scheduled medicine named in the body**; follow-up interactive list only on *"Some of them"*. Elder opt-in: **two-layer consent** — CT attestation at onboarding + the elder's own in-channel confirmation, with **nothing scheduled until she confirms** and **silence treated as refusal**. Elder address: **mandatory**, and now carried in the Local Caregiver's SOS message. WhatsApp Flows noted as a v2 route to true multi-select. |
 | 14 Jul 2026 | 1.0 | Initial registry — 14 templates + 4 free-form messages. Two platform findings: (1) the **medication dropdown cannot be a template** — interactive lists are only available as free-form messages inside the 24-hour window, resolved with a two-step flow that keeps the common case to a single tap and takes the dropdown off the approval path entirely; (2) **elder opt-in is unsolved** — WhatsApp requires it, the CT supplies the number, and the elder consents to nothing. Also surfaced: **the onboarding form does not capture the elder's address**, which the local-caregiver SOS message needs. |
 
