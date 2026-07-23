@@ -1005,7 +1005,6 @@ export function createDemoStore(): ElderWiseStore {
       isAuthenticated: false,
       carePartnerId: null,
       email: null,
-      onboardingComplete: false,
     },
     carePartner: null,
     lovedOnes: [],

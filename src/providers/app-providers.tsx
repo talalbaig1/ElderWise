@@ -3,7 +3,6 @@
 import { useEffect, type ReactNode } from "react";
 import { useTheme } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
-import { AuthSessionSync } from "@/components/auth/auth-session-sync";
 import { StoreProvider, useElderWiseStore } from "@/lib/store";
 import { ThemeProvider } from "@/providers/theme-provider";
 
@@ -30,7 +29,6 @@ function ThemeStoreSync({ children }: { children: ReactNode }) {
   const { store, hydrated } = useElderWiseStore();
   const { setTheme } = useTheme();
 
-  // Keep next-themes aligned with persisted ElderWise settings
   useEffect(() => {
     if (!hydrated) return;
     setTheme(store.settings.theme);
@@ -49,14 +47,12 @@ export function AppProviders({ children }: { children: ReactNode }) {
       disableTransitionOnChange
     >
       <StoreProvider>
-        <AuthSessionSync>
-          <ThemeStoreSync>
-            <AccessibilitySync>
-              {children}
-              <Toaster richColors closeButton position="top-right" />
-            </AccessibilitySync>
-          </ThemeStoreSync>
-        </AuthSessionSync>
+        <ThemeStoreSync>
+          <AccessibilitySync>
+            {children}
+            <Toaster richColors closeButton position="top-right" />
+          </AccessibilitySync>
+        </ThemeStoreSync>
       </StoreProvider>
     </ThemeProvider>
   );

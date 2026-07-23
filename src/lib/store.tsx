@@ -11,13 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { createDemoStore } from "@/data/mock";
-import {
-  accountToCarePartner,
-  createAccount,
-  markAccountOnboardingComplete,
-  verifyAccount,
-  type StoredAccount,
-} from "@/lib/auth";
+import { createClient } from "@/lib/supabase/client";
 import { normalizeSettings } from "@/lib/settings";
 import { readStorage, STORAGE_KEYS, writeStorage, removeStorage } from "@/lib/storage";
 import type { ElderWiseStore, UserSettings } from "@/types";
@@ -31,49 +25,13 @@ interface StoreContextValue {
   resetDemoData: () => void;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
-  signUp: (input: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    password: string;
-  }) => Promise<{ ok: true } | { ok: false; error: string }>;
-  signIn: (input: {
-    email: string;
-    password: string;
-  }) => Promise<{ ok: true } | { ok: false; error: string }>;
-  signOut: () => void;
-  completeOnboarding: () => void;
-  /** A2.2 — session only from server /api/dev-autologin; screens still mock until A2.3 */
-  applySupabaseSession: (input: { userId: string; email: string | null }) => void;
+  /** Mirror Supabase user into store for onboarding draft keys (not mock auth). */
+  mirrorSupabaseUser: (input: { userId: string; email: string | null }) => void;
+  clearLocalSession: () => void;
+  signOut: () => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextValue | null>(null);
-
-function applySession(store: ElderWiseStore, account: StoredAccount): ElderWiseStore {
-  return {
-    ...store,
-    session: {
-      isAuthenticated: true,
-      carePartnerId: account.id,
-      email: account.email,
-      onboardingComplete: account.onboardingComplete,
-    },
-    carePartner: {
-      ...accountToCarePartner(account),
-      // Preserve richer demo profile details when signing into the seed account email
-      ...(store.carePartner?.email === account.email
-        ? {
-            whatsappNumber: store.carePartner.whatsappNumber,
-            directContactNumber: store.carePartner.directContactNumber,
-            address: store.carePartner.address,
-            relationshipToLovedOne: store.carePartner.relationshipToLovedOne,
-            preferredNotificationMethod: store.carePartner.preferredNotificationMethod,
-            timeZone: store.carePartner.timeZone || accountToCarePartner(account).timeZone,
-          }
-        : {}),
-    },
-  };
-}
 
 function clearSession(store: ElderWiseStore): ElderWiseStore {
   return {
@@ -82,8 +40,15 @@ function clearSession(store: ElderWiseStore): ElderWiseStore {
       isAuthenticated: false,
       carePartnerId: null,
       email: null,
-      onboardingComplete: false,
     },
+  };
+}
+
+function stripLegacySession(session: ElderWiseStore["session"] & { onboardingComplete?: boolean }) {
+  return {
+    isAuthenticated: Boolean(session?.isAuthenticated),
+    carePartnerId: session?.carePartnerId ?? null,
+    email: session?.email ?? null,
   };
 }
 
@@ -97,6 +62,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const today = new Date().toISOString().slice(0, 10);
       setStoreState({
         ...saved,
+        session: stripLegacySession(saved.session),
         settings: normalizeSettings(saved.settings),
         lovedOnes: (saved.lovedOnes ?? []).map((lo) => ({
           ...lo,
@@ -159,20 +125,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...demo,
         session: prev.session,
         settings: normalizeSettings(prev.settings),
-        carePartner: prev.carePartner
-          ? {
-              ...demo.carePartner!,
-              ...prev.carePartner,
-              // Keep demo contact richness when emails match seed profile
-              whatsappNumber:
-                prev.carePartner.whatsappNumber || demo.carePartner?.whatsappNumber || "",
-            }
-          : demo.carePartner,
-        selectedLovedOneId:
-          prev.selectedLovedOneId &&
-          demo.lovedOnes.some((lo) => lo.id === prev.selectedLovedOneId)
-            ? prev.selectedLovedOneId
-            : demo.selectedLovedOneId,
+        carePartner: prev.carePartner,
+        selectedLovedOneId: null,
       };
       writeStorage(STORAGE_KEYS.store, next);
       removeStorage(STORAGE_KEYS.onboardingDraft);
@@ -199,51 +153,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
   }, [setStore]);
 
-  const signUp = useCallback(
-    async (input: {
-      firstName: string;
-      lastName: string;
-      email: string;
-      password: string;
-    }) => {
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      const result = createAccount(input);
-      if (!result.ok) return result;
-
-      setStore((prev) => applySession(prev, result.account));
-      return { ok: true as const };
-    },
-    [setStore],
-  );
-
-  const signIn = useCallback(
-    async (input: { email: string; password: string }) => {
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      const result = verifyAccount(input.email, input.password);
-      if (!result.ok) return result;
-
-      setStore((prev) => applySession(prev, result.account));
-      return { ok: true as const };
-    },
-    [setStore],
-  );
-
-  const signOut = useCallback(() => {
-    setStore((prev) => clearSession(prev));
-  }, [setStore]);
-
-  const completeOnboarding = useCallback(() => {
-    setStore((prev) => {
-      if (!prev.session.carePartnerId) return prev;
-      markAccountOnboardingComplete(prev.session.carePartnerId);
-      return {
-        ...prev,
-        session: { ...prev.session, onboardingComplete: true },
-      };
-    });
-  }, [setStore]);
-
-  const applySupabaseSession = useCallback(
+  const mirrorSupabaseUser = useCallback(
     (input: { userId: string; email: string | null }) => {
       setStore((prev) => ({
         ...prev,
@@ -251,7 +161,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           isAuthenticated: true,
           carePartnerId: input.userId,
           email: input.email,
-          onboardingComplete: true,
         },
         carePartner: prev.carePartner
           ? {
@@ -265,6 +174,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [setStore],
   );
 
+  const clearLocalSession = useCallback(() => {
+    setStore((prev) => clearSession(prev));
+  }, [setStore]);
+
+  const signOut = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch {
+      // Still clear local mirror
+    }
+    setStore((prev) => clearSession(prev));
+  }, [setStore]);
+
   const value = useMemo(
     () => ({
       store,
@@ -275,11 +198,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       resetDemoData,
       markNotificationRead,
       markAllNotificationsRead,
-      signUp,
-      signIn,
+      mirrorSupabaseUser,
+      clearLocalSession,
       signOut,
-      completeOnboarding,
-      applySupabaseSession,
     }),
     [
       store,
@@ -290,11 +211,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       resetDemoData,
       markNotificationRead,
       markAllNotificationsRead,
-      signUp,
-      signIn,
+      mirrorSupabaseUser,
+      clearLocalSession,
       signOut,
-      completeOnboarding,
-      applySupabaseSession,
     ],
   );
 
@@ -324,16 +243,12 @@ export function useUnreadNotificationCount() {
 }
 
 export function useAuth() {
-  const { store, hydrated, signIn, signUp, signOut, completeOnboarding } = useElderWiseStore();
+  const { store, hydrated, signOut } = useElderWiseStore();
   return {
     hydrated,
     session: store.session,
     isAuthenticated: store.session.isAuthenticated,
-    onboardingComplete: store.session.onboardingComplete,
     carePartner: store.carePartner,
-    signIn,
-    signUp,
     signOut,
-    completeOnboarding,
   };
 }

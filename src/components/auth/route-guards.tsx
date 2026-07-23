@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useAuthSynced } from "@/components/auth/auth-session-sync";
-import { useAuth } from "@/lib/store";
+import { useAppData } from "@/components/data/app-data-provider";
+import { createClient } from "@/lib/supabase/client";
+import { countOwnElders, postAuthPath } from "@/lib/auth-routing";
+import { useElderWiseStore } from "@/lib/store";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function AuthLoading() {
@@ -19,71 +21,149 @@ function AuthLoading() {
   );
 }
 
-/** Protects authenticated app pages. */
+type Gate = "loading" | "allow" | "deny";
+
+/** Protects authenticated app pages. Elder count comes from AppDataProvider (server load). */
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { hydrated, isAuthenticated, onboardingComplete } = useAuth();
-  const authSynced = useAuthSynced();
+  const data = useAppData();
+  const { hydrated, mirrorSupabaseUser } = useElderWiseStore();
   const router = useRouter();
   const pathname = usePathname();
-  const ready = hydrated && authSynced;
+  const [gate, setGate] = useState<Gate>("loading");
 
   useEffect(() => {
-    if (!ready) return;
-    if (!isAuthenticated) {
-      router.replace(`/sign-in?next=${encodeURIComponent(pathname)}`);
-      return;
-    }
-    if (!onboardingComplete && !pathname.startsWith("/onboarding")) {
-      router.replace("/onboarding");
-    }
-  }, [ready, isAuthenticated, onboardingComplete, pathname, router]);
+    if (!hydrated) return;
+    let cancelled = false;
 
-  if (!ready) return <AuthLoading />;
-  if (!isAuthenticated) return <AuthLoading />;
-  if (!onboardingComplete && !pathname.startsWith("/onboarding")) return <AuthLoading />;
+    void (async () => {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
+      if (cancelled) return;
+
+      if (!session?.user) {
+        setGate("deny");
+        router.replace(`/sign-in?next=${encodeURIComponent(pathname)}`);
+        return;
+      }
+
+      mirrorSupabaseUser({
+        userId: session.user.id,
+        email: session.user.email ?? null,
+      });
+
+      if (data.lovedOnes.length === 0 && !pathname.startsWith("/onboarding")) {
+        setGate("deny");
+        router.replace("/onboarding");
+        return;
+      }
+
+      setGate("allow");
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, data.lovedOnes.length, pathname, router, mirrorSupabaseUser]);
+
+  if (!hydrated || gate === "loading") return <AuthLoading />;
+  if (gate === "deny") return <AuthLoading />;
   return <>{children}</>;
 }
 
-/** Keeps signed-in users out of auth forms. */
+/** Keeps signed-in users out of auth forms. Own elders check (no AppDataProvider). */
 export function RequireGuest({ children }: { children: ReactNode }) {
-  const { hydrated, isAuthenticated, onboardingComplete } = useAuth();
-  const authSynced = useAuthSynced();
+  const { hydrated, mirrorSupabaseUser, clearLocalSession } = useElderWiseStore();
   const router = useRouter();
-  const ready = hydrated && authSynced;
+  const [gate, setGate] = useState<Gate>("loading");
 
   useEffect(() => {
-    if (!ready || !isAuthenticated) return;
-    router.replace(onboardingComplete ? "/dashboard" : "/onboarding");
-  }, [ready, isAuthenticated, onboardingComplete, router]);
+    if (!hydrated) return;
+    let cancelled = false;
 
-  if (!ready) return <AuthLoading />;
-  if (isAuthenticated) return <AuthLoading />;
+    void (async () => {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
+      if (cancelled) return;
+
+      if (!session?.user) {
+        clearLocalSession();
+        setGate("allow");
+        return;
+      }
+
+      mirrorSupabaseUser({
+        userId: session.user.id,
+        email: session.user.email ?? null,
+      });
+      const elders = await countOwnElders(supabase);
+      if (cancelled) return;
+      setGate("deny");
+      router.replace(postAuthPath(elders));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, router, mirrorSupabaseUser, clearLocalSession]);
+
+  if (!hydrated || gate === "loading") return <AuthLoading />;
+  if (gate === "deny") return <AuthLoading />;
   return <>{children}</>;
 }
 
-/** Allows authenticated users into onboarding; sends completed users to dashboard. */
+/** Onboarding: need session; bounce to dashboard when elders already exist. */
 export function RequireOnboarding({ children }: { children: ReactNode }) {
-  const { hydrated, isAuthenticated, onboardingComplete } = useAuth();
-  const authSynced = useAuthSynced();
+  const { hydrated, mirrorSupabaseUser, clearLocalSession } = useElderWiseStore();
   const router = useRouter();
-  const ready = hydrated && authSynced;
+  const [gate, setGate] = useState<Gate>("loading");
 
   useEffect(() => {
-    if (!ready) return;
-    if (!isAuthenticated) {
-      router.replace("/sign-in?next=/onboarding");
-      return;
-    }
-    if (onboardingComplete) {
-      router.replace("/dashboard");
-    }
-  }, [ready, isAuthenticated, onboardingComplete, router]);
+    if (!hydrated) return;
+    let cancelled = false;
 
-  if (!ready) return <AuthLoading />;
-  if (!isAuthenticated) return <AuthLoading />;
-  if (onboardingComplete) return <AuthLoading />;
+    void (async () => {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
+      if (cancelled) return;
+
+      if (!session?.user) {
+        clearLocalSession();
+        setGate("deny");
+        router.replace("/sign-in?next=/onboarding");
+        return;
+      }
+
+      mirrorSupabaseUser({
+        userId: session.user.id,
+        email: session.user.email ?? null,
+      });
+      const elders = await countOwnElders(supabase);
+      if (cancelled) return;
+
+      if (elders > 0) {
+        setGate("deny");
+        router.replace("/dashboard");
+        return;
+      }
+
+      setGate("allow");
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, router, mirrorSupabaseUser, clearLocalSession]);
+
+  if (!hydrated || gate === "loading") return <AuthLoading />;
+  if (gate === "deny") return <AuthLoading />;
   return <>{children}</>;
 }

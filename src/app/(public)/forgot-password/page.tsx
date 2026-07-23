@@ -10,7 +10,6 @@ import { RequireGuest } from "@/components/auth/route-guards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { requestPasswordReset } from "@/lib/auth";
 import { forgotPasswordSchema, type ForgotPasswordValues } from "@/lib/auth-schema";
 
 export default function ForgotPasswordPage() {
@@ -33,11 +32,14 @@ function ForgotPasswordForm() {
     defaultValues: { email: "" },
   });
 
-  const onSubmit = handleSubmit(async (values) => {
+  const onSubmit = handleSubmit(async () => {
     await new Promise((resolve) => setTimeout(resolve, 500));
-    const result = requestPasswordReset(values.email);
+    // Stub — real Supabase reset deferred (free-tier email rate limits). A3 Pass 1.
     setSent(true);
-    toast.success("Check your inbox", { description: result.message });
+    toast.success("Check your inbox", {
+      description:
+        "If an account exists for that email, a reset link has been sent. (Demo — no email is actually sent.)",
+    });
   });
 
   return (

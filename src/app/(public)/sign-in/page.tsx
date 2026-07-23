@@ -12,9 +12,11 @@ import { RequireGuest } from "@/components/auth/route-guards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { findAccountByEmail } from "@/lib/auth";
+import { ensureCarePartnerProfile } from "@/lib/data/ensure-care-partner";
+import { clientTimeZone, countOwnElders, postAuthPath } from "@/lib/auth-routing";
 import { signInSchema, type SignInValues } from "@/lib/auth-schema";
-import { useAuth } from "@/lib/store";
+import { createClient } from "@/lib/supabase/client";
+import { useElderWiseStore } from "@/lib/store";
 
 export default function SignInPage() {
   return (
@@ -28,13 +30,14 @@ export default function SignInPage() {
 
 function safeNextPath(raw: string | null) {
   if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return null;
+  if (raw.startsWith("/sign-")) return null;
   return raw;
 }
 
 function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signIn } = useAuth();
+  const { mirrorSupabaseUser } = useElderWiseStore();
   const [formError, setFormError] = useState<string | null>(null);
 
   const {
@@ -48,29 +51,54 @@ function SignInForm() {
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
-    const result = await signIn(values);
-    if (!result.ok) {
-      setFormError(result.error);
-      toast.error(result.error);
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: values.email.trim().toLowerCase(),
+      password: values.password,
+    });
+
+    if (error || !data.user) {
+      const msg = error?.message ?? "Sign-in failed";
+      setFormError(msg);
+      toast.error(msg);
       return;
     }
 
-    const account = findAccountByEmail(values.email);
-    const complete = Boolean(account?.onboardingComplete);
+    const fullName =
+      (data.user.user_metadata?.full_name as string | undefined) ||
+      data.user.email?.split("@")[0] ||
+      "Care Partner";
+
+    const profile = await ensureCarePartnerProfile({
+      fullName,
+      email: data.user.email ?? values.email,
+      timeZone: clientTimeZone(),
+    });
+
+    if (!profile.ok) {
+      await supabase.auth.signOut();
+      setFormError(profile.error);
+      toast.error(profile.error);
+      return;
+    }
+
+    mirrorSupabaseUser({
+      userId: data.user.id,
+      email: data.user.email ?? null,
+    });
+
+    const elders = await countOwnElders(supabase);
     const next = safeNextPath(searchParams.get("next"));
-
-    if (!complete) {
-      toast.success("Signed in", { description: "Continue onboarding to set up care." });
-      router.replace("/onboarding");
-      return;
-    }
+    const dest =
+      next === "/onboarding" || elders === 0
+        ? postAuthPath(elders)
+        : next && elders > 0
+          ? next
+          : postAuthPath(elders);
 
     toast.success("Welcome back");
-    if (next && next !== "/onboarding" && !next.startsWith("/sign-")) {
-      router.replace(next);
-      return;
-    }
-    router.replace("/dashboard");
+    router.replace(dest);
+    router.refresh();
   });
 
   return (
@@ -93,7 +121,6 @@ function SignInForm() {
           className="w-full"
           size="lg"
           onClick={() => {
-            // TODO(backend): Supabase Google OAuth
             toast.message("Google sign-in coming soon", {
               description: "Email and password still work for this demo.",
             });

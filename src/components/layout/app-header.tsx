@@ -39,8 +39,8 @@ export function AppHeader({ onMenuClick }: AppHeaderProps) {
   const carePartner = data.carePartner;
   const unread = data.notifications.length;
 
-  const handleSignOut = () => {
-    signOut();
+  const handleSignOut = async () => {
+    await signOut();
     toast.success("Signed out");
     router.replace("/sign-in");
   };

@@ -14,8 +14,11 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ensureCarePartnerProfile } from "@/lib/data/ensure-care-partner";
+import { clientTimeZone, countOwnElders, postAuthPath } from "@/lib/auth-routing";
 import { signUpSchema, type SignUpValues } from "@/lib/auth-schema";
-import { useAuth } from "@/lib/store";
+import { createClient } from "@/lib/supabase/client";
+import { useElderWiseStore } from "@/lib/store";
 
 export default function SignUpPage() {
   return (
@@ -27,7 +30,7 @@ export default function SignUpPage() {
 
 function SignUpForm() {
   const router = useRouter();
-  const { signUp } = useAuth();
+  const { mirrorSupabaseUser } = useElderWiseStore();
   const [formError, setFormError] = useState<string | null>(null);
 
   const {
@@ -53,23 +56,58 @@ function SignUpForm() {
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
-    const result = await signUp({
-      firstName: values.firstName,
-      lastName: values.lastName,
-      email: values.email,
+    const supabase = createClient();
+    const fullName = `${values.firstName.trim()} ${values.lastName.trim()}`.trim();
+    const email = values.email.trim().toLowerCase();
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
       password: values.password,
+      options: {
+        data: { full_name: fullName },
+      },
     });
 
-    if (!result.ok) {
-      setFormError(result.error);
-      toast.error(result.error);
+    if (error) {
+      setFormError(error.message);
+      toast.error(error.message);
       return;
     }
 
+    // Email confirmation required — no session yet (insurance if setting changes).
+    if (!data.session || !data.user) {
+      toast.success("Check your email", {
+        description:
+          "Confirm your address to finish creating your Care Partner account, then sign in.",
+      });
+      router.replace("/sign-in");
+      return;
+    }
+
+    const profile = await ensureCarePartnerProfile({
+      fullName,
+      email: data.user.email ?? email,
+      timeZone: clientTimeZone(),
+    });
+
+    if (!profile.ok) {
+      await supabase.auth.signOut();
+      setFormError(profile.error);
+      toast.error(profile.error);
+      return;
+    }
+
+    mirrorSupabaseUser({
+      userId: data.user.id,
+      email: data.user.email ?? null,
+    });
+
+    const elders = await countOwnElders(supabase);
     toast.success("Welcome to ElderWise", {
       description: "Let’s set up your Loved One next.",
     });
-    router.replace("/onboarding");
+    router.replace(postAuthPath(elders));
+    router.refresh();
   });
 
   return (
@@ -92,7 +130,6 @@ function SignUpForm() {
           className="w-full"
           size="lg"
           onClick={() => {
-            // TODO(backend): Supabase Google OAuth
             toast.message("Google sign-up coming soon", {
               description: "Email and password still work for this demo.",
             });

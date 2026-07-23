@@ -5,28 +5,33 @@ import { useAppData } from "@/components/data/app-data-provider";
 import { useElderWiseStore } from "@/lib/store";
 
 /**
- * When the server layout already has an authenticated RLS session (cookies),
- * mirror it into the client store so RequireAuth does not bounce to sign-in.
+ * Mirror server care_partner into the client store for onboarding draft keys / chrome.
  */
 export function SessionBridge() {
   const data = useAppData();
-  const { store, applySupabaseSession, hydrated } = useElderWiseStore();
+  const { store, mirrorSupabaseUser, hydrated } = useElderWiseStore();
   const done = useRef(false);
 
   useEffect(() => {
     if (!hydrated || done.current) return;
-    if (store.session.isAuthenticated) {
+    if (store.session.isAuthenticated && store.session.carePartnerId) {
       done.current = true;
       return;
     }
     if (data.carePartner) {
-      applySupabaseSession({
+      mirrorSupabaseUser({
         userId: data.carePartner.id,
         email: data.carePartner.email,
       });
       done.current = true;
     }
-  }, [hydrated, store.session.isAuthenticated, data.carePartner, applySupabaseSession]);
+  }, [
+    hydrated,
+    store.session.isAuthenticated,
+    store.session.carePartnerId,
+    data.carePartner,
+    mirrorSupabaseUser,
+  ]);
 
   return null;
 }

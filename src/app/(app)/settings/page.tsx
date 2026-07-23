@@ -39,7 +39,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { changeAccountPassword } from "@/lib/auth";
 import {
   LANGUAGE_OPTIONS,
   TIMEZONE_OPTIONS,
@@ -47,6 +46,7 @@ import {
 } from "@/lib/settings";
 import { useDomainStore } from "@/components/data/app-data-provider";
 import { updateCarePartnerProfile } from "@/lib/data/actions";
+import { createClient } from "@/lib/supabase/client";
 import { useAuth, useElderWiseStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import type { NotificationMethod, UserSettings } from "@/types";
@@ -165,7 +165,7 @@ export default function SettingsPage() {
     router.refresh();
   };
 
-  const savePassword = () => {
+  const savePassword = async () => {
     if (!store.session.carePartnerId) {
       toast.error("Sign in again to change your password");
       return;
@@ -174,13 +174,17 @@ export default function SettingsPage() {
       toast.error("New passwords do not match");
       return;
     }
-    const result = changeAccountPassword({
-      accountId: store.session.carePartnerId,
-      currentPassword: passwordForm.current,
-      newPassword: passwordForm.next,
+    if (passwordForm.next.length < 8) {
+      toast.error("New password must be at least 8 characters");
+      return;
+    }
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.updateUser({
+      password: passwordForm.next,
     });
-    if (!result.ok) {
-      toast.error(result.error);
+    if (error) {
+      toast.error(error.message);
       return;
     }
     setPasswordForm({ current: "", next: "", confirm: "" });
@@ -193,8 +197,8 @@ export default function SettingsPage() {
     toast.success("Demo data reset — your session and settings were kept");
   };
 
-  const onLogout = () => {
-    signOut();
+  const onLogout = async () => {
+    await signOut();
     setLogoutOpen(false);
     toast.success("Signed out");
     router.replace("/sign-in");

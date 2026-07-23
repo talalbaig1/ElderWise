@@ -22,6 +22,12 @@ export default async function AppGroupLayout({
 
   const data = await loadAppData(supabase);
 
+  // Derive from loadAppData — no second elders query. Zero elders → onboarding
+  // (A2.4 will write real elders; until then new CTs loop here on purpose on a3-auth).
+  if (data.lovedOnes.length === 0) {
+    redirect("/onboarding");
+  }
+
   return (
     <AppDataProvider data={data}>
       <SessionBridge />

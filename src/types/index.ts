@@ -361,7 +361,6 @@ export interface AuthSession {
   isAuthenticated: boolean;
   carePartnerId: string | null;
   email: string | null;
-  onboardingComplete: boolean;
 }
 
 export interface ElderWiseStore {

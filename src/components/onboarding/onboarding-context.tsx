@@ -19,7 +19,6 @@ import {
   saveOnboardingDraft,
   type OnboardingDraft,
 } from "@/lib/onboarding";
-import { markAccountOnboardingComplete } from "@/lib/auth";
 import { useElderWiseStore } from "@/lib/store";
 
 interface OnboardingContextValue {
@@ -110,14 +109,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
   const finishAndGoToDashboard = useCallback(() => {
     if (!draft || !accountId) return;
-    setStore((prev) => {
-      const applied = applyOnboardingDraft(prev, draft);
-      markAccountOnboardingComplete(accountId);
-      return {
-        ...applied,
-        session: { ...applied.session, onboardingComplete: true },
-      };
-    });
+    // Local draft only until A2.4 writes real elders — (app)/layout will bounce
+    // back to /onboarding while elders.length === 0 (known interim on a3-auth).
+    setStore((prev) => applyOnboardingDraft(prev, draft));
     clearOnboardingDraft();
   }, [accountId, draft, setStore]);
 

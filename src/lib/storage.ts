@@ -2,7 +2,6 @@ export const STORAGE_KEYS = {
   store: "elderwise:store",
   theme: "elderwise:theme",
   demoSeeded: "elderwise:demo-seeded",
-  accounts: "elderwise:accounts",
   onboardingDraft: "elderwise:onboarding-draft",
 } as const;
 
