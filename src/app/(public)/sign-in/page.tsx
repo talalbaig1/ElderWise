@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ensureCarePartnerProfile } from "@/lib/data/ensure-care-partner";
-import { clientTimeZone, countOwnElders, postAuthPath } from "@/lib/auth-routing";
+import { clientTimeZone, hasOwnProductElder, postAuthPath } from "@/lib/auth-routing";
 import { signInSchema, type SignInValues } from "@/lib/auth-schema";
 import { createClient } from "@/lib/supabase/client";
 import { useElderWiseStore } from "@/lib/store";
@@ -87,14 +87,14 @@ function SignInForm() {
       email: data.user.email ?? null,
     });
 
-    const elders = await countOwnElders(supabase);
+    const hasElder = await hasOwnProductElder(supabase);
     const next = safeNextPath(searchParams.get("next"));
     const dest =
-      next === "/onboarding" || elders === 0
-        ? postAuthPath(elders)
-        : next && elders > 0
+      next === "/onboarding" || !hasElder
+        ? postAuthPath(hasElder)
+        : next && hasElder
           ? next
-          : postAuthPath(elders);
+          : postAuthPath(hasElder);
 
     toast.success("Welcome back");
     router.replace(dest);

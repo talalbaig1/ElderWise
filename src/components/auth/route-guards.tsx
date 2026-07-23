@@ -2,9 +2,8 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useAppData } from "@/components/data/app-data-provider";
 import { createClient } from "@/lib/supabase/client";
-import { countOwnElders, postAuthPath } from "@/lib/auth-routing";
+import { hasOwnProductElder, postAuthPath } from "@/lib/auth-routing";
 import { useElderWiseStore } from "@/lib/store";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -23,9 +22,8 @@ function AuthLoading() {
 
 type Gate = "loading" | "allow" | "deny";
 
-/** Protects authenticated app pages. Elder count comes from AppDataProvider (server load). */
+/** Protects authenticated app pages. Product-elder gate via hasOwnProductElder. */
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const data = useAppData();
   const { hydrated, mirrorSupabaseUser } = useElderWiseStore();
   const router = useRouter();
   const pathname = usePathname();
@@ -54,10 +52,14 @@ export function RequireAuth({ children }: { children: ReactNode }) {
         email: session.user.email ?? null,
       });
 
-      if (data.lovedOnes.length === 0 && !pathname.startsWith("/onboarding")) {
-        setGate("deny");
-        router.replace("/onboarding");
-        return;
+      if (!pathname.startsWith("/onboarding")) {
+        const hasElder = await hasOwnProductElder(supabase);
+        if (cancelled) return;
+        if (!hasElder) {
+          setGate("deny");
+          router.replace("/onboarding");
+          return;
+        }
       }
 
       setGate("allow");
@@ -66,14 +68,14 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [hydrated, data.lovedOnes.length, pathname, router, mirrorSupabaseUser]);
+  }, [hydrated, pathname, router, mirrorSupabaseUser]);
 
   if (!hydrated || gate === "loading") return <AuthLoading />;
   if (gate === "deny") return <AuthLoading />;
   return <>{children}</>;
 }
 
-/** Keeps signed-in users out of auth forms. Own elders check (no AppDataProvider). */
+/** Keeps signed-in users out of auth forms. */
 export function RequireGuest({ children }: { children: ReactNode }) {
   const { hydrated, mirrorSupabaseUser, clearLocalSession } = useElderWiseStore();
   const router = useRouter();
@@ -101,10 +103,10 @@ export function RequireGuest({ children }: { children: ReactNode }) {
         userId: session.user.id,
         email: session.user.email ?? null,
       });
-      const elders = await countOwnElders(supabase);
+      const hasElder = await hasOwnProductElder(supabase);
       if (cancelled) return;
       setGate("deny");
-      router.replace(postAuthPath(elders));
+      router.replace(postAuthPath(hasElder));
     })();
 
     return () => {
@@ -117,7 +119,7 @@ export function RequireGuest({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-/** Onboarding: need session; bounce to dashboard when elders already exist. */
+/** Onboarding: need session; bounce to dashboard when a product elder exists. */
 export function RequireOnboarding({ children }: { children: ReactNode }) {
   const { hydrated, mirrorSupabaseUser, clearLocalSession } = useElderWiseStore();
   const router = useRouter();
@@ -146,10 +148,10 @@ export function RequireOnboarding({ children }: { children: ReactNode }) {
         userId: session.user.id,
         email: session.user.email ?? null,
       });
-      const elders = await countOwnElders(supabase);
+      const hasElder = await hasOwnProductElder(supabase);
       if (cancelled) return;
 
-      if (elders > 0) {
+      if (hasElder) {
         setGate("deny");
         router.replace("/dashboard");
         return;

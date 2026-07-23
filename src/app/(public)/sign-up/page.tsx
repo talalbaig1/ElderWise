@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ensureCarePartnerProfile } from "@/lib/data/ensure-care-partner";
-import { clientTimeZone, countOwnElders, postAuthPath } from "@/lib/auth-routing";
+import { clientTimeZone, hasOwnProductElder, postAuthPath } from "@/lib/auth-routing";
 import { signUpSchema, type SignUpValues } from "@/lib/auth-schema";
 import { createClient } from "@/lib/supabase/client";
 import { useElderWiseStore } from "@/lib/store";
@@ -102,11 +102,11 @@ function SignUpForm() {
       email: data.user.email ?? null,
     });
 
-    const elders = await countOwnElders(supabase);
+    const hasElder = await hasOwnProductElder(supabase);
     toast.success("Welcome to ElderWise", {
       description: "Let’s set up your Loved One next.",
     });
-    router.replace(postAuthPath(elders));
+    router.replace(postAuthPath(hasElder));
     router.refresh();
   });
 

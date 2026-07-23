@@ -3,6 +3,7 @@ import { RequireAuth } from "@/components/auth/route-guards";
 import { SessionBridge } from "@/components/auth/session-bridge";
 import { AuthenticatedLayout } from "@/components/layout/authenticated-layout";
 import { AppDataProvider } from "@/components/data/app-data-provider";
+import { hasOwnProductElder } from "@/lib/auth-routing";
 import { loadAppData } from "@/lib/data/load-app-data";
 import { createClient } from "@/lib/supabase/server";
 
@@ -20,12 +21,12 @@ export default async function AppGroupLayout({
     redirect("/sign-in");
   }
 
-  const data = await loadAppData(supabase);
-
-  // Active elders only (loadAppData filters active=true). Drafts stay on /onboarding.
-  if (data.lovedOnes.length === 0) {
+  // Single source: product elder = active=true (drafts stay on /onboarding).
+  if (!(await hasOwnProductElder(supabase))) {
     redirect("/onboarding");
   }
+
+  const data = await loadAppData(supabase);
 
   return (
     <AppDataProvider data={data}>

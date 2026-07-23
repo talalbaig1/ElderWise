@@ -100,8 +100,8 @@ export async function loadAppData(
     ctNotifRes,
   ] = await Promise.all([
     supabase.from("care_partners").select("*").eq("id", user.id).maybeSingle(),
-    // Draft Loved Ones (active=false) stay out of the product read model until
-    // onboarding Finish flips them active — otherwise dashboard would show drafts.
+    // Same rule as hasOwnProductElder / countOwnActiveElders: product elder =
+    // active=true. Drafts (active=false) stay out of the read model.
     supabase
       .from("elders")
       .select("*")
