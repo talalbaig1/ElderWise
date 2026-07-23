@@ -152,11 +152,15 @@ function filterOrSynthesize(
   from: Date,
   to: Date,
 ) {
-  const real = store.checkIns.filter(
-    (c) =>
-      c.lovedOneId === lovedOneId &&
-      c.routineKind === kind &&
-      inRange(c.scheduledAt, from, to),
+  const forLovedOne = store.checkIns.filter((c) => c.lovedOneId === lovedOneId);
+  // When real Supabase check-ins exist, never synthesize demo rows (A2.3).
+  if (forLovedOne.length > 0) {
+    return forLovedOne.filter(
+      (c) => c.routineKind === kind && inRange(c.scheduledAt, from, to),
+    );
+  }
+  const real = forLovedOne.filter(
+    (c) => c.routineKind === kind && inRange(c.scheduledAt, from, to),
   );
   if (real.length > 0) return real;
   return synthesizeCheckIns(lovedOneId, kind, from, to);

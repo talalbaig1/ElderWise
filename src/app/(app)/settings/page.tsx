@@ -45,6 +45,7 @@ import {
   TIMEZONE_OPTIONS,
   detectBrowserTimeZone,
 } from "@/lib/settings";
+import { useDomainStore } from "@/components/data/app-data-provider";
 import { useAuth, useElderWiseStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import type { CarePartner, NotificationMethod, UserSettings } from "@/types";
@@ -81,7 +82,9 @@ export default function SettingsPage() {
   const router = useRouter();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const { store, setStore, updateSettings, resetDemoData, hydrated } = useElderWiseStore();
-  const { signOut, carePartner } = useAuth();
+  const { store: domainStore } = useDomainStore();
+  const { signOut } = useAuth();
+  const carePartner = domainStore.carePartner ?? store.carePartner;
 
   const [section, setSection] = useState<SettingsSection>("profile");
   const [resetOpen, setResetOpen] = useState(false);
@@ -144,34 +147,9 @@ export default function SettingsPage() {
       toast.error("First and last name are required");
       return;
     }
-    if (!carePartner) {
-      toast.error("No Care Partner profile loaded");
-      return;
-    }
-
-    const updated: CarePartner = {
-      ...carePartner,
-      firstName: profile.firstName.trim(),
-      lastName: profile.lastName.trim(),
-      whatsappNumber: profile.whatsappNumber.trim(),
-      directContactNumber: profile.directContactNumber.trim() || undefined,
-      address: profile.address.trim() || undefined,
-      relationshipToLovedOne: profile.relationshipToLovedOne.trim() || undefined,
-      preferredNotificationMethod: profile.preferredNotificationMethod,
-      language: settings.language,
-      timeZone: settings.timeZone,
-      updatedAt: new Date().toISOString(),
-    };
-
-    setStore((prev) => ({ ...prev, carePartner: updated }));
-    if (store.session.carePartnerId) {
-      updateAccountNames({
-        accountId: store.session.carePartnerId,
-        firstName: updated.firstName,
-        lastName: updated.lastName,
-      });
-    }
-    toast.success("Profile saved");
+    toast.message("Profile saves land in Pass 2", {
+      description: "This pass reads live care_partners data only.",
+    });
   };
 
   const savePassword = () => {

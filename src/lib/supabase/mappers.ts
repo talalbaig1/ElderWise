@@ -10,6 +10,14 @@ import type {
   Medication,
   FoodRoutine,
   HealthRoutine,
+  CheckInResponse,
+  SOSEvent,
+  SOSCascadeStep,
+  SOSTimelineEntry,
+  AppNotification,
+  LocalBuddy,
+  FamilyDoctor,
+  NotificationCategory,
 } from "@/types";
 
 export type DbCheckInStatus =
@@ -236,5 +244,228 @@ export function healthRoutineFromRow(row: HealthRoutineRow): HealthRoutine {
     typicalWakeTime: row.typical_wake_time?.slice(0, 5),
     createdAt: row.start_date,
     updatedAt: row.start_date,
+  };
+}
+
+export interface CheckinRow {
+  id: string;
+  elder_id: string;
+  domain: "medication" | "health" | "food";
+  scheduled_for: string;
+  sent_at: string | null;
+  status: DbCheckInStatus;
+  response_channel: "button" | "voice" | null;
+  response_value: string | null;
+  responded_at: string | null;
+  reminder_sent_at: string | null;
+  missed_at: string | null;
+  escalated_at: string | null;
+}
+
+export function checkInFromRow(row: CheckinRow): CheckInResponse {
+  const channel =
+    row.response_channel === "voice"
+      ? "whatsapp"
+      : row.response_channel === "button"
+        ? "whatsapp"
+        : "manual";
+  return {
+    id: row.id,
+    lovedOneId: row.elder_id,
+    routineId: row.elder_id,
+    routineKind: row.domain === "food" ? "food" : row.domain,
+    scheduledAt: row.scheduled_for,
+    respondedAt: row.responded_at ?? undefined,
+    status: checkInStatusToUi(row.status),
+    response: row.response_value ?? undefined,
+    channel,
+    notes: row.response_channel === "voice" ? "voice" : undefined,
+  };
+}
+
+export interface LocalCaregiverRow {
+  id: string;
+  elder_id: string;
+  full_name: string;
+  whatsapp_number: string;
+  phone_number: string | null;
+  action_plan: string | null;
+  created_at: string;
+}
+
+export function localBuddyFromRow(row: LocalCaregiverRow): LocalBuddy {
+  return {
+    id: row.id,
+    lovedOneId: row.elder_id,
+    name: row.full_name,
+    relationship: "Local Buddy",
+    whatsappNumber: row.whatsapp_number,
+    directContactNumber: row.phone_number ?? undefined,
+    availabilityNotes: row.action_plan ?? undefined,
+    preferredContactMethod: "whatsapp",
+    createdAt: row.created_at,
+    updatedAt: row.created_at,
+  };
+}
+
+export interface DoctorRow {
+  id: string;
+  elder_id: string;
+  full_name: string;
+  whatsapp_number: string;
+  phone_number: string | null;
+  address: string | null;
+  timezone: string | null;
+  approved_by_ct: boolean;
+  created_at: string;
+}
+
+export function doctorFromRow(row: DoctorRow): FamilyDoctor {
+  return {
+    id: row.id,
+    lovedOneId: row.elder_id,
+    name: row.full_name,
+    whatsappNumber: row.whatsapp_number,
+    directContactNumber: row.phone_number ?? undefined,
+    clinicAddress: row.address ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.created_at,
+  };
+}
+
+export interface SosEventRow {
+  id: string;
+  elder_id: string;
+  triggered_at: string;
+  status: "open" | "resolved";
+  nudges_sent: number;
+  resolved_by_role: string | null;
+  resolved_by_id: string | null;
+  resolved_channel: string | null;
+  resolved_at: string | null;
+}
+
+export interface SosNotificationRow {
+  id: string;
+  sos_event_id: string;
+  recipient_role: "care_partner" | "local_caregiver" | "doctor";
+  recipient_id: string;
+  nudge_index: number;
+  sent_at: string;
+  delivered_at: string | null;
+}
+
+export function sosEventFromRows(
+  event: SosEventRow,
+  notifications: SosNotificationRow[],
+  names: { carePartner?: string; localBuddy?: string; doctor?: string },
+): SOSEvent {
+  const related = notifications.filter((n) => n.sos_event_id === event.id);
+  const carePartnerNotified = related.some((n) => n.recipient_role === "care_partner");
+  const localBuddyNotified = related.some((n) => n.recipient_role === "local_caregiver");
+  const doctorNotified = related.some((n) => n.recipient_role === "doctor");
+
+  const cascadeSteps: SOSCascadeStep[] = [
+    {
+      role: "loved_one",
+      label: "Loved One",
+      actorName: "Loved One",
+      status: "completed",
+      notifiedAt: event.triggered_at,
+    },
+    {
+      role: "care_partner",
+      label: "Care Partner",
+      actorName: names.carePartner ?? "Care Partner",
+      status: carePartnerNotified ? "notified" : "pending",
+      notifiedAt: related.find((n) => n.recipient_role === "care_partner")?.sent_at,
+    },
+    {
+      role: "local_buddy",
+      label: "Local Buddy",
+      actorName: names.localBuddy ?? "Local Buddy",
+      status: localBuddyNotified ? "notified" : "skipped",
+      notifiedAt: related.find((n) => n.recipient_role === "local_caregiver")?.sent_at,
+    },
+    {
+      role: "family_doctor",
+      label: "Family Doctor",
+      actorName: names.doctor ?? "Family Doctor",
+      status: doctorNotified ? "notified" : "skipped",
+      notifiedAt: related.find((n) => n.recipient_role === "doctor")?.sent_at,
+    },
+  ];
+
+  const timeline: SOSTimelineEntry[] = [
+    {
+      id: `${event.id}-triggered`,
+      at: event.triggered_at,
+      title: "SOS triggered",
+      tone: "sos",
+    },
+    ...related.map((n) => ({
+      id: n.id,
+      at: n.sent_at,
+      title: `Notified ${n.recipient_role.replace("_", " ")}`,
+      tone: "warn" as const,
+    })),
+  ];
+  if (event.resolved_at) {
+    timeline.push({
+      id: `${event.id}-resolved`,
+      at: event.resolved_at,
+      title: "SOS resolved",
+      tone: "ok",
+    });
+  }
+
+  return {
+    id: event.id,
+    lovedOneId: event.elder_id,
+    status: event.status === "open" ? "active" : "resolved",
+    triggeredAt: event.triggered_at,
+    triggerChannel: "whatsapp",
+    carePartnerNotified,
+    localBuddyNotified,
+    doctorNotified,
+    resolvedAt: event.resolved_at ?? undefined,
+    responders: related.map((n) => n.recipient_role),
+    callsMade: [],
+    whatsappActions: related.map((n) => `nudge ${n.nudge_index}`),
+    cascadeSteps,
+    timeline,
+    autoCascade: false,
+  };
+}
+
+export interface CtNotificationRow {
+  id: string;
+  elder_id: string;
+  care_partner_id: string;
+  type: "interaction" | "missed";
+  checkin_id: string | null;
+  sent_at: string;
+}
+
+export function ctNotificationFromRow(
+  row: CtNotificationRow,
+  elderName?: string,
+): AppNotification {
+  const category: NotificationCategory =
+    row.type === "missed" ? "routine" : "medication";
+  const who = elderName ?? "Loved One";
+  return {
+    id: row.id,
+    lovedOneId: row.elder_id,
+    category,
+    title: row.type === "missed" ? "Missed check-in" : "Check-in response",
+    body:
+      row.type === "missed"
+        ? `${who} missed a scheduled check-in.`
+        : `${who} responded to a check-in.`,
+    createdAt: row.sent_at,
+    // No read_at column on ct_notifications — always unread until schema decision
+    read: false,
+    href: row.checkin_id ? "/dashboard" : "/notifications",
   };
 }

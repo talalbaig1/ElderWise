@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { NotificationPanel } from "@/components/layout/notification-panel";
+import { useAppData } from "@/components/data/app-data-provider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,11 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import {
-  useAuth,
-  useElderWiseStore,
-  useUnreadNotificationCount,
-} from "@/lib/store";
+import { useAuth } from "@/lib/store";
 import { initials } from "@/lib/utils";
 
 interface AppHeaderProps {
@@ -37,10 +34,10 @@ interface AppHeaderProps {
 
 export function AppHeader({ onMenuClick }: AppHeaderProps) {
   const router = useRouter();
-  const { store } = useElderWiseStore();
+  const data = useAppData();
   const { signOut } = useAuth();
-  const unread = useUnreadNotificationCount();
-  const carePartner = store.carePartner;
+  const carePartner = data.carePartner;
+  const unread = data.notifications.length;
 
   const handleSignOut = () => {
     signOut();
@@ -98,7 +95,7 @@ export function AppHeader({ onMenuClick }: AppHeaderProps) {
                 </Button>
               </SheetHeader>
               <div className="mt-4">
-                <NotificationPanel />
+                <NotificationPanel items={data.notifications} />
               </div>
             </SheetContent>
           </Sheet>

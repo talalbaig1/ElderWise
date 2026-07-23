@@ -49,7 +49,7 @@ import {
   markCascadeAcknowledged,
   resolveSos,
 } from "@/lib/sos";
-import { useElderWiseStore, useSelectedLovedOne } from "@/lib/store";
+import { useDomainStore } from "@/components/data/app-data-provider";
 import { cn } from "@/lib/utils";
 import type { SOSEvent, SOSStatus } from "@/types";
 
@@ -69,8 +69,8 @@ function useElapsedTick(enabled: boolean, setTick: Dispatch<SetStateAction<numbe
 }
 
 export default function SosPage() {
-  const { store, setStore, setSelectedLovedOneId, hydrated } = useElderWiseStore();
-  const selectedLovedOne = useSelectedLovedOne();
+  const { store, setSelectedLovedOneId, hydrated, lovedOne: selectedLovedOne } =
+    useDomainStore();
   const reduceMotion = useReducedMotion();
 
   const events = useMemo(
@@ -132,73 +132,36 @@ export default function SosPage() {
   ).length;
 
   const triggerSos = () => {
-    if (!selectedLovedOne) {
-      toast.error("Select a Loved One first");
-      return;
-    }
-    const existing = store.sosEvents.find(
-      (e) =>
-        e.lovedOneId === selectedLovedOne.id &&
-        (e.status === "active" || e.status === "acknowledged"),
-    );
-    if (existing) {
-      setSelectedId(existing.id);
-      toast.message("An SOS is already open for this Loved One");
-      return;
-    }
-
-    const { event } = createTriggeredSos({
-      store,
-      lovedOneId: selectedLovedOne.id,
-      channel: "simulated",
-      autoCascade: true,
+    toast.message("SOS trigger stays unwired until A2.7", {
+      description: "Pass 1 reads live sos_events only.",
     });
-
-    setStore((prev) =>
-      applySosToStore(prev, event, {
-        notificationTitle: `SOS · ${selectedLovedOne.firstName}`,
-        notificationBody: "Demo emergency cascade is running. Timeline updates automatically.",
-      }),
-    );
-    setSelectedId(event.id);
-    toast.success("SOS triggered — cascade running");
   };
 
-  const updateEvent = (next: SOSEvent) => {
-    setStore((prev) => applySosToStore(prev, next));
-    setSelectedId(next.id);
+  const updateEvent = (_next: SOSEvent) => {
+    toast.message("SOS updates stay unwired until A2.7");
   };
 
   const onAcknowledge = () => {
-    if (!selected) return;
-    updateEvent(acknowledgeSos(selected, cpName));
-    toast.success("SOS acknowledged");
+    toast.message("Acknowledge stays unwired until A2.7");
   };
 
   const onBuddyAck = () => {
-    if (!selected) return;
-    updateEvent(markCascadeAcknowledged(selected, "local_buddy"));
-    toast.success("Local Buddy acknowledged");
+    toast.message("Acknowledge stays unwired until A2.7");
   };
 
   const onDoctorAck = () => {
-    if (!selected) return;
-    updateEvent(markCascadeAcknowledged(selected, "family_doctor"));
-    toast.success("Family Doctor acknowledged");
+    toast.message("Acknowledge stays unwired until A2.7");
   };
 
   const onResolve = () => {
-    if (!selected) return;
-    updateEvent(resolveSos(selected, resolveNotes));
+    toast.message("Resolve stays unwired until A2.7", {
+      description: "Dashboard SOS resolution + n8n webhook is A2.7.",
+    });
     setResolveOpen(false);
-    setResolveNotes("");
-    toast.success("SOS resolved");
   };
 
   const onCancel = () => {
-    if (!selected) return;
-    updateEvent(cancelSos(selected));
-    toast.message("SOS cancelled");
+    toast.message("Cancel stays unwired until A2.7");
   };
 
   const progress = selected ? cascadeProgress(selected.cascadeSteps) : 0;

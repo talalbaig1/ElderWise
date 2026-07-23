@@ -12,12 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useElderWiseStore, useUnreadNotificationCount } from "@/lib/store";
+import { useDomainStore } from "@/components/data/app-data-provider";
 import type { NotificationCategory } from "@/types";
 
 export default function NotificationsPage() {
-  const { store, hydrated } = useElderWiseStore();
-  const unread = useUnreadNotificationCount();
+  const { store, hydrated } = useDomainStore();
+  const unread = store.notifications.filter((n) => !n.read).length;
   const [category, setCategory] = useState<"all" | NotificationCategory>("all");
 
   const filtered = useMemo(() => {
@@ -36,7 +36,8 @@ export default function NotificationsPage() {
           <p className="text-sm font-medium text-primary">Inbox</p>
           <h1 className="font-display text-3xl tracking-tight md:text-4xl">Notifications</h1>
           <p className="mt-1 text-muted-foreground">
-            Check-ins, SOS, journals, and reports — kept locally on this device.
+            Care Partner alerts from check-ins (ct_notifications). Mark-as-read is not
+            stored yet — no read_at column on this table.
           </p>
         </div>
         <Badge variant="secondary" className="w-fit gap-1.5 font-mono">

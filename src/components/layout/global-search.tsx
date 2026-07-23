@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { appNav } from "@/lib/navigation";
-import { useElderWiseStore } from "@/lib/store";
+import { useDomainStore } from "@/components/data/app-data-provider";
 import { cn } from "@/lib/utils";
 
 export function GlobalSearch({ className }: { className?: string }) {
   const router = useRouter();
-  const { store, setSelectedLovedOneId } = useElderWiseStore();
+  const { store, setSelectedLovedOneId } = useDomainStore();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);

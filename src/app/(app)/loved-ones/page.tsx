@@ -38,20 +38,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ageFromDob, createBlankLovedOne, removeLovedOneFromStore } from "@/lib/loved-ones";
+import { useDomainStore } from "@/components/data/app-data-provider";
 import { useElderWiseStore } from "@/lib/store";
 import { cn, initials } from "@/lib/utils";
 import type { WellbeingStatus } from "@/types";
 
 export default function LovedOnesPage() {
   const router = useRouter();
-  const { store, setStore, setSelectedLovedOneId, hydrated } = useElderWiseStore();
+  const { store, setSelectedLovedOneId, hydrated } = useDomainStore();
+  const { setStore } = useElderWiseStore();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | WellbeingStatus>("all");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [addOpen, setAddOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [draft, setDraft] = useState(() =>
-    createBlankLovedOne(store.session.carePartnerId || store.carePartner?.id || "cp"),
+    createBlankLovedOne(store.carePartner?.id || "cp"),
   );
 
   const filtered = useMemo(() => {
@@ -68,52 +70,23 @@ export default function LovedOnesPage() {
   }
 
   const openAdd = () => {
-    setDraft(createBlankLovedOne(store.session.carePartnerId || store.carePartner?.id || "cp"));
-    setAddOpen(true);
+    toast.message("Adds save in Pass 2", {
+      description: "This pass reads live data only.",
+    });
   };
 
   const saveNew = () => {
-    if (!draft.firstName.trim() || !draft.surname.trim() || !draft.whatsappNumber.trim()) {
-      toast.error("First name, surname, and WhatsApp number are required");
-      return;
-    }
-    if (!draft.relationshipToCarePartner.trim()) {
-      toast.error("Relationship is required");
-      return;
-    }
-    if (!draft.address.trim()) {
-      toast.error("Address is required — the Local Buddy needs it in an emergency");
-      return;
-    }
-    const now = new Date().toISOString();
-    const next = {
-      ...draft,
-      firstName: draft.firstName.trim(),
-      surname: draft.surname.trim(),
-      address: draft.address.trim(),
-      consentAttestedByCarePartner: draft.consentAttestedByCarePartner,
-      consentAttestedAt: draft.consentAttestedByCarePartner
-        ? draft.consentAttestedAt || now
-        : "",
-      consentConfirmedAt: null,
-      updatedAt: now,
-    };
-    setStore((prev) => ({
-      ...prev,
-      lovedOnes: [next, ...prev.lovedOnes],
-      selectedLovedOneId: next.id,
-    }));
+    toast.message("Adds save in Pass 2", {
+      description: "This pass reads live data only.",
+    });
     setAddOpen(false);
-    toast.success(`${next.firstName} added`);
-    router.push(`/loved-ones/${next.id}`);
   };
 
   const confirmDelete = () => {
-    if (!deleteId) return;
-    const name = store.lovedOnes.find((l) => l.id === deleteId);
-    setStore((prev) => removeLovedOneFromStore(prev, deleteId));
+    toast.message("Deletes save in Pass 2", {
+      description: "This pass reads live data only.",
+    });
     setDeleteId(null);
-    toast.success(`${name?.firstName ?? "Loved One"} removed`);
   };
 
   return (

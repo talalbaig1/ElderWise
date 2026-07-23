@@ -31,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ageFromDob } from "@/lib/loved-ones";
+import { useDomainStore } from "@/components/data/app-data-provider";
 import { useElderWiseStore } from "@/lib/store";
 import { initials } from "@/lib/utils";
 import type { Gender, LovedOne, WellbeingStatus } from "@/types";
@@ -38,7 +39,8 @@ import type { Gender, LovedOne, WellbeingStatus } from "@/types";
 export default function LovedOneProfilePage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { store, setStore, setSelectedLovedOneId, hydrated } = useElderWiseStore();
+  const { store, setSelectedLovedOneId, hydrated } = useDomainStore();
+  const { setStore } = useElderWiseStore();
   const lovedOne = store.lovedOnes.find((lo) => lo.id === params.id);
   const [editingOverview, setEditingOverview] = useState(false);
   const [draft, setDraft] = useState<LovedOne | null>(null);
@@ -85,20 +87,11 @@ export default function LovedOneProfilePage() {
   };
 
   const saveOverview = () => {
-    if (!draft) return;
-    if (!draft.firstName.trim() || !draft.surname.trim() || !draft.whatsappNumber.trim()) {
-      toast.error("Name and WhatsApp are required");
-      return;
-    }
-    setStore((prev) => ({
-      ...prev,
-      lovedOnes: prev.lovedOnes.map((lo) =>
-        lo.id === draft.id ? { ...draft, updatedAt: new Date().toISOString() } : lo,
-      ),
-    }));
+    toast.message("Profile saves land in Pass 2", {
+      description: "This pass reads live data only.",
+    });
     setEditingOverview(false);
     setDraft(null);
-    toast.success("Profile updated");
   };
 
   return (

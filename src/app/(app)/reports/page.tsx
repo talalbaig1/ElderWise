@@ -44,7 +44,7 @@ import {
   type ReportKind,
 } from "@/lib/report-analytics";
 import { exportReportCsv, exportReportPdf, openPrintView } from "@/lib/report-export";
-import { useElderWiseStore, useSelectedLovedOne } from "@/lib/store";
+import { useDomainStore } from "@/components/data/app-data-provider";
 import { cn } from "@/lib/utils";
 
 const kindIcons: Record<ReportKind, typeof Pill> = {
@@ -105,8 +105,8 @@ function weekAgoStr() {
 }
 
 export default function ReportsPage() {
-  const { store, setSelectedLovedOneId, hydrated } = useElderWiseStore();
-  const selected = useSelectedLovedOne();
+  const { store, setSelectedLovedOneId, hydrated, lovedOne: selected } =
+    useDomainStore();
   const [kind, setKind] = useState<ReportKind>("overall");
   const [startDate, setStartDate] = useState(weekAgoStr);
   const [endDate, setEndDate] = useState(todayStr);

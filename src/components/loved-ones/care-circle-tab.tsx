@@ -7,11 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createBlankBuddy, createBlankDoctor } from "@/lib/loved-ones";
-import { useElderWiseStore } from "@/lib/store";
+import { useDomainStore } from "@/components/data/app-data-provider";
 import type { FamilyDoctor, LocalBuddy } from "@/types";
 
+const PASS1_WRITE =
+  "Care-circle edits save in Pass 2 — A2.3 is reads only.";
+
 export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
-  const { store, setStore } = useElderWiseStore();
+  const { store, data } = useDomainStore();
   const buddy = store.localBuddies.find((b) => b.lovedOneId === lovedOneId) ?? null;
   const doctor = store.doctors.find((d) => d.lovedOneId === lovedOneId) ?? null;
   const carePartner = store.carePartner;
@@ -19,59 +22,14 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
   const [buddyDraft, setBuddyDraft] = useState<LocalBuddy | null>(null);
   const [doctorDraft, setDoctorDraft] = useState<FamilyDoctor | null>(null);
 
-  const saveBuddy = (value: LocalBuddy) => {
-    if (
-      !value.name.trim() ||
-      !value.whatsappNumber.trim() ||
-      !value.directContactNumber?.trim()
-    ) {
-      toast.error("Name, WhatsApp, and direct contact number are required");
-      return;
-    }
-    setStore((prev) => {
-      const exists = prev.localBuddies.some((b) => b.id === value.id);
-      const next = {
-        ...value,
-        relationship: value.relationship || "Local Buddy",
-        preferredContactMethod: value.preferredContactMethod || "whatsapp",
-        updatedAt: new Date().toISOString(),
-      };
-      const localBuddies = exists
-        ? prev.localBuddies.map((b) => (b.id === value.id ? next : b))
-        : [...prev.localBuddies, next];
-      return {
-        ...prev,
-        localBuddies,
-        lovedOnes: prev.lovedOnes.map((lo) =>
-          lo.id === lovedOneId ? { ...lo, localBuddyId: next.id } : lo,
-        ),
-      };
-    });
+  const saveBuddy = (_value: LocalBuddy) => {
+    toast.message(PASS1_WRITE);
     setBuddyDraft(null);
-    toast.success("Local Buddy saved");
   };
 
-  const saveDoctor = (value: FamilyDoctor) => {
-    if (!value.name.trim() || !value.whatsappNumber.trim()) {
-      toast.error("Doctor name and WhatsApp are required");
-      return;
-    }
-    setStore((prev) => {
-      const exists = prev.doctors.some((d) => d.id === value.id);
-      const next = { ...value, updatedAt: new Date().toISOString() };
-      const doctors = exists
-        ? prev.doctors.map((d) => (d.id === value.id ? next : d))
-        : [...prev.doctors, next];
-      return {
-        ...prev,
-        doctors,
-        lovedOnes: prev.lovedOnes.map((lo) =>
-          lo.id === lovedOneId ? { ...lo, doctorId: next.id } : lo,
-        ),
-      };
-    });
+  const saveDoctor = (_value: FamilyDoctor) => {
+    toast.message(PASS1_WRITE);
     setDoctorDraft(null);
-    toast.success("Family Doctor saved");
   };
 
   return (
@@ -222,6 +180,19 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
           ) : (
             <p className="text-muted-foreground">Not added yet</p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="lg:col-span-3">
+        <CardHeader>
+          <CardTitle className="text-lg">Doctor share links</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {data.doctorShareLinks.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No active share links. Issue / revoke lands in A2.6.
+            </p>
+          ) : null}
         </CardContent>
       </Card>
     </div>

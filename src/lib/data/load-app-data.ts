@@ -1,0 +1,208 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type {
+  CarePartner,
+  LovedOne,
+  Medication,
+  FoodRoutine,
+  HealthRoutine,
+  CheckInResponse,
+  SOSEvent,
+  AppNotification,
+  LocalBuddy,
+  FamilyDoctor,
+  ElderWiseStore,
+  AuthSession,
+  UserSettings,
+} from "@/types";
+import { defaultSettings } from "@/data/mock";
+import {
+  carePartnerFromRow,
+  lovedOneFromElderRow,
+  medicationFromRow,
+  foodRoutineFromRow,
+  healthRoutineFromRow,
+  checkInFromRow,
+  localBuddyFromRow,
+  doctorFromRow,
+  sosEventFromRows,
+  ctNotificationFromRow,
+  type CarePartnerRow,
+  type ElderRow,
+  type MedicationRow,
+  type FoodRoutineRow,
+  type HealthRoutineRow,
+  type CheckinRow,
+  type LocalCaregiverRow,
+  type DoctorRow,
+  type SosEventRow,
+  type SosNotificationRow,
+  type CtNotificationRow,
+} from "@/lib/supabase/mappers";
+
+export interface AppReadModel {
+  carePartner: CarePartner | null;
+  lovedOnes: LovedOne[];
+  localBuddies: LocalBuddy[];
+  doctors: FamilyDoctor[];
+  medications: Medication[];
+  foodRoutines: FoodRoutine[];
+  healthRoutines: HealthRoutine[];
+  checkIns: CheckInResponse[];
+  sosEvents: SOSEvent[];
+  notifications: AppNotification[];
+  viewerTimeZone: string;
+  /** Always empty in MVP — voice_journal_entries table does not exist */
+  voiceJournals: [];
+  /** Always empty until A2.6 */
+  doctorShareLinks: [];
+  /** Always empty until templates seeded */
+  messageTemplates: [];
+}
+
+export const EMPTY_APP_READ_MODEL: AppReadModel = {
+  carePartner: null,
+  lovedOnes: [],
+  localBuddies: [],
+  doctors: [],
+  medications: [],
+  foodRoutines: [],
+  healthRoutines: [],
+  checkIns: [],
+  sosEvents: [],
+  notifications: [],
+  viewerTimeZone: "UTC",
+  voiceJournals: [],
+  doctorShareLinks: [],
+  messageTemplates: [],
+};
+
+export async function loadAppData(
+  supabase: SupabaseClient,
+): Promise<AppReadModel> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return EMPTY_APP_READ_MODEL;
+  }
+
+  const [
+    cpRes,
+    eldersRes,
+    lctRes,
+    docRes,
+    medRes,
+    foodRes,
+    healthRes,
+    checkinsRes,
+    sosRes,
+    sosNotifRes,
+    ctNotifRes,
+  ] = await Promise.all([
+    supabase.from("care_partners").select("*").eq("id", user.id).maybeSingle(),
+    supabase.from("elders").select("*").order("created_at", { ascending: true }),
+    supabase.from("local_caregivers").select("*"),
+    supabase.from("doctors").select("*"),
+    supabase.from("medications").select("*"),
+    supabase.from("food_routines").select("*"),
+    supabase.from("health_routines").select("*"),
+    supabase.from("checkins").select("*").order("scheduled_for", { ascending: false }),
+    supabase.from("sos_events").select("*").order("triggered_at", { ascending: false }),
+    supabase.from("sos_notifications").select("*"),
+    supabase.from("ct_notifications").select("*").order("sent_at", { ascending: false }),
+  ]);
+
+  const carePartner = cpRes.data
+    ? carePartnerFromRow(cpRes.data as CarePartnerRow)
+    : null;
+  const lovedOnes = (eldersRes.data ?? []).map((r) =>
+    lovedOneFromElderRow(r as ElderRow),
+  );
+  const localBuddies = (lctRes.data ?? []).map((r) =>
+    localBuddyFromRow(r as LocalCaregiverRow),
+  );
+  const doctors = (docRes.data ?? []).map((r) => doctorFromRow(r as DoctorRow));
+  const medications = (medRes.data ?? []).map((r) =>
+    medicationFromRow(r as MedicationRow),
+  );
+  const foodRoutines = (foodRes.data ?? []).map((r) =>
+    foodRoutineFromRow(r as FoodRoutineRow),
+  );
+  const healthRoutines = (healthRes.data ?? []).map((r) =>
+    healthRoutineFromRow(r as HealthRoutineRow),
+  );
+  const checkIns = (checkinsRes.data ?? []).map((r) =>
+    checkInFromRow(r as CheckinRow),
+  );
+
+  const elderName = (id: string) => {
+    const lo = lovedOnes.find((e) => e.id === id);
+    return lo ? `${lo.firstName} ${lo.surname}`.trim() : undefined;
+  };
+
+  const sosNotifications = (sosNotifRes.data ?? []) as SosNotificationRow[];
+  const sosEvents = ((sosRes.data ?? []) as SosEventRow[]).map((ev) => {
+    const buddy = localBuddies.find((b) => b.lovedOneId === ev.elder_id);
+    const doc = doctors.find((d) => d.lovedOneId === ev.elder_id);
+    return sosEventFromRows(ev, sosNotifications, {
+      carePartner: carePartner
+        ? `${carePartner.firstName} ${carePartner.lastName}`.trim()
+        : undefined,
+      localBuddy: buddy?.name,
+      doctor: doc?.name,
+    });
+  });
+
+  const notifications = ((ctNotifRes.data ?? []) as CtNotificationRow[]).map(
+    (row) => ctNotificationFromRow(row, elderName(row.elder_id)),
+  );
+
+  return {
+    carePartner,
+    lovedOnes,
+    localBuddies,
+    doctors,
+    medications,
+    foodRoutines,
+    healthRoutines,
+    checkIns,
+    sosEvents,
+    notifications,
+    viewerTimeZone: carePartner?.timeZone ?? "UTC",
+    voiceJournals: [],
+    doctorShareLinks: [],
+    messageTemplates: [],
+  };
+}
+
+/** In-memory ElderWiseStore shape for analytics — never written to localStorage. */
+export function toAnalyticsStore(
+  data: AppReadModel,
+  session: AuthSession,
+  settings: UserSettings,
+  selectedLovedOneId: string | null,
+): ElderWiseStore {
+  const selected =
+    selectedLovedOneId && data.lovedOnes.some((l) => l.id === selectedLovedOneId)
+      ? selectedLovedOneId
+      : (data.lovedOnes[0]?.id ?? null);
+
+  return {
+    version: 1,
+    session,
+    carePartner: data.carePartner,
+    lovedOnes: data.lovedOnes,
+    localBuddies: data.localBuddies,
+    doctors: data.doctors,
+    medications: data.medications,
+    foodRoutines: data.foodRoutines,
+    healthRoutines: data.healthRoutines,
+    checkIns: data.checkIns,
+    sosEvents: data.sosEvents,
+    voiceJournals: [],
+    notifications: data.notifications,
+    reports: [],
+    settings: settings ?? defaultSettings,
+    selectedLovedOneId: selected,
+  };
+}

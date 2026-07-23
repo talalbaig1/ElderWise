@@ -19,8 +19,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { createBlankFood, createBlankHealth, createBlankMedication } from "@/lib/loved-ones";
-import { useElderWiseStore } from "@/lib/store";
+import { useDomainStore } from "@/components/data/app-data-provider";
 import type { FoodRoutine, HealthRoutine, Medication } from "@/types";
+
+const PASS1_WRITE = "Routine edits save in Pass 2 — A2.3 is reads only.";
+function blockWrite() {
+  toast.message(PASS1_WRITE);
+}
 
 export function MedicationTab({
   lovedOneId,
@@ -28,27 +33,13 @@ export function MedicationTab({
   lovedOneId: string;
   lovedOneName: string;
 }) {
-  const { store, setStore } = useElderWiseStore();
+  const { store } = useDomainStore();
   const items = store.medications.filter((m) => m.lovedOneId === lovedOneId);
   const [editing, setEditing] = useState<Medication | null>(null);
 
-  const save = (med: Medication) => {
-    if (!med.name.trim() || !med.dosage.trim() || !med.startDate) {
-      toast.error("Name, dosage, and start date are required");
-      return;
-    }
-    setStore((prev) => {
-      const exists = prev.medications.some((m) => m.id === med.id);
-      const next = { ...med, updatedAt: new Date().toISOString() };
-      return {
-        ...prev,
-        medications: exists
-          ? prev.medications.map((m) => (m.id === med.id ? next : m))
-          : [...prev.medications, next],
-      };
-    });
+  const save = (_med: Medication) => {
+    blockWrite();
     setEditing(null);
-    toast.success("Medication saved");
   };
 
   return (
@@ -66,31 +57,12 @@ export function MedicationTab({
               title={item.name || "Untitled"}
               subtitle={`${item.dosage} ${item.dosageUnit} · ${item.times.join(", ")} · ${item.startDate}${item.endDate ? ` → ${item.endDate}` : ""}`}
               enabled={item.enabled}
-              onToggle={(enabled) =>
-                setStore((prev) => ({
-                  ...prev,
-                  medications: prev.medications.map((m) =>
-                    m.id === item.id ? { ...m, enabled, updatedAt: new Date().toISOString() } : m,
-                  ),
-                }))
-              }
+              onToggle={() => blockWrite()}
               onEdit={() => setEditing(item)}
-              onDuplicate={() => {
-                const copy = {
-                  ...item,
-                  id: createBlankMedication(lovedOneId).id,
-                  name: `${item.name} (copy)`,
-                };
-                setStore((prev) => ({ ...prev, medications: [...prev.medications, copy] }));
-                toast.success("Duplicated");
-              }}
+              onDuplicate={() => blockWrite()}
               onDelete={() => {
                 if (!window.confirm(`Remove ${item.name}?`)) return;
-                setStore((prev) => ({
-                  ...prev,
-                  medications: prev.medications.filter((m) => m.id !== item.id),
-                }));
-                toast.success("Removed");
+                blockWrite();
               }}
             />
           ))}
@@ -193,27 +165,13 @@ export function MedicationTab({
 }
 
 export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
-  const { store, setStore } = useElderWiseStore();
+  const { store } = useDomainStore();
   const items = store.foodRoutines.filter((f) => f.lovedOneId === lovedOneId);
   const [editing, setEditing] = useState<FoodRoutine | null>(null);
 
-  const save = (item: FoodRoutine) => {
-    if (!item.mealName.trim() || !item.startDate || !item.endDate) {
-      toast.error("Meal name, start date, and end date are required");
-      return;
-    }
-    setStore((prev) => {
-      const exists = prev.foodRoutines.some((f) => f.id === item.id);
-      const next = { ...item, updatedAt: new Date().toISOString() };
-      return {
-        ...prev,
-        foodRoutines: exists
-          ? prev.foodRoutines.map((f) => (f.id === item.id ? next : f))
-          : [...prev.foodRoutines, next],
-      };
-    });
+  const save = (_item: FoodRoutine) => {
+    blockWrite();
     setEditing(null);
-    toast.success("Meal routine saved");
   };
 
   return (
@@ -231,21 +189,11 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
               title={item.mealName}
               subtitle={`${item.checkInTime} · ${item.startDate}${item.endDate ? ` → ${item.endDate}` : ""}`}
               enabled={item.enabled}
-              onToggle={(enabled) =>
-                setStore((prev) => ({
-                  ...prev,
-                  foodRoutines: prev.foodRoutines.map((f) =>
-                    f.id === item.id ? { ...f, enabled, updatedAt: new Date().toISOString() } : f,
-                  ),
-                }))
-              }
+              onToggle={() => blockWrite()}
               onEdit={() => setEditing(item)}
               onDelete={() => {
                 if (!window.confirm(`Remove ${item.mealName}?`)) return;
-                setStore((prev) => ({
-                  ...prev,
-                  foodRoutines: prev.foodRoutines.filter((f) => f.id !== item.id),
-                }));
+                blockWrite();
               }}
             />
           ))}
@@ -309,27 +257,13 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
 }
 
 export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
-  const { store, setStore } = useElderWiseStore();
+  const { store } = useDomainStore();
   const items = store.healthRoutines.filter((h) => h.lovedOneId === lovedOneId);
   const [editing, setEditing] = useState<HealthRoutine | null>(null);
 
-  const save = (item: HealthRoutine) => {
-    if (!item.name.trim() || !item.startDate || !item.endDate) {
-      toast.error("Routine name, start date, and end date are required");
-      return;
-    }
-    setStore((prev) => {
-      const exists = prev.healthRoutines.some((h) => h.id === item.id);
-      const next = { ...item, updatedAt: new Date().toISOString() };
-      return {
-        ...prev,
-        healthRoutines: exists
-          ? prev.healthRoutines.map((h) => (h.id === item.id ? next : h))
-          : [...prev.healthRoutines, next],
-      };
-    });
+  const save = (_item: HealthRoutine) => {
+    blockWrite();
     setEditing(null);
-    toast.success("Health routine saved");
   };
 
   return (
@@ -347,21 +281,11 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
               title={item.name}
               subtitle={`${item.time} · ${item.startDate}${item.endDate ? ` → ${item.endDate}` : ""} · Answer: ${item.answerType === "yes_no" ? "Yes/No" : `${item.answerType} (Coming soon)`}`}
               enabled={item.enabled}
-              onToggle={(enabled) =>
-                setStore((prev) => ({
-                  ...prev,
-                  healthRoutines: prev.healthRoutines.map((h) =>
-                    h.id === item.id ? { ...h, enabled, updatedAt: new Date().toISOString() } : h,
-                  ),
-                }))
-              }
+              onToggle={() => blockWrite()}
               onEdit={() => setEditing(item)}
               onDelete={() => {
                 if (!window.confirm(`Remove ${item.name}?`)) return;
-                setStore((prev) => ({
-                  ...prev,
-                  healthRoutines: prev.healthRoutines.filter((h) => h.id !== item.id),
-                }));
+                blockWrite();
               }}
             />
           ))}

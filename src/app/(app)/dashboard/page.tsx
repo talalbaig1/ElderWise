@@ -39,10 +39,9 @@ import {
   greetingForHour,
 } from "@/lib/dashboard-analytics";
 import {
-  useElderWiseStore,
-  useSelectedLovedOne,
-  useUnreadNotificationCount,
-} from "@/lib/store";
+  useDomainStore,
+} from "@/components/data/app-data-provider";
+import { formatInTimeZone } from "@/lib/time/display";
 import { cn } from "@/lib/utils";
 
 function todayStr() {
@@ -55,9 +54,9 @@ function weekAgoStr() {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { store, setSelectedLovedOneId, hydrated } = useElderWiseStore();
-  const lovedOne = useSelectedLovedOne();
-  const unread = useUnreadNotificationCount();
+  const { store, lovedOne, setSelectedLovedOneId, hydrated, viewerTimeZone } =
+    useDomainStore();
+  const unread = store.notifications.filter((n) => !n.read).length;
   const reduce = useReducedMotion();
 
   const [startDate, setStartDate] = useState(weekAgoStr);
@@ -126,7 +125,13 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
           <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-            {format(new Date(), "EEEE, d MMMM")}
+            {formatInTimeZone(new Date(), viewerTimeZone, {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            })}
+            {" · "}
+            {viewerTimeZone}
           </p>
           <h1 className="mt-2 font-display text-3xl leading-tight sm:text-4xl">
             {greeting}, {careName}.
@@ -242,7 +247,8 @@ export default function DashboardPage() {
                 <p className="font-semibold">Active SOS · {lovedOne.firstName}</p>
               </div>
               <p className="text-sm text-foreground/80">
-                Triggered {format(parseISO(model.activeSos.triggeredAt), "h:mm a")} ·{" "}
+                Triggered{" "}
+                {formatInTimeZone(model.activeSos.triggeredAt, viewerTimeZone)} ·{" "}
                 {model.activeSos.locationPlaceholder || "Location unavailable"} · Status{" "}
                 {model.activeSos.status}
               </p>
