@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useAuthSynced } from "@/components/auth/auth-session-sync";
 import { useAuth } from "@/lib/store";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -21,11 +22,13 @@ function AuthLoading() {
 /** Protects authenticated app pages. */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { hydrated, isAuthenticated, onboardingComplete } = useAuth();
+  const authSynced = useAuthSynced();
   const router = useRouter();
   const pathname = usePathname();
+  const ready = hydrated && authSynced;
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!ready) return;
     if (!isAuthenticated) {
       router.replace(`/sign-in?next=${encodeURIComponent(pathname)}`);
       return;
@@ -33,9 +36,9 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     if (!onboardingComplete && !pathname.startsWith("/onboarding")) {
       router.replace("/onboarding");
     }
-  }, [hydrated, isAuthenticated, onboardingComplete, pathname, router]);
+  }, [ready, isAuthenticated, onboardingComplete, pathname, router]);
 
-  if (!hydrated) return <AuthLoading />;
+  if (!ready) return <AuthLoading />;
   if (!isAuthenticated) return <AuthLoading />;
   if (!onboardingComplete && !pathname.startsWith("/onboarding")) return <AuthLoading />;
 
@@ -45,14 +48,16 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 /** Keeps signed-in users out of auth forms. */
 export function RequireGuest({ children }: { children: ReactNode }) {
   const { hydrated, isAuthenticated, onboardingComplete } = useAuth();
+  const authSynced = useAuthSynced();
   const router = useRouter();
+  const ready = hydrated && authSynced;
 
   useEffect(() => {
-    if (!hydrated || !isAuthenticated) return;
+    if (!ready || !isAuthenticated) return;
     router.replace(onboardingComplete ? "/dashboard" : "/onboarding");
-  }, [hydrated, isAuthenticated, onboardingComplete, router]);
+  }, [ready, isAuthenticated, onboardingComplete, router]);
 
-  if (!hydrated) return <AuthLoading />;
+  if (!ready) return <AuthLoading />;
   if (isAuthenticated) return <AuthLoading />;
 
   return <>{children}</>;
@@ -61,10 +66,12 @@ export function RequireGuest({ children }: { children: ReactNode }) {
 /** Allows authenticated users into onboarding; sends completed users to dashboard. */
 export function RequireOnboarding({ children }: { children: ReactNode }) {
   const { hydrated, isAuthenticated, onboardingComplete } = useAuth();
+  const authSynced = useAuthSynced();
   const router = useRouter();
+  const ready = hydrated && authSynced;
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!ready) return;
     if (!isAuthenticated) {
       router.replace("/sign-in?next=/onboarding");
       return;
@@ -72,9 +79,9 @@ export function RequireOnboarding({ children }: { children: ReactNode }) {
     if (onboardingComplete) {
       router.replace("/dashboard");
     }
-  }, [hydrated, isAuthenticated, onboardingComplete, router]);
+  }, [ready, isAuthenticated, onboardingComplete, router]);
 
-  if (!hydrated) return <AuthLoading />;
+  if (!ready) return <AuthLoading />;
   if (!isAuthenticated) return <AuthLoading />;
   if (onboardingComplete) return <AuthLoading />;
 
