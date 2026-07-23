@@ -43,6 +43,8 @@ interface StoreContextValue {
   }) => Promise<{ ok: true } | { ok: false; error: string }>;
   signOut: () => void;
   completeOnboarding: () => void;
+  /** A2.2 — session only from server /api/dev-autologin; screens still mock until A2.3 */
+  applySupabaseSession: (input: { userId: string; email: string | null }) => void;
 }
 
 const StoreContext = createContext<StoreContextValue | null>(null);
@@ -241,6 +243,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   }, [setStore]);
 
+  const applySupabaseSession = useCallback(
+    (input: { userId: string; email: string | null }) => {
+      setStore((prev) => ({
+        ...prev,
+        session: {
+          isAuthenticated: true,
+          carePartnerId: input.userId,
+          email: input.email,
+          onboardingComplete: true,
+        },
+        carePartner: prev.carePartner
+          ? {
+              ...prev.carePartner,
+              id: input.userId,
+              email: input.email ?? prev.carePartner.email,
+            }
+          : prev.carePartner,
+      }));
+    },
+    [setStore],
+  );
+
   const value = useMemo(
     () => ({
       store,
@@ -255,6 +279,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       signIn,
       signOut,
       completeOnboarding,
+      applySupabaseSession,
     }),
     [
       store,
@@ -269,6 +294,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       signIn,
       signOut,
       completeOnboarding,
+      applySupabaseSession,
     ],
   );
 

@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { useTheme } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
+import { DevAutologin } from "@/components/auth/dev-autologin";
 import { StoreProvider, useElderWiseStore } from "@/lib/store";
 import { ThemeProvider } from "@/providers/theme-provider";
 
@@ -48,6 +49,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
       disableTransitionOnChange
     >
       <StoreProvider>
+        <DevAutologin />
         <ThemeStoreSync>
           <AccessibilitySync>
             {children}
