@@ -5,14 +5,14 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | PRD.md — v1.7 |
-| **Date** | 14 July 2026 |
+| **Document** | PRD.md — v1.8 |
+| **Date** | 23 July 2026 |
 | **Format** | AIGF Framework 9 (F9) PRD structure + technical build sections |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Demo Day** | 29 August 2026 |
 | **Status** | Baseline — open items tracked in §15 |
 
-**Companion documents:** `Architecture.md` · `Rules.md` · `Phases.md`
+**Companion documents:** `Architecture.md` · `Rules.md` · `Phases.md` · `Templates.md`
 
 **Source of truth:** Team sheet `1P8Wzs1iiKG1d32UgpbtTEjcaBswmSmkEL1b3q0ALyaY` (tabs: MoSCoW/components, "Bulding Phase of ElderWise") · Notion Living Reference `374dc973163181c587c3eeafc15b8b23`.
 
@@ -447,6 +447,7 @@ Demo Day ships the **MVP**. Should- and Could-have items are not permitted to en
 
 | Date | Version | Change |
 |---|---|---|
+| 23 Jul 2026 | 1.8 | **Companion-doc references no longer pin version numbers.** `main` is the single source of truth; pinned cross-references forced edits to every other doc on each version bump and went stale silently. Refs now name the file only. Each document's own version remains in its header. |
 | 22 Jul 2026 | 1.7 | **Docs ↔ front-end reconciliation.** Documented **SOS as two layers** (display vs dispatch) in §7.4 / §8.2 — Meeting-11 parallel dispatch preserved; FE cascade is presentation only. **Local Buddy / LCT made optional** at onboarding; SOS always notifies CT; LCT alert conditional; elder address still mandatory. Removed stale **RAG** wording (FR-SOS-2, §8.2, §11) — care circle is a relational lookup. Pointed vocabulary at `Architecture.md` §5.5. |
 | 22 Jul 2026 | 1.6 | **Reconciled with Sama's front-end build.** Escalation/notification granularity moved from per-EP-per-domain to **per-routine** (adopting the finer-grained front-end model). Added front-end ↔ role-code mapping (Loved One=EP, Care Partner=CT, Local Buddy=LCT, Family Doctor=DR) and flagged front-end fields that are v2/Could-have stubs. Front-end gaps to be patched by Cursor are specified in `patch_frontend.md`: elder consent (M16), elder address (M17), medication two-step response (M12), Google OAuth, buddy/doctor "added" acknowledgement. |
 | 14 Jul 2026 | 1.5 | Three changes forced by Meta platform rules (verified against live Meta docs): **M12 restated** — templates cannot carry a dropdown, so the medication check-in names all scheduled medicines in the body with three buttons (*Yes, all* / *Some of them* / *Not yet*), with the dropdown as a follow-up; **M16 added — elder consent**, a two-layer opt-in (CT attestation + in-channel confirmation), with **no check-in scheduled until the elder confirms**; **M17 added — elder address**, mandatory, because the SOS message to the Local Caregiver must say where to go. |
@@ -458,4 +459,4 @@ Demo Day ships the **MVP**. Should- and Could-have items are not permitted to en
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 14 July 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 23 July 2026.*

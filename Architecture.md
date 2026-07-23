@@ -5,10 +5,10 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.4 |
-| **Date** | 14 July 2026 |
+| **Document** | Architecture.md — v1.5 |
+| **Date** | 23 July 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
-| **Companion docs** | `PRD.md` (v1.7) · `Rules.md` (v1.3) · `Phases.md` (v1.3) |
+| **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
 
 > This document describes **how ElderWise is built**. `PRD.md` describes **what it does**. Where the two disagree, `PRD.md` wins and this document is wrong and must be fixed.
 
@@ -147,6 +147,8 @@ care_partners ──┐
     │           ├── 0..1 ── doctors
     │           ├── 1:many ── doctor_share_links
     │           ├── 1:many ── medications
+    │           ├── 1:many ── food_routines
+    │           ├── 1:many ── health_routines
     │           ├── 1:many ── domain_configs   (exactly 3: medication | health | food)
     │           ├── 1:many ── message_templates
     │           ├── 1:many ── checkins ──┬── 1:many ── checkin_medication_items
@@ -611,6 +613,8 @@ Branch per member → PR → merge to a stable `main` (Akhil's directive). `main
 
 Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A single self-hosted n8n instance** serves both (Talal's server or one of Robert's — functionally interchangeable), with dev and prod workflows kept separate inside it and pointed at different Supabase projects.
 
+**Dev project note (`rls_auto_enable`):** the Dev Supabase project carries an out-of-band **SECURITY DEFINER** event-trigger function `public.rls_auto_enable()`, which auto-enables RLS on new `public` tables. It was created outside migrations and is therefore **not** reproduced by the migration history — it must be **recreated manually** when the Prod project is stood up, or **omitted** (the migrations enable RLS explicitly and do not depend on it). `EXECUTE` has been revoked from `PUBLIC`, `anon`, and `authenticated`.
+
 ### 12.4 Secrets
 
 | Secret | Lives where | Never |
@@ -671,6 +675,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | Date | Version | Change |
 |---|---|---|
+| 23 Jul 2026 | 1.5 | **Companion-doc references no longer pin version numbers.** `main` is the single source of truth; pinned cross-references forced edits to every other doc on each version bump and went stale silently. Refs now name the file only. Each document's own version remains in its header. Phase A2.1 applied on the Dev project. §5.1 ER diagram corrected to include `food_routines` and `health_routines`. §12.3 records the out-of-band `rls_auto_enable()` event trigger and its Prod implication. No schema decisions changed — `domain_configs` remains the 7 columns of v1.4. |
 | 22 Jul 2026 | 1.4 | **Docs ↔ front-end reconciliation.** Added **§5.5 Canonical glossary** (roles + check-in UI↔backend status map + SOS display vs dispatch). Documented **SOS as two layers**: front-end display (`active`/`acknowledged`/`resolved`/`cancelled` + demo cascade) vs n8n dispatch (parallel CT + optional LCT + optional Doctor; 4 nudges / 2 min; `sos_events.status` = `open`\|`resolved` is source of truth). **Local Buddy / LCT made optional** at onboarding (`local_caregivers` 0..1); SOS always notifies CT; LCT alert conditional. Elder address remains mandatory. |
 | 22 Jul 2026 | 1.3 | **Reconciled with Sama's front-end build.** Adopted the front end's **per-routine** escalation/notification model (finer-grained than per-domain) — `escalation_minutes` + `notify_care_partner` now live on `medications`, `food_routines`, `health_routines` (defaults 30/45/60), not on `domain_configs`. Expanded the three routine tables to match the front-end types exactly. Added §5.3 (front-end ↔ schema naming map: Loved One=EP, Care Partner=CT, Local Buddy=LCT, Family Doctor=DR) and §5.4 (v2/Could-have front-end stubs the MVP backend must NOT build: extra notification channels, voice-journal AI fields, quiet hours, rich health answer types). |
 | 14 Jul 2026 | 1.2 | Meta platform rules verified against live docs. `elders` gains **`address` (NOT NULL)**, **`consent_attested_by_ct` / `consent_attested_at`**, **`consent_confirmed_at`**. **WF-1 now gates on consent** — NULL means nothing is ever scheduled for that elder. WF-2 routes the welcome confirmation and the medication *Some of them* → free-form interactive list. §9 records that templates cannot carry a list, that the 24-hour window can, and that Meta requires recipient opt-in. WhatsApp Flows logged as a v2 path, explicitly not now. |
@@ -679,4 +684,4 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 14 July 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 23 July 2026.*

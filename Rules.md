@@ -4,10 +4,10 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.3 |
-| **Date** | 14 July 2026 |
+| **Document** | Rules.md — v1.4 |
+| **Date** | 23 July 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
-| **Companion docs** | `PRD.md` (v1.4) · `Architecture.md` (v1.1) · `Phases.md` |
+| **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
 
 > **Read this before writing a single line of code.**
 > This file is the contract. Eleven people across seven timezones are building one product in six weeks with AI agents that will happily generate whatever they're asked for. Without a shared set of rules, we don't get one product — we get eleven, badly merged.
@@ -292,6 +292,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 23 Jul 2026 | 1.4 | **Companion-doc references no longer pin version numbers.** `main` is the single source of truth; pinned cross-references forced edits to every other doc on each version bump and went stale silently. Refs now name the file only. Each document's own version remains in its header. |
 | 22 Jul 2026 | 1.3 | **Docs ↔ front-end reconciliation.** Pointed domain naming (C6) at `Architecture.md` §5.5 glossary. Clarified D10: elder address remains mandatory when Local Buddy is optional; LCT SOS message carries address only when an LCT exists. |
 | 14 Jul 2026 | 1.2 | **N5 added — the elderly person must consent, herself** (two-layer opt-in; silence is not consent; nothing scheduled until `consent_confirmed_at` is set). Old N5 (data isolation) becomes N6. D9/D10 added: consent is a hard gate; `elders.address` is NOT NULL. Forbidden list: messaging an unconfirmed elder; WhatsApp Flows. |
 | 14 Jul 2026 | 1.1 | Added **§14 Security review regime** — a five-pass audit (secrets · PII flow · pre-deploy · deep logic · attacker's view) adapted from the Mayank Shah "5 Security Checks" and "7 Vulnerabilities of Vibe-Coded Apps" guides, **plus Pass 6: twelve ElderWise-specific attacks** (cross-family IDOR, forged SOS resolution, forged WhatsApp webhook, share-link abuse, service-role key leakage via n8n exports, voice-bucket exposure, elder enumeration, SOS spam, PII in Sentry, prompt injection via transcript, long-input DoS, ReDoS). Gate runs at MVP completion and before every version. X1 and X2 are release blockers. |
@@ -299,4 +300,4 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 14 July 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 23 July 2026.*

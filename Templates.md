@@ -4,12 +4,12 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · Team Lead: Talal Baig |
-| **Document** | Templates.md — v1.2 |
-| **Date** | 14 July 2026 |
+| **Document** | Templates.md — v1.3 |
+| **Date** | 23 July 2026 |
 | **Purpose** | Every message ElderWise sends. The submission and approval tracker for Meta. |
 | **Owner** | Talal (submission) · Sama + Reema (copy & tone) |
 | **Status** | 🔴 **Nothing submitted yet. This is the critical path** (`Phases.md` §7). |
-| **Companion docs** | `PRD.md` (v1.7) · `Architecture.md` (v1.4) · `Rules.md` (v1.3) · `Phases.md` (v1.3) |
+| **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Phases.md` |
 
 ---
 
@@ -389,10 +389,11 @@ Sent immediately when the elder triggers an SOS — she must not be left in sile
 
 | Date | Version | Change |
 |---|---|---|
+| 23 Jul 2026 | 1.3 | **Companion-doc references no longer pin version numbers.** `main` is the single source of truth; pinned cross-references forced edits to every other doc on each version bump and went stale silently. Refs now name the file only. Each document's own version remains in its header. |
 | 22 Jul 2026 | 1.2 | **Docs ↔ front-end reconciliation.** Template 11 (`elderwise_sos_alert_lct`) noted as **conditional** — sent only when a Local Buddy / LCT exists; SOS still always alerts the CT. Elder address remains mandatory. Vocabulary aligned with `Architecture.md` §5.5. |
 | 14 Jul 2026 | 1.1 | **All three blockers resolved and verified against Meta's live docs (Context7).** Medication check-in: three quick-reply buttons with **every scheduled medicine named in the body**; follow-up interactive list only on *"Some of them"*. Elder opt-in: **two-layer consent** — CT attestation at onboarding + the elder's own in-channel confirmation, with **nothing scheduled until she confirms** and **silence treated as refusal**. Elder address: **mandatory**, and now carried in the Local Caregiver's SOS message. WhatsApp Flows noted as a v2 route to true multi-select. |
 | 14 Jul 2026 | 1.0 | Initial registry — 14 templates + 4 free-form messages. Two platform findings: (1) the **medication dropdown cannot be a template** — interactive lists are only available as free-form messages inside the 24-hour window, resolved with a two-step flow that keeps the common case to a single tap and takes the dropdown off the approval path entirely; (2) **elder opt-in is unsolved** — WhatsApp requires it, the CT supplies the number, and the elder consents to nothing. Also surfaced: **the onboarding form does not capture the elder's address**, which the local-caregiver SOS message needs. |
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 14 July 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 23 July 2026.*

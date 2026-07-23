@@ -4,10 +4,10 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.3 |
-| **Date** | 14 July 2026 |
+| **Document** | Phases.md — v1.4 |
+| **Date** | 23 July 2026 |
 | **Demo Day** | **Saturday 29 August 2026** — 46 days from today |
-| **Companion docs** | `PRD.md` (v1.7) · `Architecture.md` (v1.4) · `Rules.md` (v1.3) · `Templates.md` (v1.2) |
+| **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Templates.md` |
 
 ---
 
@@ -290,6 +290,7 @@ The proposal is a **second channel (Telegram)** so the demo can run even if temp
 
 | Date | Version | Change |
 |---|---|---|
+| 23 Jul 2026 | 1.4 | **Companion-doc references no longer pin version numbers.** `main` is the single source of truth; pinned cross-references forced edits to every other doc on each version bump and went stale silently. Refs now name the file only. Each document's own version remains in its header. |
 | 22 Jul 2026 | 1.3 | **Docs ↔ front-end reconciliation.** Companion doc versions bumped. A0 note updated: SOS display vs dispatch are two layers; Local Buddy optional; vocabulary points at `Architecture.md` §5.5. |
 | 22 Jul 2026 | 1.2 | Added **A0 — front-end reconciliation patch** (owner: Cursor, per `patch_frontend.md`) as a gate before DB wiring, following the review of Sama's build. |
 | 14 Jul 2026 | 1.1 | `Templates.md` complete (0.6 done). **B1.5 added — the consent flow, which gates every other check-in and must therefore be built first.** Onboarding (A2.4) now carries the mandatory elder address and the CT consent attestation. Gate B extended to require a consent confirmation before any check-in. |
@@ -297,4 +298,4 @@ The proposal is a **second channel (Telegram)** so the demo can run even if temp
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 14 July 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 23 July 2026.*

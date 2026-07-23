@@ -7,6 +7,8 @@ alwaysApply: true
 
 Authority when conflicted: `PRD.md` > `Architecture.md` > `Rules.md` > `Phases.md` > agent suggestion. Fix docs; don't work around them in code.
 
+**Source of truth:** `main` on GitHub is the only authoritative copy of the docs and schema. Never treat local caches, chat uploads, email attachments, or stale working copies as authoritative — always read from the repo on `main` (or the branch you are actively merging into `main`).
+
 ## Track ownership (Track A only)
 
 - **Build:** Next.js dashboard, onboarding, auth UI, care circle, SOS history/display, reports, settings — anything a human clicks.
@@ -28,7 +30,7 @@ Authority when conflicted: `PRD.md` > `Architecture.md` > `Rules.md` > `Phases.m
 
 ## Working rules
 
-- Before code: read `PRD.md`, `Architecture.md`, `Rules.md`, `Templates.md`. **Docs are the spec; the codebase may be wrong.**
+- Before code: read `PRD.md`, `Architecture.md`, `Rules.md`, `Templates.md` from the repo (prefer `main`). **Docs are the spec; the codebase may be wrong.** Do not cite pinned version numbers across companion docs — file name only.
 - Do not invent features, fields, tables, or endpoints. Uncertain → **ask**; never fill gaps with a confident guess.
 - Must-haves only unless team lead expands scope (`Rules.md` S1–S3).
 - Schema: migration in `/supabase/migrations` with **RLS in the same migration**. No ad-hoc Supabase dashboard edits.
