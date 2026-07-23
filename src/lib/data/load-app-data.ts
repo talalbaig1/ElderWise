@@ -100,7 +100,13 @@ export async function loadAppData(
     ctNotifRes,
   ] = await Promise.all([
     supabase.from("care_partners").select("*").eq("id", user.id).maybeSingle(),
-    supabase.from("elders").select("*").order("created_at", { ascending: true }),
+    // Draft Loved Ones (active=false) stay out of the product read model until
+    // onboarding Finish flips them active — otherwise dashboard would show drafts.
+    supabase
+      .from("elders")
+      .select("*")
+      .eq("active", true)
+      .order("created_at", { ascending: true }),
     supabase.from("local_caregivers").select("*"),
     supabase.from("doctors").select("*"),
     // Soft-deleted meds: active=false — excluded from the read model (never render).

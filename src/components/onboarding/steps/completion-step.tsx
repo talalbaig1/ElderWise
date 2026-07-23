@@ -1,17 +1,42 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
-import { useOnboarding } from "@/components/onboarding/onboarding-context";
+import { toast } from "sonner";
+import {
+  clearOnboardingLocalDraft,
+  useOnboarding,
+} from "@/components/onboarding/onboarding-context";
 import { WizardShell } from "@/components/onboarding/wizard-shell";
 import { Button } from "@/components/ui/button";
+import { activateOnboardingElder } from "@/lib/data/onboarding-actions";
 
 export function CompletionStep() {
   const router = useRouter();
-  const { draft, finishAndGoToDashboard, setStep } = useOnboarding();
+  const { draft, setStep } = useOnboarding();
+  const [busy, setBusy] = useState(false);
   const reduce = useReducedMotion();
   const name = draft.lovedOne.firstName || "your Loved One";
+
+  const goToDashboard = async () => {
+    if (!draft.elderId) {
+      toast.error("Save Loved One details first");
+      setStep(0);
+      return;
+    }
+    setBusy(true);
+    const result = await activateOnboardingElder(draft.elderId);
+    setBusy(false);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    clearOnboardingLocalDraft();
+    router.replace("/dashboard");
+    router.refresh();
+  };
 
   return (
     <WizardShell hideBack hideNext>
@@ -33,17 +58,10 @@ export function CompletionStep() {
           dashboard to follow along.
         </p>
         <div className="mt-8 flex w-full max-w-sm flex-col gap-3">
-          <Button
-            size="lg"
-            className="w-full"
-            onClick={() => {
-              finishAndGoToDashboard();
-              router.replace("/dashboard");
-            }}
-          >
-            Go to Dashboard
+          <Button size="lg" className="w-full" disabled={busy} onClick={() => void goToDashboard()}>
+            {busy ? "Activating…" : "Go to Dashboard"}
           </Button>
-          <Button type="button" variant="outline" onClick={() => setStep(7)}>
+          <Button type="button" variant="outline" disabled={busy} onClick={() => setStep(7)}>
             Back to review
           </Button>
         </div>

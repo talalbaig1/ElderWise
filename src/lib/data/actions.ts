@@ -81,7 +81,8 @@ async function assertOwnsElder(
  * That makes frequency a fully derived field for dashboard writes — a direct
  * edit to frequency would be overwritten on the next routine save.
  */
-async function syncDomainConfig(
+/** Exported for onboarding — same derived rule as Pass 2 dashboard writes. */
+export async function syncDomainConfig(
   supabase: Awaited<ReturnType<typeof createClient>>,
   elderId: string,
   domain: "medication" | "food" | "health",

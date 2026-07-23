@@ -8,18 +8,40 @@ import { WizardShell } from "@/components/onboarding/wizard-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { saveOnboardingDoctor } from "@/lib/data/onboarding-actions";
 import { doctorSchema } from "@/lib/onboarding";
 
 export function DoctorStep() {
   const { draft, patchDraft, setStep } = useOnboarding();
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
   const value = draft.doctor;
 
-  const onNext = () => {
+  const requireElderId = () => {
+    if (!draft.elderId) {
+      toast.error("Save Loved One details first");
+      setStep(0);
+      return null;
+    }
+    return draft.elderId;
+  };
+
+  const onNext = async () => {
+    const elderId = requireElderId();
+    if (!elderId) return;
+
     if (draft.skipDoctor) {
+      setBusy(true);
+      const result = await saveOnboardingDoctor({ elderId, skip: true });
+      setBusy(false);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
       patchDraft({ currentStep: 4 });
       return;
     }
+
     const parsed = doctorSchema.safeParse(value);
     if (!parsed.success) {
       const next: Record<string, string> = {};
@@ -32,6 +54,17 @@ export function DoctorStep() {
       return;
     }
     setErrors({});
+    setBusy(true);
+    const result = await saveOnboardingDoctor({
+      elderId,
+      skip: false,
+      doctor: parsed.data,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
     patchDraft({ doctor: parsed.data, skipDoctor: false, currentStep: 4 });
   };
 
@@ -39,11 +72,22 @@ export function DoctorStep() {
     <WizardShell
       onBack={() => setStep(2)}
       onNext={onNext}
+      busy={busy}
       secondaryAction={
         <Button
           type="button"
           variant="soft"
-          onClick={() => {
+          disabled={busy}
+          onClick={async () => {
+            const elderId = requireElderId();
+            if (!elderId) return;
+            setBusy(true);
+            const result = await saveOnboardingDoctor({ elderId, skip: true });
+            setBusy(false);
+            if (!result.ok) {
+              toast.error(result.error);
+              return;
+            }
             patchDraft({ skipDoctor: true, currentStep: 4 });
             toast.message("You can add a Family Doctor later");
           }}

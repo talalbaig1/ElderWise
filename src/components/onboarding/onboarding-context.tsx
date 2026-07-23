@@ -11,14 +11,17 @@ import {
   type ReactNode,
 } from "react";
 import {
-  applyOnboardingDraft,
   clearOnboardingDraft,
   createDefaultDraft,
+  createEmptyFood,
+  createEmptyHealth,
+  createEmptyMedication,
   loadOnboardingDraft,
   ONBOARDING_STEPS,
   saveOnboardingDraft,
   type OnboardingDraft,
 } from "@/lib/onboarding";
+import { loadOnboardingResume } from "@/lib/data/onboarding-actions";
 import { useElderWiseStore } from "@/lib/store";
 
 interface OnboardingContextValue {
@@ -30,15 +33,13 @@ interface OnboardingContextValue {
   updateDraft: (updater: (prev: OnboardingDraft) => OnboardingDraft) => void;
   patchDraft: (partial: Partial<OnboardingDraft>) => void;
   saveNow: () => void;
-  persistToStore: () => void;
-  finishAndGoToDashboard: () => void;
   lastSavedAt: string | null;
 }
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
-  const { store, hydrated: storeHydrated, setStore } = useElderWiseStore();
+  const { store, hydrated: storeHydrated } = useElderWiseStore();
   const accountId = store.session.carePartnerId;
   const [draft, setDraft] = useState<OnboardingDraft | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -47,17 +48,85 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!storeHydrated || !accountId) return;
-    const existing = loadOnboardingDraft(accountId);
-    const next =
-      existing ??
-      createDefaultDraft(accountId, {
-        firstName: store.carePartner?.firstName,
-        lastName: store.carePartner?.lastName,
-        email: store.session.email ?? store.carePartner?.email,
-      });
-    setDraft(next);
-    setLastSavedAt(next.updatedAt);
-    setHydrated(true);
+    let cancelled = false;
+
+    void (async () => {
+      const existing = loadOnboardingDraft(accountId);
+      if (existing?.elderId) {
+        if (cancelled) return;
+        setDraft(existing);
+        setLastSavedAt(existing.updatedAt);
+        setHydrated(true);
+        return;
+      }
+
+      // No usable local draft (or no elderId) — try DB resume from inactive elder.
+      const resumeRes = await loadOnboardingResume();
+      if (cancelled) return;
+
+      if (resumeRes.ok && resumeRes.resume) {
+        const r = resumeRes.resume;
+        const base = createDefaultDraft(accountId, {
+          firstName: store.carePartner?.firstName,
+          lastName: store.carePartner?.lastName,
+          email: store.session.email ?? store.carePartner?.email,
+        });
+        const next: OnboardingDraft = {
+          ...base,
+          elderId: r.elderId,
+          currentStep: r.currentStep,
+          lovedOne: r.lovedOne,
+          carePartner: {
+            ...base.carePartner,
+            ...r.carePartner,
+          },
+          localBuddy: r.localBuddy,
+          skipLocalBuddy: r.skipLocalBuddy,
+          doctor: r.doctor,
+          skipDoctor: r.skipDoctor,
+          foodRoutines:
+            r.foodRoutines.length > 0 ? r.foodRoutines : [createEmptyFood()],
+          medications:
+            r.medications.length > 0 ? r.medications : [createEmptyMedication()],
+          healthRoutines:
+            r.healthRoutines.length > 0
+              ? r.healthRoutines
+              : [createEmptyHealth()],
+        };
+        // Prefer localStorage field values if present but missing elderId (rare).
+        if (existing) {
+          next.lovedOne = existing.lovedOne.firstName
+            ? existing.lovedOne
+            : next.lovedOne;
+          next.carePartner = existing.carePartner.firstName
+            ? existing.carePartner
+            : next.carePartner;
+          if (existing.currentStep > next.currentStep) {
+            next.currentStep = existing.currentStep;
+          }
+        }
+        saveOnboardingDraft(next);
+        setDraft(next);
+        setLastSavedAt(next.updatedAt);
+        setHydrated(true);
+        return;
+      }
+
+      const next =
+        existing ??
+        createDefaultDraft(accountId, {
+          firstName: store.carePartner?.firstName,
+          lastName: store.carePartner?.lastName,
+          email: store.session.email ?? store.carePartner?.email,
+        });
+      setDraft(next);
+      setLastSavedAt(next.updatedAt);
+      setHydrated(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [storeHydrated, accountId, store.carePartner, store.session.email]);
 
   const persist = useCallback((next: OnboardingDraft) => {
@@ -101,20 +170,6 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     persist(draft);
   }, [draft, persist]);
 
-  const persistToStore = useCallback(() => {
-    if (!draft) return;
-    setStore((prev) => applyOnboardingDraft(prev, draft));
-    persist(draft);
-  }, [draft, persist, setStore]);
-
-  const finishAndGoToDashboard = useCallback(() => {
-    if (!draft || !accountId) return;
-    // Local draft only until A2.4 writes real elders — (app)/layout will bounce
-    // back to /onboarding while elders.length === 0 (known interim on a3-auth).
-    setStore((prev) => applyOnboardingDraft(prev, draft));
-    clearOnboardingDraft();
-  }, [accountId, draft, setStore]);
-
   const value = useMemo(() => {
     if (!draft) return null;
     return {
@@ -126,8 +181,6 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       updateDraft,
       patchDraft,
       saveNow,
-      persistToStore,
-      finishAndGoToDashboard,
       lastSavedAt,
     };
   }, [
@@ -137,8 +190,6 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     updateDraft,
     patchDraft,
     saveNow,
-    persistToStore,
-    finishAndGoToDashboard,
     lastSavedAt,
   ]);
 
@@ -159,4 +210,9 @@ export function useOnboarding() {
   const ctx = useContext(OnboardingContext);
   if (!ctx) throw new Error("useOnboarding must be used within OnboardingProvider");
   return ctx;
+}
+
+/** Call after successful activation — clears local draft only. */
+export function clearOnboardingLocalDraft() {
+  clearOnboardingDraft();
 }

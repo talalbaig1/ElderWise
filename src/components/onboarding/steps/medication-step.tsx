@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Copy, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { SegmentedNotify } from "@/components/onboarding/fields";
@@ -10,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { TimePicker } from "@/components/shared/time-picker";
+import { saveOnboardingMedications } from "@/lib/data/onboarding-actions";
 import {
   createEmptyMedication,
   medicationSchema,
@@ -18,6 +20,7 @@ import {
 
 export function MedicationStep() {
   const { draft, updateDraft, setStep } = useOnboarding();
+  const [busy, setBusy] = useState(false);
   const name = draft.lovedOne.firstName || "your Loved One";
 
   const updateItem = (id: string, partial: Partial<MedicationDraft>) => {
@@ -29,7 +32,12 @@ export function MedicationStep() {
     }));
   };
 
-  const onNext = () => {
+  const onNext = async () => {
+    if (!draft.elderId) {
+      toast.error("Save Loved One details first");
+      setStep(0);
+      return;
+    }
     if (draft.medications.length === 0) {
       toast.error("Add at least one medication");
       return;
@@ -41,11 +49,21 @@ export function MedicationStep() {
         return;
       }
     }
+    setBusy(true);
+    const result = await saveOnboardingMedications({
+      elderId: draft.elderId,
+      items: draft.medications,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
     setStep(6);
   };
 
   return (
-    <WizardShell onBack={() => setStep(4)} onNext={onNext}>
+    <WizardShell onBack={() => setStep(4)} onNext={onNext} busy={busy}>
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">
           Add each medicine {name} needs. You can duplicate entries for similar schedules.

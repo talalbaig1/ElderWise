@@ -7,14 +7,16 @@ import { useOnboarding } from "@/components/onboarding/onboarding-context";
 import { WizardShell } from "@/components/onboarding/wizard-shell";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { saveOnboardingCarePartner } from "@/lib/data/onboarding-actions";
 import { carePartnerSchema } from "@/lib/onboarding";
 
 export function CarePartnerStep() {
   const { draft, patchDraft, setStep } = useOnboarding();
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
   const value = draft.carePartner;
 
-  const onNext = () => {
+  const onNext = async () => {
     const parsed = carePartnerSchema.safeParse(value);
     if (!parsed.success) {
       const next: Record<string, string> = {};
@@ -27,11 +29,18 @@ export function CarePartnerStep() {
       return;
     }
     setErrors({});
+    setBusy(true);
+    const result = await saveOnboardingCarePartner(parsed.data);
+    setBusy(false);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
     patchDraft({ carePartner: parsed.data, currentStep: 2 });
   };
 
   return (
-    <WizardShell onBack={() => setStep(0)} onNext={onNext}>
+    <WizardShell onBack={() => setStep(0)} onNext={onNext} busy={busy}>
       <div className="space-y-5">
         <div className="space-y-2">
           <Label htmlFor="cp-first">First name</Label>

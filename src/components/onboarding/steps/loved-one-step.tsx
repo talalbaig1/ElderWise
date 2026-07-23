@@ -8,15 +8,17 @@ import { WizardShell } from "@/components/onboarding/wizard-shell";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { saveOnboardingLovedOne } from "@/lib/data/onboarding-actions";
 import { lovedOneSchema } from "@/lib/onboarding";
 
 export function LovedOneStep() {
   const { draft, patchDraft, setStep } = useOnboarding();
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
   const value = draft.lovedOne;
   const displayName = value.firstName.trim() || "your Loved One";
 
-  const onNext = () => {
+  const onNext = async () => {
     const parsed = lovedOneSchema.safeParse(value);
     if (!parsed.success) {
       const next: Record<string, string> = {};
@@ -29,11 +31,24 @@ export function LovedOneStep() {
       return;
     }
     setErrors({});
-    patchDraft({ lovedOne: parsed.data, currentStep: 1 });
+    setBusy(true);
+    const result = await saveOnboardingLovedOne({
+      lovedOne: parsed.data,
+      elderId: draft.elderId,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      toast.error(result.error);
+      if (result.error.includes("WhatsApp number")) {
+        setErrors({ whatsappNumber: result.error });
+      }
+      return;
+    }
+    patchDraft({ lovedOne: parsed.data, elderId: result.elderId, currentStep: 1 });
   };
 
   return (
-    <WizardShell onBack={() => setStep(0)} onNext={onNext}>
+    <WizardShell onBack={() => setStep(0)} onNext={onNext} busy={busy}>
       <div className="space-y-5">
         <div className="space-y-2">
           <Label htmlFor="lo-wa">WhatsApp number</Label>

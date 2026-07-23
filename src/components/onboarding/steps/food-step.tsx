@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { SegmentedNotify } from "@/components/onboarding/fields";
@@ -10,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { TimePicker } from "@/components/shared/time-picker";
+import { saveOnboardingFoodRoutines } from "@/lib/data/onboarding-actions";
 import {
   createEmptyFood,
   foodRoutineSchema,
@@ -18,6 +20,7 @@ import {
 
 export function FoodStep() {
   const { draft, updateDraft, setStep } = useOnboarding();
+  const [busy, setBusy] = useState(false);
   const name = draft.lovedOne.firstName || "your Loved One";
 
   const updateItem = (id: string, partial: Partial<FoodRoutineDraft>) => {
@@ -29,7 +32,12 @@ export function FoodStep() {
     }));
   };
 
-  const onNext = () => {
+  const onNext = async () => {
+    if (!draft.elderId) {
+      toast.error("Save Loved One details first");
+      setStep(0);
+      return;
+    }
     if (draft.foodRoutines.length === 0) {
       toast.error("Add at least one meal check-in");
       return;
@@ -41,11 +49,21 @@ export function FoodStep() {
         return;
       }
     }
+    setBusy(true);
+    const result = await saveOnboardingFoodRoutines({
+      elderId: draft.elderId,
+      items: draft.foodRoutines,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
     setStep(5);
   };
 
   return (
-    <WizardShell onBack={() => setStep(3)} onNext={onNext} nextLabel="Next">
+    <WizardShell onBack={() => setStep(3)} onNext={onNext} nextLabel="Next" busy={busy}>
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">
           Choose the meal, check-in time, and date range for {name}.

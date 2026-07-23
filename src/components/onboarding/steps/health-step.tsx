@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { SegmentedNotify } from "@/components/onboarding/fields";
@@ -10,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { TimePicker } from "@/components/shared/time-picker";
+import { saveOnboardingHealthRoutines } from "@/lib/data/onboarding-actions";
 import {
   createEmptyHealth,
   healthRoutineSchema,
@@ -18,6 +20,7 @@ import {
 
 export function HealthStep() {
   const { draft, updateDraft, setStep } = useOnboarding();
+  const [busy, setBusy] = useState(false);
 
   const updateItem = (id: string, partial: Partial<HealthRoutineDraft>) => {
     updateDraft((prev) => ({
@@ -28,7 +31,12 @@ export function HealthStep() {
     }));
   };
 
-  const onNext = () => {
+  const onNext = async () => {
+    if (!draft.elderId) {
+      toast.error("Save Loved One details first");
+      setStep(0);
+      return;
+    }
     for (const item of draft.healthRoutines) {
       const parsed = healthRoutineSchema.safeParse(item);
       if (!parsed.success) {
@@ -36,11 +44,21 @@ export function HealthStep() {
         return;
       }
     }
+    setBusy(true);
+    const result = await saveOnboardingHealthRoutines({
+      elderId: draft.elderId,
+      items: draft.healthRoutines,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
     setStep(7);
   };
 
   return (
-    <WizardShell onBack={() => setStep(5)} onNext={onNext}>
+    <WizardShell onBack={() => setStep(5)} onNext={onNext} busy={busy}>
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">
           Simple wellness questions to help you notice patterns that matter.

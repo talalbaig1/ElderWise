@@ -134,6 +134,8 @@ export interface OnboardingDraft {
   version: 2;
   accountId: string;
   currentStep: number;
+  /** Supabase elders.id once Loved One step has written the draft row (active=false). */
+  elderId: string | null;
   lovedOne: LovedOneDraft;
   carePartner: CarePartnerDraft;
   localBuddy: LocalBuddyDraft;
@@ -150,9 +152,14 @@ function uid(prefix: string) {
   return `${prefix}-${crypto.randomUUID()}`;
 }
 
+/** Postgres uuid PKs — do not prefix (unlike local mock store ids). */
+function newRowId() {
+  return crypto.randomUUID();
+}
+
 export function createEmptyFood(): FoodRoutineDraft {
   return {
-    id: uid("food"),
+    id: newRowId(),
     enabled: true,
     mealName: "Breakfast",
     checkInTime: "09:00",
@@ -164,7 +171,7 @@ export function createEmptyFood(): FoodRoutineDraft {
 
 export function createEmptyMedication(): MedicationDraft {
   return {
-    id: uid("med"),
+    id: newRowId(),
     enabled: true,
     name: "Metformin",
     dosage: "500",
@@ -179,7 +186,7 @@ export function createEmptyMedication(): MedicationDraft {
 
 export function createEmptyHealth(): HealthRoutineDraft {
   return {
-    id: uid("health"),
+    id: newRowId(),
     enabled: true,
     name: "Morning wellness",
     time: "10:30",
@@ -202,6 +209,7 @@ export function createDefaultDraft(
     version: 2,
     accountId,
     currentStep: 0,
+    elderId: null,
     lovedOne: {
       whatsappNumber: "",
       firstName: "",
@@ -245,6 +253,7 @@ export function loadOnboardingDraft(accountId: string): OnboardingDraft | null {
   if (!draft || draft.version !== 2 || draft.accountId !== accountId) return null;
   return {
     ...draft,
+    elderId: draft.elderId ?? null,
     foodRoutines: draft.foodRoutines.map((item) => {
       const fallback = createEmptyFood();
       return {

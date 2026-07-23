@@ -8,18 +8,40 @@ import { WizardShell } from "@/components/onboarding/wizard-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { saveOnboardingLocalBuddy } from "@/lib/data/onboarding-actions";
 import { localBuddySchema } from "@/lib/onboarding";
 
 export function LocalBuddyStep() {
   const { draft, patchDraft, setStep } = useOnboarding();
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
   const value = draft.localBuddy;
 
-  const onNext = () => {
+  const requireElderId = () => {
+    if (!draft.elderId) {
+      toast.error("Save Loved One details first");
+      setStep(0);
+      return null;
+    }
+    return draft.elderId;
+  };
+
+  const onNext = async () => {
+    const elderId = requireElderId();
+    if (!elderId) return;
+
     if (draft.skipLocalBuddy) {
+      setBusy(true);
+      const result = await saveOnboardingLocalBuddy({ elderId, skip: true });
+      setBusy(false);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
       patchDraft({ currentStep: 3 });
       return;
     }
+
     const parsed = localBuddySchema.safeParse(value);
     if (!parsed.success) {
       const next: Record<string, string> = {};
@@ -32,6 +54,17 @@ export function LocalBuddyStep() {
       return;
     }
     setErrors({});
+    setBusy(true);
+    const result = await saveOnboardingLocalBuddy({
+      elderId,
+      skip: false,
+      buddy: parsed.data,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
     patchDraft({ localBuddy: parsed.data, skipLocalBuddy: false, currentStep: 3 });
   };
 
@@ -39,11 +72,22 @@ export function LocalBuddyStep() {
     <WizardShell
       onBack={() => setStep(1)}
       onNext={onNext}
+      busy={busy}
       secondaryAction={
         <Button
           type="button"
           variant="soft"
-          onClick={() => {
+          disabled={busy}
+          onClick={async () => {
+            const elderId = requireElderId();
+            if (!elderId) return;
+            setBusy(true);
+            const result = await saveOnboardingLocalBuddy({ elderId, skip: true });
+            setBusy(false);
+            if (!result.ok) {
+              toast.error(result.error);
+              return;
+            }
             patchDraft({ skipLocalBuddy: true, currentStep: 3 });
             toast.message("You can add a Local Buddy later in Care Circle");
           }}
