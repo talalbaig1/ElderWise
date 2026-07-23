@@ -15,7 +15,8 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const PROOF_ID = "a0000000-0000-4000-8000-000000000099";
 const PROOF_EMAIL = "ct.rls-proof@elderwise.dev";
-const PROOF_PASSWORD = "ElderWise-Rls-Proof-2026!";
+// Ephemeral per run — never hardcode; do not log.
+const PROOF_PASSWORD = crypto.randomUUID();
 
 if (!url || !anonKey || !serviceKey) {
   console.error("Need NEXT_PUBLIC_SUPABASE_URL, ANON_KEY, and SERVICE_ROLE_KEY");
