@@ -3,15 +3,41 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 /**
- * Dev-only auto-login. Fail closed:
- * - Missing/false DEV_AUTOLOGIN → 404
- * - Missing seed creds → 404
+ * Dev-only auto-login. Fail closed.
+ *
+ * Why the platform env allowlist exists: DEV_AUTOLOGIN was set on Vercel
+ * Production on 23 Jul 2026 and the public deployment auto-authenticated every
+ * visitor as the seed care partner. The env flag alone is not sufficient
+ * protection — deny unless VERCEL_ENV is undefined (local), "development", or
+ * "preview". Then require DEV_AUTOLOGIN === "true". Missing seed creds → 404.
  * Credentials are server-only (never NEXT_PUBLIC_*).
  * Removed entirely in Phases A3.3.
  */
+export const dynamic = "force-dynamic";
+
+const NO_STORE = {
+  "Cache-Control": "private, no-store, no-cache, must-revalidate",
+} as const;
+
+function allowedDevAutologinEnv(vercelEnv: string | undefined): boolean {
+  return (
+    vercelEnv === undefined ||
+    vercelEnv === "development" ||
+    vercelEnv === "preview"
+  );
+}
+
+function notFound() {
+  return new NextResponse(null, { status: 404, headers: NO_STORE });
+}
+
 export async function POST() {
+  if (!allowedDevAutologinEnv(process.env.VERCEL_ENV)) {
+    return notFound();
+  }
+
   if (process.env.DEV_AUTOLOGIN !== "true") {
-    return new NextResponse(null, { status: 404 });
+    return notFound();
   }
 
   const email = process.env.DEV_SEED_EMAIL;
@@ -20,7 +46,7 @@ export async function POST() {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!email || !password || !url || !anonKey) {
-    return new NextResponse(null, { status: 404 });
+    return notFound();
   }
 
   const cookieStore = await cookies();
@@ -50,17 +76,20 @@ export async function POST() {
   if (error || !data.user) {
     return NextResponse.json(
       { ok: false, error: error?.message ?? "sign-in failed" },
-      { status: 401 },
+      { status: 401, headers: NO_STORE },
     );
   }
 
-  return NextResponse.json({
-    ok: true,
-    userId: data.user.id,
-    email: data.user.email,
-  });
+  return NextResponse.json(
+    {
+      ok: true,
+      userId: data.user.id,
+      email: data.user.email,
+    },
+    { headers: NO_STORE },
+  );
 }
 
 export async function GET() {
-  return new NextResponse(null, { status: 404 });
+  return notFound();
 }
