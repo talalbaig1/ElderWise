@@ -85,11 +85,20 @@ function inRange(iso: string, from: Date, to: Date) {
   }
 }
 
-function adherence(items: CheckInResponse[]) {
-  const relevant = items.filter((i) => i.status !== "upcoming" && i.status !== "pending");
-  if (relevant.length === 0) return 0;
-  const good = relevant.filter((i) => i.status === "taken" || i.status === "delayed").length;
-  return Math.round((good / relevant.length) * 100);
+function adherence(items: CheckInResponse[]): number | null {
+  const scored = items.filter(
+    (i) =>
+      i.status === "taken" ||
+      i.status === "missed" ||
+      i.status === "delayed",
+  );
+  const takenOrMissed = scored.filter(
+    (i) => i.status === "taken" || i.status === "missed",
+  );
+  // No taken/missed ⇒ no % (avoids 100% on delayed-only / empty).
+  if (takenOrMissed.length === 0) return null;
+  const good = scored.filter((i) => i.status === "taken" || i.status === "delayed").length;
+  return Math.round((good / scored.length) * 100);
 }
 
 function statusBreakdown(items: CheckInResponse[]) {
@@ -208,8 +217,10 @@ export function buildDashboardModel(
   const foodPct = adherence(food);
   const healthPct = adherence(health);
 
-  const trend = (now: number, prior: number) => now - prior;
+  const trend = (now: number | null, prior: number | null) =>
+    now == null || prior == null ? undefined : now - prior;
 
+  const hasRealCheckIns = store.checkIns.some((c) => c.lovedOneId === lovedOne.id);
   const spanDays = Math.max(1, differenceInCalendarDays(bounds.to, bounds.from) + 1);
   const dayCount = Math.min(spanDays, 14);
   const step = Math.max(1, Math.floor(spanDays / dayCount));
@@ -221,17 +232,26 @@ export function buildDashboardModel(
     const dayMed = med.filter((c) => inRange(c.scheduledAt, dayFrom, dayTo));
     const dayFood = food.filter((c) => inRange(c.scheduledAt, dayFrom, dayTo));
     const dayHealth = health.filter((c) => inRange(c.scheduledAt, dayFrom, dayTo));
+    const medDay = hasRealCheckIns
+      ? dayMed
+      : dayMed.length
+        ? dayMed
+        : synthesizeCheckIns(lovedOne.id, "medication", dayFrom, dayTo);
+    const foodDay = hasRealCheckIns
+      ? dayFood
+      : dayFood.length
+        ? dayFood
+        : synthesizeCheckIns(lovedOne.id, "food", dayFrom, dayTo);
+    const healthDay = hasRealCheckIns
+      ? dayHealth
+      : dayHealth.length
+        ? dayHealth
+        : synthesizeCheckIns(lovedOne.id, "health", dayFrom, dayTo);
     return {
       label,
-      medication: adherence(
-        dayMed.length ? dayMed : synthesizeCheckIns(lovedOne.id, "medication", dayFrom, dayTo),
-      ),
-      meals: adherence(
-        dayFood.length ? dayFood : synthesizeCheckIns(lovedOne.id, "food", dayFrom, dayTo),
-      ),
-      health: adherence(
-        dayHealth.length ? dayHealth : synthesizeCheckIns(lovedOne.id, "health", dayFrom, dayTo),
-      ),
+      medication: adherence(medDay) ?? 0,
+      meals: adherence(foodDay) ?? 0,
+      health: adherence(healthDay) ?? 0,
     };
   });
 
@@ -245,13 +265,6 @@ export function buildDashboardModel(
   const sosEvents = store.sosEvents.filter((e) => e.lovedOneId === lovedOne.id);
   const activeSos = sosEvents.find((e) => e.status === "active" || e.status === "acknowledged");
   const sosInRange = sosEvents.filter((e) => inRange(e.triggeredAt, bounds.from, bounds.to));
-  const resolved = sosEvents.filter((e) => e.status === "resolved");
-  const avgResponse =
-    resolved.length > 0
-      ? Math.round(
-          resolved.reduce((sum, e) => sum + (e.averageResponseMinutes ?? 5), 0) / resolved.length,
-        )
-      : 0;
 
   const journals = store.voiceJournals
     .filter((j) => j.lovedOneId === lovedOne.id)
@@ -318,9 +331,9 @@ export function buildDashboardModel(
   const wellbeingMessage =
     activeSos
       ? "An SOS needs your attention right now."
-      : medPct >= 85 && foodPct >= 85
+      : (medPct ?? 0) >= 85 && (foodPct ?? 0) >= 85
         ? "Today looks steady and reassuring."
-        : medPct < 70 || foodPct < 70
+        : (medPct != null && medPct < 70) || (foodPct != null && foodPct < 70)
           ? "A few routines need a gentle follow-up."
           : "A calm day with room to stay close.";
 
@@ -339,7 +352,6 @@ export function buildDashboardModel(
     activeSos,
     sosInRangeCount: sosInRange.length,
     sosTotal: sosEvents.length,
-    avgResponse,
     latestJournal,
     notifications,
     timeline,

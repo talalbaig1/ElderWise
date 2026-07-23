@@ -358,7 +358,13 @@ export interface SosNotificationRow {
 export function sosEventFromRows(
   event: SosEventRow,
   notifications: SosNotificationRow[],
-  names: { carePartner?: string; localBuddy?: string; doctor?: string },
+  names: {
+    carePartner?: string;
+    localBuddy?: string;
+    doctor?: string;
+    /** elders.address (M17) — shown on SOS panels */
+    location?: string;
+  },
 ): SOSEvent {
   const related = notifications.filter((n) => n.sos_event_id === event.id);
   const carePartnerNotified = related.some((n) => n.recipient_role === "care_partner");
@@ -425,6 +431,7 @@ export function sosEventFromRows(
     status: event.status === "open" ? "active" : "resolved",
     triggeredAt: event.triggered_at,
     triggerChannel: "whatsapp",
+    locationPlaceholder: names.location?.trim() || undefined,
     carePartnerNotified,
     localBuddyNotified,
     doctorNotified,

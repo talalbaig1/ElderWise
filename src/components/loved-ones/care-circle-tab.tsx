@@ -8,12 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createBlankBuddy, createBlankDoctor } from "@/lib/loved-ones";
 import { useDomainStore } from "@/components/data/app-data-provider";
+import { upsertDoctor, upsertLocalCaregiver } from "@/lib/data/actions";
 import type { FamilyDoctor, LocalBuddy } from "@/types";
-
-const PASS1_WRITE =
-  "Care-circle edits save in Pass 2 — A2.3 is reads only.";
+import { useRouter } from "next/navigation";
 
 export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
+  const router = useRouter();
   const { store, data } = useDomainStore();
   const buddy = store.localBuddies.find((b) => b.lovedOneId === lovedOneId) ?? null;
   const doctor = store.doctors.find((d) => d.lovedOneId === lovedOneId) ?? null;
@@ -21,15 +21,38 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
 
   const [buddyDraft, setBuddyDraft] = useState<LocalBuddy | null>(null);
   const [doctorDraft, setDoctorDraft] = useState<FamilyDoctor | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const saveBuddy = (_value: LocalBuddy) => {
-    toast.message(PASS1_WRITE);
-    setBuddyDraft(null);
+  const saveBuddy = async (value: LocalBuddy) => {
+    setSaving(true);
+    try {
+      const result = await upsertLocalCaregiver(value);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Local Buddy saved");
+      setBuddyDraft(null);
+      router.refresh();
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const saveDoctor = (_value: FamilyDoctor) => {
-    toast.message(PASS1_WRITE);
-    setDoctorDraft(null);
+  const saveDoctor = async (value: FamilyDoctor) => {
+    setSaving(true);
+    try {
+      const result = await upsertDoctor(value);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Family Doctor saved");
+      setDoctorDraft(null);
+      router.refresh();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -92,7 +115,7 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
                 />
               </div>
               <div className="flex gap-2">
-                <Button size="sm" onClick={() => saveBuddy(buddyDraft)}>
+                <Button size="sm" disabled={saving} onClick={() => saveBuddy(buddyDraft)}>
                   Save
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setBuddyDraft(null)}>
@@ -163,7 +186,7 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
                 />
               </div>
               <div className="flex gap-2">
-                <Button size="sm" onClick={() => saveDoctor(doctorDraft)}>
+                <Button size="sm" disabled={saving} onClick={() => saveDoctor(doctorDraft)}>
                   Save
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setDoctorDraft(null)}>

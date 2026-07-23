@@ -132,11 +132,19 @@ function inRange(iso: string, from: Date, to: Date) {
   }
 }
 
-function adherence(items: CheckInResponse[]) {
-  const relevant = items.filter((i) => i.status !== "upcoming" && i.status !== "pending");
-  if (relevant.length === 0) return 0;
-  const good = relevant.filter((i) => i.status === "taken" || i.status === "delayed").length;
-  return Math.round((good / relevant.length) * 100);
+function adherence(items: CheckInResponse[]): number | null {
+  const scored = items.filter(
+    (i) =>
+      i.status === "taken" ||
+      i.status === "missed" ||
+      i.status === "delayed",
+  );
+  const takenOrMissed = scored.filter(
+    (i) => i.status === "taken" || i.status === "missed",
+  );
+  if (takenOrMissed.length === 0) return null;
+  const good = scored.filter((i) => i.status === "taken" || i.status === "delayed").length;
+  return Math.round((good / scored.length) * 100);
 }
 
 function statusBreakdown(items: CheckInResponse[]) {
@@ -255,9 +263,9 @@ function buildTrendSeries(
 
     return {
       label,
-      medication: slice(med, "medication"),
-      meals: slice(food, "food"),
-      health: slice(health, "health"),
+      medication: slice(med, "medication") ?? 0,
+      meals: slice(food, "food") ?? 0,
+      health: slice(health, "health") ?? 0,
     };
   });
 }
@@ -384,11 +392,13 @@ export function buildReportModel(
           : "Health report";
 
     const summary =
-      pct >= 90
-        ? `${name}'s ${kind === "meals" ? "meal" : kind} routines look steady across ${bounds.label.toLowerCase()}.`
-        : pct >= 75
-          ? `${name} completed most ${kind === "meals" ? "meals" : "check-ins"}, with a few delays worth a gentle follow-up.`
-          : `${name} needs closer attention on ${kind === "meals" ? "meals" : kind} — several missed responses in this range.`;
+      pct == null
+        ? `No completed ${kind === "meals" ? "meal" : kind} check-ins for ${name} in ${bounds.label.toLowerCase()}.`
+        : pct >= 90
+          ? `${name}'s ${kind === "meals" ? "meal" : kind} routines look steady across ${bounds.label.toLowerCase()}.`
+          : pct >= 75
+            ? `${name} completed most ${kind === "meals" ? "meals" : "check-ins"}, with a few delays worth a gentle follow-up.`
+            : `${name} needs closer attention on ${kind === "meals" ? "meals" : kind} — several missed responses in this range.`;
 
     const timeline: ReportTimelineItem[] = [...items]
       .sort((a, b) => +parseISO(b.scheduledAt) - +parseISO(a.scheduledAt))
@@ -419,12 +429,12 @@ export function buildReportModel(
       to: bounds.to,
       lovedOne,
       metrics: [
-        { label: "Adherence", value: `${pct}%`, hint: bounds.label },
+        { label: "Adherence", value: pct == null ? "—" : `${pct}%`, hint: bounds.label },
         { label: "Taken", value: breakdown.taken },
         { label: "Delayed", value: breakdown.delayed },
         { label: "Missed", value: breakdown.missed },
       ],
-      adherencePercent: pct,
+      adherencePercent: pct ?? undefined,
       trendSeries,
       statusPie: [
         { name: "Taken", value: breakdown.taken, fill: "#5C8C6B" },
@@ -442,7 +452,7 @@ export function buildReportModel(
         delayed: breakdown.delayed,
         missed: breakdown.missed,
         pending: breakdown.pending,
-        adherence: pct,
+        adherence: pct ?? "—",
       },
     };
   }
@@ -511,18 +521,12 @@ export function buildReportModel(
   if (kind === "sos") {
     const resolved = sosEvents.filter((e) => e.status === "resolved");
     const active = sosEvents.filter((e) => e.status === "active" || e.status === "acknowledged");
-    const avgResponse =
-      resolved.length > 0
-        ? Math.round(
-            resolved.reduce((sum, e) => sum + (e.averageResponseMinutes ?? 5), 0) / resolved.length,
-          )
-        : 0;
     const summary =
       sosEvents.length === 0
         ? `No SOS events for ${name} in ${bounds.label.toLowerCase()}.`
         : active.length > 0
           ? `${active.length} SOS still needs attention for ${name}.`
-          : `${sosEvents.length} SOS event${sosEvents.length === 1 ? "" : "s"} in range; average response ${avgResponse} min.`;
+          : `${sosEvents.length} SOS event${sosEvents.length === 1 ? "" : "s"} in range; ${resolved.length} resolved.`;
 
     const timeline: ReportTimelineItem[] = sosEvents.slice(0, 12).map((e) => ({
       id: e.id,
@@ -553,7 +557,6 @@ export function buildReportModel(
       Status: e.status,
       Channel: e.triggerChannel,
       Responders: e.responders.join("; "),
-      ResponseMinutes: e.averageResponseMinutes ?? "",
       Resolved: e.resolvedAt ? format(parseISO(e.resolvedAt), "yyyy-MM-dd HH:mm") : "",
       Notes: e.resolutionNotes ?? "",
     }));
@@ -570,7 +573,6 @@ export function buildReportModel(
         { label: "Events", value: sosEvents.length },
         { label: "Active", value: active.length },
         { label: "Resolved", value: resolved.length },
-        { label: "Avg response", value: avgResponse ? `${avgResponse} min` : "—" },
       ],
       trendSeries,
       statusPie: sosStatusSeries(sosEvents),
@@ -583,7 +585,6 @@ export function buildReportModel(
         "Status",
         "Channel",
         "Responders",
-        "ResponseMinutes",
         "Resolved",
         "Notes",
       ],
@@ -591,7 +592,6 @@ export function buildReportModel(
         events: sosEvents.length,
         active: active.length,
         resolved: resolved.length,
-        avgResponseMinutes: avgResponse,
       },
     };
   }
@@ -600,15 +600,21 @@ export function buildReportModel(
   const medPct = adherence(med);
   const foodPct = adherence(food);
   const healthPct = adherence(health);
-  const overallPct = Math.round((medPct + foodPct + healthPct) / 3);
+  const scored = [medPct, foodPct, healthPct].filter((n): n is number => n != null);
+  const overallPct =
+    scored.length > 0
+      ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length)
+      : null;
   const all = [...med, ...food, ...health];
   const breakdown = statusBreakdown(all);
   const summary =
     sosEvents.some((e) => e.status === "active" || e.status === "acknowledged")
       ? `Overall routines for ${name} are mixed, and an SOS still needs attention.`
-      : overallPct >= 85
-        ? `${name}'s combined wellbeing looks calm and reassuring across ${bounds.label.toLowerCase()}.`
-        : `${name}'s overall adherence is ${overallPct}% — worth a gentle check on weaker routines.`;
+      : overallPct == null
+        ? `No scored check-ins for ${name} in ${bounds.label.toLowerCase()}.`
+        : overallPct >= 85
+          ? `${name}'s combined wellbeing looks calm and reassuring across ${bounds.label.toLowerCase()}.`
+          : `${name}'s overall adherence is ${overallPct}% — worth a gentle check on weaker routines.`;
 
   const timeline: ReportTimelineItem[] = [
     ...all.map((item) => ({
@@ -645,9 +651,9 @@ export function buildReportModel(
     });
 
   const tableRows = [
-    { Area: "Medication", Adherence: medPct, Taken: statusBreakdown(med).taken, Missed: statusBreakdown(med).missed },
-    { Area: "Meals", Adherence: foodPct, Taken: statusBreakdown(food).taken, Missed: statusBreakdown(food).missed },
-    { Area: "Health", Adherence: healthPct, Taken: statusBreakdown(health).taken, Missed: statusBreakdown(health).missed },
+    { Area: "Medication", Adherence: medPct ?? "—", Taken: statusBreakdown(med).taken, Missed: statusBreakdown(med).missed },
+    { Area: "Meals", Adherence: foodPct ?? "—", Taken: statusBreakdown(food).taken, Missed: statusBreakdown(food).missed },
+    { Area: "Health", Adherence: healthPct ?? "—", Taken: statusBreakdown(health).taken, Missed: statusBreakdown(health).missed },
     { Area: "SOS events", Adherence: "", Taken: sosEvents.length, Missed: sosEvents.filter((e) => e.status === "active").length },
     { Area: "Voice journals", Adherence: "", Taken: journals.length, Missed: journals.filter((j) => j.attentionFlag).length },
   ];
@@ -661,14 +667,14 @@ export function buildReportModel(
     to: bounds.to,
     lovedOne,
     metrics: [
-      { label: "Overall", value: `${overallPct}%`, hint: "Combined adherence" },
-      { label: "Medication", value: `${medPct}%` },
-      { label: "Meals", value: `${foodPct}%` },
-      { label: "Health", value: `${healthPct}%` },
+      { label: "Overall", value: overallPct == null ? "—" : `${overallPct}%`, hint: "Combined adherence" },
+      { label: "Medication", value: medPct == null ? "—" : `${medPct}%` },
+      { label: "Meals", value: foodPct == null ? "—" : `${foodPct}%` },
+      { label: "Health", value: healthPct == null ? "—" : `${healthPct}%` },
       { label: "SOS", value: sosEvents.length },
       { label: "Journals", value: journals.length },
     ],
-    adherencePercent: overallPct,
+    adherencePercent: overallPct ?? undefined,
     trendSeries,
     statusPie: [
       { name: "Taken", value: breakdown.taken, fill: "#5C8C6B" },
@@ -677,19 +683,19 @@ export function buildReportModel(
       { name: "Pending", value: breakdown.pending, fill: "#4A6D7C" },
     ].filter((p) => p.value > 0),
     barSeries: [
-      { label: "Medication", value: medPct },
-      { label: "Meals", value: foodPct },
-      { label: "Health", value: healthPct },
+      { label: "Medication", value: medPct ?? 0 },
+      { label: "Meals", value: foodPct ?? 0 },
+      { label: "Health", value: healthPct ?? 0 },
     ],
     moodPie: moodCounts(journals),
     timeline,
     tableRows,
     csvHeaders: ["Area", "Adherence", "Taken", "Missed"],
     snapshotMetrics: {
-      overall: overallPct,
-      medication: medPct,
-      meals: foodPct,
-      health: healthPct,
+      overall: overallPct ?? "—",
+      medication: medPct ?? "—",
+      meals: foodPct ?? "—",
+      health: healthPct ?? "—",
       sos: sosEvents.length,
       journals: journals.length,
       checkIns: all.length,

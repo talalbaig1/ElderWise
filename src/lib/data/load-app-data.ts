@@ -103,7 +103,10 @@ export async function loadAppData(
     supabase.from("elders").select("*").order("created_at", { ascending: true }),
     supabase.from("local_caregivers").select("*"),
     supabase.from("doctors").select("*"),
-    supabase.from("medications").select("*"),
+    // Soft-deleted meds: active=false — excluded from the read model (never render).
+    // Food/health soft-delete is enabled=false; those rows still load so the CT can
+    // re-enable, but domain_configs.frequency only unions enabled times (see syncDomainConfig).
+    supabase.from("medications").select("*").eq("active", true),
     supabase.from("food_routines").select("*"),
     supabase.from("health_routines").select("*"),
     supabase.from("checkins").select("*").order("scheduled_for", { ascending: false }),
@@ -144,12 +147,14 @@ export async function loadAppData(
   const sosEvents = ((sosRes.data ?? []) as SosEventRow[]).map((ev) => {
     const buddy = localBuddies.find((b) => b.lovedOneId === ev.elder_id);
     const doc = doctors.find((d) => d.lovedOneId === ev.elder_id);
+    const elder = lovedOnes.find((e) => e.id === ev.elder_id);
     return sosEventFromRows(ev, sosNotifications, {
       carePartner: carePartner
         ? `${carePartner.firstName} ${carePartner.lastName}`.trim()
         : undefined,
       localBuddy: buddy?.name,
       doctor: doc?.name,
+      location: elder?.address,
     });
   });
 

@@ -32,18 +32,18 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ageFromDob } from "@/lib/loved-ones";
 import { useDomainStore } from "@/components/data/app-data-provider";
-import { useElderWiseStore } from "@/lib/store";
+import { updateElder } from "@/lib/data/actions";
 import { initials } from "@/lib/utils";
-import type { Gender, LovedOne, WellbeingStatus } from "@/types";
+import type { Gender, LovedOne } from "@/types";
 
 export default function LovedOneProfilePage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { store, setSelectedLovedOneId, hydrated } = useDomainStore();
-  const { setStore } = useElderWiseStore();
   const lovedOne = store.lovedOnes.find((lo) => lo.id === params.id);
   const [editingOverview, setEditingOverview] = useState(false);
   const [draft, setDraft] = useState<LovedOne | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const related = useMemo(() => {
     if (!lovedOne) return null;
@@ -86,12 +86,30 @@ export default function LovedOneProfilePage() {
     setEditingOverview(true);
   };
 
-  const saveOverview = () => {
-    toast.message("Profile saves land in Pass 2", {
-      description: "This pass reads live data only.",
-    });
-    setEditingOverview(false);
-    setDraft(null);
+  const saveOverview = async () => {
+    if (!draft) return;
+    setSaving(true);
+    try {
+      const result = await updateElder({
+        id: draft.id,
+        firstName: draft.firstName,
+        surname: draft.surname,
+        whatsappNumber: draft.whatsappNumber,
+        timeZone: draft.timeZone,
+        address: draft.address,
+        gender: draft.gender,
+      });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Profile saved");
+      setEditingOverview(false);
+      setDraft(null);
+      router.refresh();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -212,30 +230,7 @@ export default function LovedOneProfilePage() {
                       onChange={(e) => setDraft({ ...draft, whatsappNumber: e.target.value })}
                     />
                   </Field>
-                  <Field label="Relationship">
-                    <Input
-                      value={draft.relationshipToCarePartner}
-                      onChange={(e) =>
-                        setDraft({ ...draft, relationshipToCarePartner: e.target.value })
-                      }
-                    />
-                  </Field>
-                  <Field label="Date of birth">
-                    <Input
-                      type="date"
-                      value={draft.dateOfBirth || ""}
-                      onChange={(e) => setDraft({ ...draft, dateOfBirth: e.target.value })}
-                    />
-                  </Field>
-                  <Field label="Language">
-                    <Input
-                      value={draft.preferredLanguage}
-                      onChange={(e) =>
-                        setDraft({ ...draft, preferredLanguage: e.target.value })
-                      }
-                    />
-                  </Field>
-                  <Field label="Time zone">
+                  <Field label="Time zone (IANA)">
                     <Input
                       value={draft.timeZone}
                       onChange={(e) => setDraft({ ...draft, timeZone: e.target.value })}
@@ -260,23 +255,26 @@ export default function LovedOneProfilePage() {
                       ]}
                     />
                   </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Wellbeing status</Label>
-                    <ChoiceChips<WellbeingStatus>
-                      value={draft.wellbeingStatus}
-                      onChange={(wellbeingStatus) => setDraft({ ...draft, wellbeingStatus })}
-                      options={[
-                        { value: "stable", label: "Stable" },
-                        { value: "attention", label: "Needs attention" },
-                        { value: "urgent", label: "Urgent" },
-                        { value: "unknown", label: "Unknown" },
-                      ]}
-                    />
+                  <div className="space-y-1 sm:col-span-2 rounded-xl border border-dashed p-3 text-sm text-muted-foreground">
+                    <p>
+                      Consent attestation (onboarding) and in-channel confirmation are
+                      read-only — not editable here.
+                    </p>
+                    <p className="font-mono text-xs">
+                      Attested by CT: {lovedOne.consentAttestedByCarePartner ? "yes" : "no"}
+                      {lovedOne.consentAttestedAt
+                        ? ` · ${lovedOne.consentAttestedAt.slice(0, 10)}`
+                        : ""}
+                    </p>
+                    <ConsentStatusBadge lovedOne={lovedOne} className="mt-2" />
                   </div>
                   <div className="flex gap-2 sm:col-span-2">
-                    <Button onClick={saveOverview}>Save changes</Button>
+                    <Button onClick={saveOverview} disabled={saving}>
+                      Save changes
+                    </Button>
                     <Button
                       variant="ghost"
+                      disabled={saving}
                       onClick={() => {
                         setEditingOverview(false);
                         setDraft(null);

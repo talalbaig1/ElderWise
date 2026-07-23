@@ -39,16 +39,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { changeAccountPassword, updateAccountNames } from "@/lib/auth";
+import { changeAccountPassword } from "@/lib/auth";
 import {
   LANGUAGE_OPTIONS,
   TIMEZONE_OPTIONS,
   detectBrowserTimeZone,
 } from "@/lib/settings";
 import { useDomainStore } from "@/components/data/app-data-provider";
+import { updateCarePartnerProfile } from "@/lib/data/actions";
 import { useAuth, useElderWiseStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import type { CarePartner, NotificationMethod, UserSettings } from "@/types";
+import type { NotificationMethod, UserSettings } from "@/types";
 
 type SettingsSection =
   | "profile"
@@ -142,14 +143,26 @@ export default function SettingsPage() {
     if (partial.theme) setTheme(partial.theme);
   };
 
-  const saveProfile = () => {
+  const saveProfile = async () => {
     if (!profile.firstName.trim() || !profile.lastName.trim()) {
       toast.error("First and last name are required");
       return;
     }
-    toast.message("Profile saves land in Pass 2", {
-      description: "This pass reads live care_partners data only.",
+    const result = await updateCarePartnerProfile({
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      whatsappNumber: profile.whatsappNumber,
+      directContactNumber: profile.directContactNumber,
+      address: profile.address,
+      timeZone: carePartner?.timeZone || settings.timeZone || "UTC",
+      email: profile.email,
     });
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success("Profile saved");
+    router.refresh();
   };
 
   const savePassword = () => {

@@ -38,16 +38,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  acknowledgeSos,
-  applySosToStore,
-  cancelSos,
   cascadeProgress,
-  createTriggeredSos,
   ensureSosShape,
   formatSosDateTime,
   hydrateLegacySos,
-  markCascadeAcknowledged,
-  resolveSos,
 } from "@/lib/sos";
 import { useDomainStore } from "@/components/data/app-data-provider";
 import { cn } from "@/lib/utils";
@@ -123,10 +117,6 @@ export default function SosPage() {
     ? store.lovedOnes.find((lo) => lo.id === selected.lovedOneId)
     : null;
 
-  const cpName = store.carePartner
-    ? `${store.carePartner.firstName} ${store.carePartner.lastName}`
-    : "Care Partner";
-
   const openCount = events.filter(
     (e) => e.status === "active" || e.status === "acknowledged",
   ).length;
@@ -135,10 +125,6 @@ export default function SosPage() {
     toast.message("SOS trigger stays unwired until A2.7", {
       description: "Pass 1 reads live sos_events only.",
     });
-  };
-
-  const updateEvent = (_next: SOSEvent) => {
-    toast.message("SOS updates stay unwired until A2.7");
   };
 
   const onAcknowledge = () => {

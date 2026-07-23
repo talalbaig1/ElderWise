@@ -20,12 +20,16 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { createBlankFood, createBlankHealth, createBlankMedication } from "@/lib/loved-ones";
 import { useDomainStore } from "@/components/data/app-data-provider";
+import {
+  softDeleteFoodRoutine,
+  softDeleteHealthRoutine,
+  softDeleteMedication,
+  upsertFoodRoutine,
+  upsertHealthRoutine,
+  upsertMedication,
+} from "@/lib/data/actions";
 import type { FoodRoutine, HealthRoutine, Medication } from "@/types";
-
-const PASS1_WRITE = "Routine edits save in Pass 2 — A2.3 is reads only.";
-function blockWrite() {
-  toast.message(PASS1_WRITE);
-}
+import { useRouter } from "next/navigation";
 
 export function MedicationTab({
   lovedOneId,
@@ -33,13 +37,26 @@ export function MedicationTab({
   lovedOneId: string;
   lovedOneName: string;
 }) {
+  const router = useRouter();
   const { store } = useDomainStore();
   const items = store.medications.filter((m) => m.lovedOneId === lovedOneId);
   const [editing, setEditing] = useState<Medication | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const save = (_med: Medication) => {
-    blockWrite();
-    setEditing(null);
+  const save = async (med: Medication) => {
+    setBusy(true);
+    try {
+      const result = await upsertMedication(med);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Medication saved");
+      setEditing(null);
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -57,12 +74,54 @@ export function MedicationTab({
               title={item.name || "Untitled"}
               subtitle={`${item.dosage} ${item.dosageUnit} · ${item.times.join(", ")} · ${item.startDate}${item.endDate ? ` → ${item.endDate}` : ""}`}
               enabled={item.enabled}
-              onToggle={() => blockWrite()}
+              onToggle={async (enabled) => {
+                setBusy(true);
+                try {
+                  const result = await upsertMedication({ ...item, enabled });
+                  if (!result.ok) {
+                    toast.error(result.error);
+                    return;
+                  }
+                  router.refresh();
+                } finally {
+                  setBusy(false);
+                }
+              }}
               onEdit={() => setEditing(item)}
-              onDuplicate={() => blockWrite()}
-              onDelete={() => {
-                if (!window.confirm(`Remove ${item.name}?`)) return;
-                blockWrite();
+              onDuplicate={async () => {
+                const copy = {
+                  ...item,
+                  id: createBlankMedication(lovedOneId).id,
+                  name: `${item.name} (copy)`,
+                };
+                setBusy(true);
+                try {
+                  const result = await upsertMedication(copy);
+                  if (!result.ok) {
+                    toast.error(result.error);
+                    return;
+                  }
+                  toast.success("Duplicated");
+                  router.refresh();
+                } finally {
+                  setBusy(false);
+                }
+              }}
+              onDelete={async () => {
+                if (!window.confirm(`Remove ${item.name}? It will be hidden, not erased from history.`))
+                  return;
+                setBusy(true);
+                try {
+                  const result = await softDeleteMedication(item.id, lovedOneId);
+                  if (!result.ok) {
+                    toast.error(result.error);
+                    return;
+                  }
+                  toast.success("Removed");
+                  router.refresh();
+                } finally {
+                  setBusy(false);
+                }
               }}
             />
           ))}
@@ -156,7 +215,9 @@ export function MedicationTab({
             <Button variant="outline" onClick={() => setEditing(null)}>
               Cancel
             </Button>
-            <Button onClick={() => editing && save(editing)}>Save</Button>
+            <Button onClick={() => editing && save(editing)} disabled={busy}>
+              Save
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -165,13 +226,26 @@ export function MedicationTab({
 }
 
 export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
+  const router = useRouter();
   const { store } = useDomainStore();
   const items = store.foodRoutines.filter((f) => f.lovedOneId === lovedOneId);
   const [editing, setEditing] = useState<FoodRoutine | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const save = (_item: FoodRoutine) => {
-    blockWrite();
-    setEditing(null);
+  const save = async (item: FoodRoutine) => {
+    setBusy(true);
+    try {
+      const result = await upsertFoodRoutine(item);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Meal routine saved");
+      setEditing(null);
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -189,11 +263,35 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
               title={item.mealName}
               subtitle={`${item.checkInTime} · ${item.startDate}${item.endDate ? ` → ${item.endDate}` : ""}`}
               enabled={item.enabled}
-              onToggle={() => blockWrite()}
+              onToggle={async (enabled) => {
+                setBusy(true);
+                try {
+                  const result = await upsertFoodRoutine({ ...item, enabled });
+                  if (!result.ok) {
+                    toast.error(result.error);
+                    return;
+                  }
+                  router.refresh();
+                } finally {
+                  setBusy(false);
+                }
+              }}
               onEdit={() => setEditing(item)}
-              onDelete={() => {
-                if (!window.confirm(`Remove ${item.mealName}?`)) return;
-                blockWrite();
+              onDelete={async () => {
+                if (!window.confirm(`Remove ${item.mealName}? It will be disabled, not erased.`))
+                  return;
+                setBusy(true);
+                try {
+                  const result = await softDeleteFoodRoutine(item.id, lovedOneId);
+                  if (!result.ok) {
+                    toast.error(result.error);
+                    return;
+                  }
+                  toast.success("Removed");
+                  router.refresh();
+                } finally {
+                  setBusy(false);
+                }
               }}
             />
           ))}
@@ -248,7 +346,9 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
             <Button variant="outline" onClick={() => setEditing(null)}>
               Cancel
             </Button>
-            <Button onClick={() => editing && save(editing)}>Save</Button>
+            <Button onClick={() => editing && save(editing)} disabled={busy}>
+              Save
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -257,13 +357,26 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
 }
 
 export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
+  const router = useRouter();
   const { store } = useDomainStore();
   const items = store.healthRoutines.filter((h) => h.lovedOneId === lovedOneId);
   const [editing, setEditing] = useState<HealthRoutine | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const save = (_item: HealthRoutine) => {
-    blockWrite();
-    setEditing(null);
+  const save = async (item: HealthRoutine) => {
+    setBusy(true);
+    try {
+      const result = await upsertHealthRoutine(item);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Health routine saved");
+      setEditing(null);
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -281,11 +394,35 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
               title={item.name}
               subtitle={`${item.time} · ${item.startDate}${item.endDate ? ` → ${item.endDate}` : ""} · Answer: ${item.answerType === "yes_no" ? "Yes/No" : `${item.answerType} (Coming soon)`}`}
               enabled={item.enabled}
-              onToggle={() => blockWrite()}
+              onToggle={async (enabled) => {
+                setBusy(true);
+                try {
+                  const result = await upsertHealthRoutine({ ...item, enabled });
+                  if (!result.ok) {
+                    toast.error(result.error);
+                    return;
+                  }
+                  router.refresh();
+                } finally {
+                  setBusy(false);
+                }
+              }}
               onEdit={() => setEditing(item)}
-              onDelete={() => {
-                if (!window.confirm(`Remove ${item.name}?`)) return;
-                blockWrite();
+              onDelete={async () => {
+                if (!window.confirm(`Remove ${item.name}? It will be disabled, not erased.`))
+                  return;
+                setBusy(true);
+                try {
+                  const result = await softDeleteHealthRoutine(item.id, lovedOneId);
+                  if (!result.ok) {
+                    toast.error(result.error);
+                    return;
+                  }
+                  toast.success("Removed");
+                  router.refresh();
+                } finally {
+                  setBusy(false);
+                }
               }}
             />
           ))}
@@ -360,6 +497,7 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
               Cancel
             </Button>
             <Button
+              disabled={busy}
               onClick={() =>
                 editing && save({ ...editing, answerType: "yes_no" })
               }

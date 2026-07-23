@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import {
   Grid2X2,
@@ -37,16 +36,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ageFromDob, createBlankLovedOne, removeLovedOneFromStore } from "@/lib/loved-ones";
+import { ageFromDob, createBlankLovedOne } from "@/lib/loved-ones";
 import { useDomainStore } from "@/components/data/app-data-provider";
-import { useElderWiseStore } from "@/lib/store";
 import { cn, initials } from "@/lib/utils";
 import type { WellbeingStatus } from "@/types";
 
 export default function LovedOnesPage() {
-  const router = useRouter();
   const { store, setSelectedLovedOneId, hydrated } = useDomainStore();
-  const { setStore } = useElderWiseStore();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | WellbeingStatus>("all");
   const [view, setView] = useState<"grid" | "list">("grid");

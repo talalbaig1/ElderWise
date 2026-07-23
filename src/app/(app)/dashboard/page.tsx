@@ -277,30 +277,45 @@ export default function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           title="Medication adherence"
-          value={`${model.medPct}%`}
-          subtitle={`${model.medBreakdown.taken} taken · ${model.medBreakdown.missed} missed`}
+          value={model.medPct == null ? "—" : `${model.medPct}%`}
+          subtitle={
+            model.medBreakdown.taken + model.medBreakdown.missed === 0
+              ? "No data yet"
+              : `${model.medBreakdown.taken} taken · ${model.medBreakdown.missed} missed`
+          }
           icon={Pill}
-          progress={model.medPct}
+          progress={model.medPct ?? undefined}
           tone="medication"
           trend={model.medTrend}
           onClick={() => router.push("/reports")}
         />
         <MetricCard
           title="Meal completion"
-          value={`${model.foodPct}%`}
-          subtitle={`${model.foodBreakdown.taken} completed · ${model.foodBreakdown.missed} missed`}
+          value={model.foodPct == null ? "—" : `${model.foodPct}%`}
+          subtitle={
+            model.foodBreakdown.taken + model.foodBreakdown.missed === 0
+              ? "No data yet"
+              : `${model.foodBreakdown.taken} completed · ${model.foodBreakdown.missed} missed`
+          }
           icon={Utensils}
-          progress={model.foodPct}
+          progress={model.foodPct ?? undefined}
           tone="meals"
           trend={model.foodTrend}
           onClick={() => router.push("/reports")}
         />
         <MetricCard
           title="Health check-ins"
-          value={`${model.healthPct}%`}
-          subtitle={`${model.healthBreakdown.taken} done · ${model.healthBreakdown.pending} pending`}
+          value={model.healthPct == null ? "—" : `${model.healthPct}%`}
+          subtitle={
+            model.healthBreakdown.taken +
+              model.healthBreakdown.missed +
+              model.healthBreakdown.pending ===
+            0
+              ? "No data yet"
+              : `${model.healthBreakdown.taken} done · ${model.healthBreakdown.pending} pending`
+          }
           icon={HeartPulse}
-          progress={model.healthPct}
+          progress={model.healthPct ?? undefined}
           tone="health"
           trend={model.healthTrend}
           onClick={() => router.push("/reports")}
@@ -311,7 +326,7 @@ export default function DashboardPage() {
           subtitle={
             model.activeSos
               ? "Open emergency workflow"
-              : `${model.sosInRangeCount} in range · avg ${model.avgResponse || "—"} min`
+              : `${model.sosInRangeCount} in range · ${model.sosTotal} total`
           }
           icon={Siren}
           tone={model.activeSos ? "sos" : "success"}
@@ -406,18 +421,12 @@ export default function DashboardPage() {
             <CardTitle className="text-lg">SOS summary</CardTitle>
             <CardDescription>Emergency history for this Loved One</CardDescription>
           </CardHeader>
-          <CardContent className="grid grid-cols-3 gap-3">
+          <CardContent className="grid grid-cols-2 gap-3">
             <div className="rounded-xl bg-secondary/60 p-3 text-center">
               <p className="font-mono text-xl font-semibold text-primary" data-metric>
                 {model.sosTotal}
               </p>
               <p className="text-[11px] text-muted-foreground">Total</p>
-            </div>
-            <div className="rounded-xl bg-secondary/60 p-3 text-center">
-              <p className="font-mono text-xl font-semibold text-primary" data-metric>
-                {model.avgResponse || "—"}
-              </p>
-              <p className="text-[11px] text-muted-foreground">Avg min</p>
             </div>
             <div className="rounded-xl bg-secondary/60 p-3 text-center">
               <StatusPill
