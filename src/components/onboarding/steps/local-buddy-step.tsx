@@ -12,7 +12,7 @@ import { saveOnboardingLocalBuddy } from "@/lib/data/onboarding-actions";
 import { localBuddySchema } from "@/lib/onboarding";
 
 export function LocalBuddyStep() {
-  const { draft, patchDraft, setStep } = useOnboarding();
+  const { draft, patchDraft, setStep, additionalMode } = useOnboarding();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const value = draft.localBuddy;
@@ -70,7 +70,7 @@ export function LocalBuddyStep() {
 
   return (
     <WizardShell
-      onBack={() => setStep(1)}
+      onBack={() => setStep(additionalMode ? 0 : 1)}
       onNext={onNext}
       busy={busy}
       secondaryAction={

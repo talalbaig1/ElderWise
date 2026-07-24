@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { FieldError } from "@/components/onboarding/fields";
 import { useOnboarding } from "@/components/onboarding/onboarding-context";
@@ -12,7 +13,8 @@ import { saveOnboardingLovedOne } from "@/lib/data/onboarding-actions";
 import { lovedOneSchema } from "@/lib/onboarding";
 
 export function LovedOneStep() {
-  const { draft, patchDraft, setStep } = useOnboarding();
+  const { draft, patchDraft, setStep, additionalMode } = useOnboarding();
+  const router = useRouter();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const value = draft.lovedOne;
@@ -42,9 +44,15 @@ export function LovedOneStep() {
       if (result.error.includes("WhatsApp number")) {
         setErrors({ whatsappNumber: result.error });
       }
+      // One-draft refusal — leave the wizard so the CT can use Add Loved One dialog.
+      if (result.error.includes("unfinished setup")) {
+        router.replace("/loved-ones");
+      }
       return;
     }
-    patchDraft({ lovedOne: parsed.data, elderId: result.elderId, currentStep: 1 });
+    // Additional-elder mode skips Care Partner (step 1).
+    const nextStep = additionalMode ? 2 : 1;
+    patchDraft({ lovedOne: parsed.data, elderId: result.elderId, currentStep: nextStep });
   };
 
   return (

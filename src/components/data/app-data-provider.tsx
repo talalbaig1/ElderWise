@@ -4,6 +4,7 @@ import {
   createContext,
   createElement,
   useContext,
+  useEffect,
   useMemo,
   type ReactNode,
 } from "react";
@@ -57,6 +58,21 @@ export function useDomainStore(): {
       ),
     [data, clientStore.session, clientStore.settings, clientStore.selectedLovedOneId],
   );
+
+  // Heal dangling selectedLovedOneId (elder deleted / not in loaded list).
+  useEffect(() => {
+    if (!hydrated || data.lovedOnes.length === 0) return;
+    const resolved = store.selectedLovedOneId;
+    if (resolved && clientStore.selectedLovedOneId !== resolved) {
+      setSelectedLovedOneId(resolved);
+    }
+  }, [
+    hydrated,
+    data.lovedOnes.length,
+    store.selectedLovedOneId,
+    clientStore.selectedLovedOneId,
+    setSelectedLovedOneId,
+  ]);
 
   const lovedOne =
     store.lovedOnes.find((lo) => lo.id === store.selectedLovedOneId) ??

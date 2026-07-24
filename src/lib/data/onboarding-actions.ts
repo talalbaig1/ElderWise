@@ -136,6 +136,26 @@ export async function saveOnboardingLovedOne(input: {
     }
   }
 
+  // One-draft invariant (server-authoritative). URL ?mode=additional can bypass the
+  // client dialog — refuse creating a second draft with a recoverable message.
+  {
+    const { data: existingDraft, error: draftErr } = await supabase
+      .from("elders")
+      .select("id, first_name")
+      .eq("care_partner_id", user.id)
+      .eq("active", false)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (draftErr) return failElder(draftErr.message);
+    if (existingDraft && (!elderId || existingDraft.id !== elderId)) {
+      const name = (existingDraft.first_name as string)?.trim() || "your Loved One";
+      return failElder(
+        `You have an unfinished setup for ${name} — resume or discard it first`,
+      );
+    }
+  }
+
   if (elderId) {
     const ownErr = await assertOwnsDraftElder(supabase, elderId, user.id);
     if (ownErr) return failElder(ownErr);
@@ -530,12 +550,12 @@ export async function saveOnboardingHealthRoutines(input: {
 /** Completion — flip draft → active so (app)/layout admits the CT to the dashboard. */
 export async function activateOnboardingElder(
   elderId: string,
-): Promise<OnboardingActionResult> {
+): Promise<ElderWriteResult> {
   const { supabase, user, error: authErr } = await requireUser();
-  if (authErr || !user) return fail(authErr ?? "Not signed in");
+  if (authErr || !user) return failElder(authErr ?? "Not signed in");
 
   const ownErr = await assertOwnsDraftElder(supabase, elderId, user.id);
-  if (ownErr) return fail(ownErr);
+  if (ownErr) return failElder(ownErr);
 
   const { data, error } = await supabase
     .from("elders")
@@ -545,13 +565,92 @@ export async function activateOnboardingElder(
     .select("id, active")
     .maybeSingle();
 
-  if (error) return fail(error.message);
-  if (!data) return fail("Activation failed — no row returned (check RLS)");
-  if (data.active !== true) return fail("Activation did not persist");
+  if (error) return failElder(error.message);
+  if (!data) return failElder("Activation failed — no row returned (check RLS)");
+  if (data.active !== true) return failElder("Activation did not persist");
 
   revalidatePath("/dashboard");
   revalidatePath("/loved-ones");
   revalidatePath("/onboarding");
+  return { ok: true, elderId: data.id };
+}
+
+/** At most one draft per CT — for the Add Loved One dialog. */
+export async function getOwnDraftElder(): Promise<
+  | { ok: true; draft: { id: string; firstName: string } | null }
+  | { ok: false; error: string }
+> {
+  const { supabase, user, error: authErr } = await requireUser();
+  if (authErr || !user) return { ok: false, error: authErr ?? "Not signed in" };
+
+  const { data, error } = await supabase
+    .from("elders")
+    .select("id, first_name")
+    .eq("care_partner_id", user.id)
+    .eq("active", false)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: true, draft: null };
+  return {
+    ok: true,
+    draft: {
+      id: data.id as string,
+      firstName: ((data.first_name as string) || "").trim() || "Loved One",
+    },
+  };
+}
+
+/**
+ * Hard-delete an unfinished draft elder.
+ *
+ * Unlike medication/food/health soft-delete, drafts use DELETE (not active=false).
+ * Drafts have consent_confirmed_at NULL — nothing was scheduled; the app never
+ * writes checkins or sos_events for them; children CASCADE. Soft-deleting would
+ * keep elders.whatsapp_number UNIQUE locked forever (including against another
+ * care partner who cannot see the row) — e.g. two siblings caring for the same
+ * parent. Routines soft-delete because they have history to preserve; drafts do not.
+ */
+export async function discardDraftElder(
+  elderId: string,
+): Promise<OnboardingActionResult> {
+  const { supabase, user, error: authErr } = await requireUser();
+  if (authErr || !user) return fail(authErr ?? "Not signed in");
+
+  const { data: row, error: findErr } = await supabase
+    .from("elders")
+    .select("id, active, consent_confirmed_at")
+    .eq("id", elderId)
+    .eq("care_partner_id", user.id)
+    .maybeSingle();
+
+  if (findErr) return fail(findErr.message);
+  if (!row) return fail("Draft not found or not owned by you");
+  if (row.active === true) {
+    return fail("Cannot discard an active Loved One");
+  }
+  if (row.consent_confirmed_at != null) {
+    return fail("Cannot discard — this Loved One already confirmed WhatsApp consent");
+  }
+
+  const { data, error } = await supabase
+    .from("elders")
+    .delete()
+    .eq("id", elderId)
+    .eq("care_partner_id", user.id)
+    .eq("active", false)
+    .is("consent_confirmed_at", null)
+    .select("id")
+    .maybeSingle();
+
+  if (error) return fail(error.message);
+  if (!data) return fail("Draft discard failed — no row returned (check RLS)");
+
+  revalidatePath("/loved-ones");
+  revalidatePath("/onboarding");
+  revalidatePath("/dashboard");
   return { ok: true };
 }
 

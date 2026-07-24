@@ -12,10 +12,12 @@ import {
 import { WizardShell } from "@/components/onboarding/wizard-shell";
 import { Button } from "@/components/ui/button";
 import { activateOnboardingElder } from "@/lib/data/onboarding-actions";
+import { useElderWiseStore } from "@/lib/store";
 
 export function CompletionStep() {
   const router = useRouter();
   const { draft, setStep } = useOnboarding();
+  const { setSelectedLovedOneId } = useElderWiseStore();
   const [busy, setBusy] = useState(false);
   const reduce = useReducedMotion();
   const name = draft.lovedOne.firstName || "your Loved One";
@@ -33,6 +35,7 @@ export function CompletionStep() {
       toast.error(result.error);
       return;
     }
+    setSelectedLovedOneId(result.elderId);
     clearOnboardingLocalDraft();
     router.replace("/dashboard");
     router.refresh();

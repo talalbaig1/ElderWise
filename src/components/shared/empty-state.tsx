@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -9,6 +10,8 @@ interface EmptyStateProps {
   description?: string;
   actionLabel?: string;
   onAction?: () => void;
+  /** Prefer over actionLabel/onAction when you need a custom control. */
+  action?: ReactNode;
   className?: string;
 }
 
@@ -18,6 +21,7 @@ export function EmptyState({
   description,
   actionLabel,
   onAction,
+  action,
   className,
 }: EmptyStateProps) {
   return (
@@ -34,7 +38,9 @@ export function EmptyState({
       {description ? (
         <p className="mt-2 max-w-md text-sm text-muted-foreground">{description}</p>
       ) : null}
-      {actionLabel && onAction ? (
+      {action ? (
+        <div className="mt-5">{action}</div>
+      ) : actionLabel && onAction ? (
         <Button className="mt-5" onClick={onAction}>
           {actionLabel}
         </Button>

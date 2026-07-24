@@ -33,10 +33,18 @@ export function WizardShell({
   secondaryAction,
   busy,
 }: WizardShellProps) {
-  const { step, totalSteps, lastSavedAt, saveNow } = useOnboarding();
+  const { step, lastSavedAt, saveNow, additionalMode } = useOnboarding();
   const reduce = useReducedMotion();
   const meta = ONBOARDING_STEPS[step];
-  const progress = ((step + 1) / totalSteps) * 100;
+  // Additional-elder mode skips Care Partner — progress excludes that step.
+  const visibleSteps = additionalMode
+    ? ONBOARDING_STEPS.filter((s) => s.id !== "care-partner")
+    : ONBOARDING_STEPS;
+  const visibleIndex = Math.max(
+    0,
+    visibleSteps.findIndex((s) => s.id === ONBOARDING_STEPS[step]?.id),
+  );
+  const progress = ((visibleIndex + 1) / visibleSteps.length) * 100;
 
   return (
     <div className="min-h-screen bg-background">
@@ -56,7 +64,7 @@ export function WizardShell({
           </div>
           <div className="text-right">
             <p className="font-mono text-[11px] text-muted-foreground">
-              Step {step + 1} of {totalSteps}
+              Step {visibleIndex + 1} of {visibleSteps.length}
             </p>
             {lastSavedAt ? (
               <p className="flex items-center justify-end gap-1 text-[11px] text-success">
@@ -70,14 +78,14 @@ export function WizardShell({
         <div className="mb-6 space-y-3">
           <Progress value={progress} className="h-2" />
           <div className="hidden gap-1 overflow-x-auto pb-1 sm:flex">
-            {ONBOARDING_STEPS.map((item, index) => (
+            {visibleSteps.map((item, index) => (
               <span
                 key={item.id}
                 className={cn(
                   "rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em]",
-                  index === step
+                  index === visibleIndex
                     ? "bg-primary text-primary-foreground"
-                    : index < step
+                    : index < visibleIndex
                       ? "bg-secondary text-secondary-foreground"
                       : "bg-muted text-muted-foreground",
                 )}

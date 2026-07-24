@@ -7,7 +7,6 @@ import {
   Grid2X2,
   HeartHandshake,
   List,
-  Plus,
   Search,
   Trash2,
 } from "lucide-react";
@@ -15,6 +14,7 @@ import { toast } from "sonner";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ConsentStatusBadge } from "@/components/shared/consent-status-badge";
 import { StatusPill } from "@/components/shared/status-pill";
+import { AddLovedOneButton } from "@/components/loved-ones/add-loved-one-button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -36,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ageFromDob, createBlankLovedOne } from "@/lib/loved-ones";
+import { ageFromDob } from "@/lib/loved-ones";
 import { useDomainStore } from "@/components/data/app-data-provider";
 import { cn, initials } from "@/lib/utils";
 import type { WellbeingStatus } from "@/types";
@@ -46,11 +45,7 @@ export default function LovedOnesPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | WellbeingStatus>("all");
   const [view, setView] = useState<"grid" | "list">("grid");
-  const [addOpen, setAddOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [draft, setDraft] = useState(() =>
-    createBlankLovedOne(store.carePartner?.id || "cp"),
-  );
 
   const filtered = useMemo(() => {
     return store.lovedOnes.filter((lo) => {
@@ -65,22 +60,9 @@ export default function LovedOnesPage() {
     return <div className="h-40 animate-pulse rounded-2xl bg-secondary" />;
   }
 
-  const openAdd = () => {
-    toast.message("Adds save in Pass 2", {
-      description: "This pass reads live data only.",
-    });
-  };
-
-  const saveNew = () => {
-    toast.message("Adds save in Pass 2", {
-      description: "This pass reads live data only.",
-    });
-    setAddOpen(false);
-  };
-
   const confirmDelete = () => {
-    toast.message("Deletes save in Pass 2", {
-      description: "This pass reads live data only.",
+    toast.message("Deletes save in a later pass", {
+      description: "Use Care Plan edits for now.",
     });
     setDeleteId(null);
   };
@@ -98,10 +80,7 @@ export default function LovedOnesPage() {
             circle up to date.
           </p>
         </div>
-        <Button onClick={openAdd}>
-          <Plus className="h-4 w-4" />
-          Add Loved One
-        </Button>
+        <AddLovedOneButton />
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -119,33 +98,32 @@ export default function LovedOnesPage() {
           value={statusFilter}
           onValueChange={(v) => setStatusFilter(v as "all" | WellbeingStatus)}
         >
-          <SelectTrigger className="w-full sm:w-[180px]" aria-label="Status filter">
+          <SelectTrigger className="w-[160px]" aria-label="Filter by wellbeing">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="stable">Stable</SelectItem>
-            <SelectItem value="attention">Needs attention</SelectItem>
-            <SelectItem value="urgent">Urgent</SelectItem>
-            <SelectItem value="unknown">Unknown</SelectItem>
+            <SelectItem value="green">Doing well</SelectItem>
+            <SelectItem value="amber">Needs attention</SelectItem>
+            <SelectItem value="red">Urgent</SelectItem>
           </SelectContent>
         </Select>
-        <div className="flex rounded-xl border p-1">
+        <div className="flex gap-1 rounded-xl border p-1">
           <Button
             type="button"
-            size="icon"
-            variant={view === "grid" ? "secondary" : "ghost"}
-            aria-label="Grid view"
+            size="sm"
+            variant={view === "grid" ? "soft" : "ghost"}
             onClick={() => setView("grid")}
+            aria-label="Grid view"
           >
             <Grid2X2 className="h-4 w-4" />
           </Button>
           <Button
             type="button"
-            size="icon"
-            variant={view === "list" ? "secondary" : "ghost"}
-            aria-label="List view"
+            size="sm"
+            variant={view === "list" ? "soft" : "ghost"}
             onClick={() => setView("list")}
+            aria-label="List view"
           >
             <List className="h-4 w-4" />
           </Button>
@@ -161,8 +139,7 @@ export default function LovedOnesPage() {
               ? "Add someone you care for to start building their routines."
               : "Try a different search or status filter."
           }
-          actionLabel={store.lovedOnes.length === 0 ? "Add Loved One" : undefined}
-          onAction={store.lovedOnes.length === 0 ? openAdd : undefined}
+          action={store.lovedOnes.length === 0 ? <AddLovedOneButton /> : undefined}
         />
       ) : (
         <div
@@ -276,82 +253,6 @@ export default function LovedOnesPage() {
           })}
         </div>
       )}
-
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Add Loved One</DialogTitle>
-            <DialogDescription>
-              Create a profile now. You can add medication, meals, and care circle details next.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>First name</Label>
-              <Input
-                value={draft.firstName}
-                onChange={(e) => setDraft({ ...draft, firstName: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Surname</Label>
-              <Input
-                value={draft.surname}
-                onChange={(e) => setDraft({ ...draft, surname: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label>WhatsApp number</Label>
-              <Input
-                value={draft.whatsappNumber}
-                onChange={(e) => setDraft({ ...draft, whatsappNumber: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Relationship to you</Label>
-              <Input
-                placeholder="Father, Mother, Grandmother…"
-                value={draft.relationshipToCarePartner}
-                onChange={(e) =>
-                  setDraft({ ...draft, relationshipToCarePartner: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Date of birth (optional)</Label>
-              <Input
-                type="date"
-                value={draft.dateOfBirth || ""}
-                onChange={(e) => setDraft({ ...draft, dateOfBirth: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Time zone</Label>
-              <Input
-                value={draft.timeZone}
-                onChange={(e) => setDraft({ ...draft, timeZone: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Address</Label>
-              <Input
-                placeholder="Street, apartment, city"
-                value={draft.address}
-                onChange={(e) => setDraft({ ...draft, address: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                We only share this with your Local Buddy during an emergency.
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={saveNew}>Create profile</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={Boolean(deleteId)} onOpenChange={(open) => !open && setDeleteId(null)}>
         <DialogContent>

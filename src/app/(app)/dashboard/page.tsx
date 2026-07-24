@@ -12,7 +12,6 @@ import {
   HeartPulse,
   Mic,
   Pill,
-  Plus,
   Siren,
   Utensils,
 } from "lucide-react";
@@ -21,6 +20,7 @@ import { ConsentStatusBadge } from "@/components/shared/consent-status-badge";
 import { StatusPill } from "@/components/shared/status-pill";
 import { Timeline } from "@/components/shared/timeline";
 import { EmptyState } from "@/components/shared/empty-state";
+import { AddLovedOneButton } from "@/components/loved-ones/add-loved-one-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -161,12 +161,7 @@ export default function DashboardPage() {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" asChild>
-            <Link href="/loved-ones">
-              <Plus className="h-4 w-4" />
-              Add Loved One
-            </Link>
-          </Button>
+          <AddLovedOneButton variant="outline" />
           <Button asChild>
             <Link href={`/loved-ones/${lovedOne.id}`}>Edit Care Plan</Link>
           </Button>

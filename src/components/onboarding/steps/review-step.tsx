@@ -30,7 +30,7 @@ function Section({
 }
 
 export function ReviewStep() {
-  const { draft, setStep, saveNow } = useOnboarding();
+  const { draft, setStep, saveNow, additionalMode } = useOnboarding();
   const lo = draft.lovedOne;
 
   const onNext = () => {
@@ -54,14 +54,16 @@ export function ReviewStep() {
           <p>{lo.timeZone}</p>
         </Section>
 
-        <Section title="Care Partner" onEdit={() => setStep(1)}>
-          <p className="font-medium text-foreground">{draft.carePartner.firstName}</p>
-          {draft.carePartner.email ? <p>{draft.carePartner.email}</p> : null}
-          <p>Phone · {draft.carePartner.phoneNumber}</p>
-          {draft.carePartner.whatsappNumber ? (
-            <p>WhatsApp · {draft.carePartner.whatsappNumber}</p>
-          ) : null}
-        </Section>
+        {!additionalMode ? (
+          <Section title="Care Partner" onEdit={() => setStep(1)}>
+            <p className="font-medium text-foreground">{draft.carePartner.firstName}</p>
+            {draft.carePartner.email ? <p>{draft.carePartner.email}</p> : null}
+            <p>Phone · {draft.carePartner.phoneNumber}</p>
+            {draft.carePartner.whatsappNumber ? (
+              <p>WhatsApp · {draft.carePartner.whatsappNumber}</p>
+            ) : null}
+          </Section>
+        ) : null}
 
         <Section title="Local Buddy" onEdit={() => setStep(2)}>
           {draft.skipLocalBuddy ? (

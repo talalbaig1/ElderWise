@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   clearOnboardingDraft,
   createDefaultDraft,
@@ -29,6 +30,8 @@ interface OnboardingContextValue {
   hydrated: boolean;
   step: number;
   totalSteps: number;
+  /** True when adding another Loved One after the CT already has product elders. */
+  additionalMode: boolean;
   setStep: (step: number) => void;
   updateDraft: (updater: (prev: OnboardingDraft) => OnboardingDraft) => void;
   patchDraft: (partial: Partial<OnboardingDraft>) => void;
@@ -40,6 +43,9 @@ const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
   const { store, hydrated: storeHydrated } = useElderWiseStore();
+  const searchParams = useSearchParams();
+  const additionalMode = searchParams.get("mode") === "additional";
+  const forceFresh = searchParams.get("fresh") === "1";
   const accountId = store.session.carePartnerId;
   const [draft, setDraft] = useState<OnboardingDraft | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -51,6 +57,21 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     void (async () => {
+      if (forceFresh) {
+        clearOnboardingDraft();
+        const next = createDefaultDraft(accountId, {
+          firstName: store.carePartner?.firstName,
+          lastName: store.carePartner?.lastName,
+          email: store.session.email ?? store.carePartner?.email,
+        });
+        if (cancelled) return;
+        saveOnboardingDraft(next);
+        setDraft(next);
+        setLastSavedAt(next.updatedAt);
+        setHydrated(true);
+        return;
+      }
+
       const existing = loadOnboardingDraft(accountId);
       if (existing?.elderId) {
         if (cancelled) return;
@@ -71,10 +92,13 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
           lastName: store.carePartner?.lastName,
           email: store.session.email ?? store.carePartner?.email,
         });
+        let currentStep = r.currentStep;
+        // Additional-elder mode never shows Care Partner (step 1).
+        if (additionalMode && currentStep === 1) currentStep = 2;
         const next: OnboardingDraft = {
           ...base,
           elderId: r.elderId,
-          currentStep: r.currentStep,
+          currentStep,
           lovedOne: r.lovedOne,
           carePartner: {
             ...base.carePartner,
@@ -93,7 +117,6 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
               ? r.healthRoutines
               : [createEmptyHealth()],
         };
-        // Prefer localStorage field values if present but missing elderId (rare).
         if (existing) {
           next.lovedOne = existing.lovedOne.firstName
             ? existing.lovedOne
@@ -103,6 +126,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
             : next.carePartner;
           if (existing.currentStep > next.currentStep) {
             next.currentStep = existing.currentStep;
+            if (additionalMode && next.currentStep === 1) next.currentStep = 2;
           }
         }
         saveOnboardingDraft(next);
@@ -127,7 +151,14 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [storeHydrated, accountId, store.carePartner, store.session.email]);
+  }, [
+    storeHydrated,
+    accountId,
+    store.carePartner,
+    store.session.email,
+    forceFresh,
+    additionalMode,
+  ]);
 
   const persist = useCallback((next: OnboardingDraft) => {
     saveOnboardingDraft(next);
@@ -156,12 +187,13 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
   const setStep = useCallback(
     (step: number) => {
-      updateDraft((prev) => ({
-        ...prev,
-        currentStep: Math.max(0, Math.min(ONBOARDING_STEPS.length - 1, step)),
-      }));
+      updateDraft((prev) => {
+        let next = Math.max(0, Math.min(ONBOARDING_STEPS.length - 1, step));
+        if (additionalMode && next === 1) next = 2;
+        return { ...prev, currentStep: next };
+      });
     },
-    [updateDraft],
+    [updateDraft, additionalMode],
   );
 
   const saveNow = useCallback(() => {
@@ -177,6 +209,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       hydrated,
       step: draft.currentStep,
       totalSteps: ONBOARDING_STEPS.length,
+      additionalMode,
       setStep,
       updateDraft,
       patchDraft,
@@ -186,6 +219,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   }, [
     draft,
     hydrated,
+    additionalMode,
     setStep,
     updateDraft,
     patchDraft,

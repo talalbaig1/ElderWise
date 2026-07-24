@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { OnboardingProvider, useOnboarding } from "@/components/onboarding/onboarding-context";
 import { CarePartnerStep } from "@/components/onboarding/steps/care-partner-step";
 import { CompletionStep } from "@/components/onboarding/steps/completion-step";
@@ -12,7 +13,7 @@ import { MedicationStep } from "@/components/onboarding/steps/medication-step";
 import { ReviewStep } from "@/components/onboarding/steps/review-step";
 
 function OnboardingWizard() {
-  const { hydrated, step } = useOnboarding();
+  const { hydrated, step, additionalMode } = useOnboarding();
 
   if (!hydrated) {
     return (
@@ -20,6 +21,11 @@ function OnboardingWizard() {
         Loading your saved progress…
       </div>
     );
+  }
+
+  // Additional-elder mode never shows Care Partner — skip if somehow landed here.
+  if (additionalMode && step === 1) {
+    return <LocalBuddyStep />;
   }
 
   switch (step) {
@@ -46,10 +52,24 @@ function OnboardingWizard() {
   }
 }
 
-export default function OnboardingPage() {
+function OnboardingPageInner() {
   return (
     <OnboardingProvider>
       <OnboardingWizard />
     </OnboardingProvider>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
+          Preparing your onboarding…
+        </div>
+      }
+    >
+      <OnboardingPageInner />
+    </Suspense>
   );
 }

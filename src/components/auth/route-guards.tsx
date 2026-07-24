@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { hasOwnProductElder, postAuthPath } from "@/lib/auth-routing";
 import { useElderWiseStore } from "@/lib/store";
@@ -119,10 +119,13 @@ export function RequireGuest({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-/** Onboarding: need session; bounce to dashboard when a product elder exists. */
+/** Onboarding: need session; bounce to dashboard when a product elder exists —
+ *  unless ?mode=additional (add another Loved One). */
 export function RequireOnboarding({ children }: { children: ReactNode }) {
   const { hydrated, mirrorSupabaseUser, clearLocalSession } = useElderWiseStore();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const additionalMode = searchParams.get("mode") === "additional";
   const [gate, setGate] = useState<Gate>("loading");
 
   useEffect(() => {
@@ -151,9 +154,16 @@ export function RequireOnboarding({ children }: { children: ReactNode }) {
       const hasElder = await hasOwnProductElder(supabase);
       if (cancelled) return;
 
-      if (hasElder) {
+      if (hasElder && !additionalMode) {
         setGate("deny");
         router.replace("/dashboard");
+        return;
+      }
+
+      if (!hasElder && additionalMode) {
+        // First-time CT — no product elder yet; use the standard wizard.
+        setGate("deny");
+        router.replace("/onboarding");
         return;
       }
 
@@ -163,7 +173,13 @@ export function RequireOnboarding({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [hydrated, router, mirrorSupabaseUser, clearLocalSession]);
+  }, [
+    hydrated,
+    router,
+    mirrorSupabaseUser,
+    clearLocalSession,
+    additionalMode,
+  ]);
 
   if (!hydrated || gate === "loading") return <AuthLoading />;
   if (gate === "deny") return <AuthLoading />;
