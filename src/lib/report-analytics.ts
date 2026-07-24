@@ -62,43 +62,51 @@ export const REPORT_KIND_META: {
   {
     id: "medication",
     label: "Medication",
-    description: "Dose adherence, delays, and missed check-ins",
+    description: "Scheduled doses and responses",
     storeType: "medication",
   },
   {
     id: "meals",
-    label: "Meals",
-    description: "Meal confirmation patterns across the Care Circle day",
+    label: "Food",
+    description: "Meal check-ins and responses",
     storeType: "food",
   },
   {
     id: "health",
-    label: "Health",
-    description: "Wellness routines, sleep, and health responses",
+    label: "Wellness",
+    description: "Health and wellness check-ins",
     storeType: "health",
-  },
-  {
-    id: "voice_journal",
-    label: "Voice Journal",
-    description: "Mood themes, summaries, and attention flags",
-    storeType: "voice_journal",
   },
   {
     id: "sos",
     label: "SOS",
-    description: "Alerts, response times, and resolution history",
+    description: "SOS events and resolutions",
     storeType: "sos",
-  },
-  {
-    id: "overall",
-    label: "Overall Wellbeing",
-    description: "Combined routines, SOS, and journal signals",
-    storeType: "combined_wellbeing",
   },
 ];
 
+/** PDF API kinds — maps UI ReportKind to /api/reports/pdf kind. */
+export function reportKindToPdfKind(
+  kind: ReportKind,
+): "medication" | "food" | "wellness" | "sos" | null {
+  switch (kind) {
+    case "medication":
+      return "medication";
+    case "meals":
+      return "food";
+    case "health":
+      return "wellness";
+    case "sos":
+      return "sos";
+    default:
+      return null;
+  }
+}
+
 export function reportKindToStoreType(kind: ReportKind): ReportType {
-  return REPORT_KIND_META.find((m) => m.id === kind)!.storeType;
+  return (
+    REPORT_KIND_META.find((m) => m.id === kind)?.storeType ?? "medication"
+  );
 }
 
 export function getReportRangeBounds(
@@ -186,60 +194,20 @@ function statusBreakdown(items: CheckInResponse[]) {
   return counts;
 }
 
-function hashSeed(input: string) {
-  let h = 0;
-  for (let i = 0; i < input.length; i++) h = (h * 31 + input.charCodeAt(i)) >>> 0;
-  return h;
-}
-
-function synthesizeCheckIns(
-  lovedOneId: string,
-  kind: CheckInResponse["routineKind"],
-  from: Date,
-  to: Date,
-): CheckInResponse[] {
-  const days = Math.max(1, differenceInCalendarDays(to, from) + 1);
-  const seed = hashSeed(`${lovedOneId}-${kind}-report`);
-  const items: CheckInResponse[] = [];
-  const statuses: CheckInStatus[] = ["taken", "taken", "taken", "delayed", "missed", "taken"];
-
-  for (let d = 0; d < Math.min(days, 90); d++) {
-    const day = addDays(from, d);
-    const status = statuses[(seed + d) % statuses.length];
-    const scheduled = new Date(day);
-    scheduled.setHours(8 + (seed % 5), 0, 0, 0);
-    const responded = new Date(day);
-    responded.setHours(8 + (seed % 5), 12, 0, 0);
-    items.push({
-      id: `rep-syn-${kind}-${lovedOneId}-${d}`,
-      lovedOneId,
-      routineId: `rep-syn-${kind}`,
-      routineKind: kind,
-      scheduledAt: scheduled.toISOString(),
-      respondedAt: status === "pending" ? undefined : responded.toISOString(),
-      status,
-      response: status === "taken" ? "yes" : status === "missed" ? "no" : "remind_later",
-      channel: "simulated",
-    });
-  }
-  return items;
-}
-
-function filterOrSynthesize(
+function filterCheckIns(
   store: ElderWiseStore,
   lovedOneId: string,
   kind: CheckInResponse["routineKind"],
   from: Date,
   to: Date,
 ) {
-  const real = store.checkIns.filter(
+  // Facts only — never invent check-ins for empty ranges (same defect as 100% on no data).
+  return store.checkIns.filter(
     (c) =>
       c.lovedOneId === lovedOneId &&
       c.routineKind === kind &&
       inRange(c.scheduledAt, from, to),
   );
-  if (real.length > 0) return real;
-  return synthesizeCheckIns(lovedOneId, kind, from, to);
 }
 
 function buildTrendSeries(
@@ -276,18 +244,16 @@ function buildTrendSeries(
       label = format(dayFrom, daySpan === 1 ? "ha" : "EEE d");
     }
 
-    const slice = (items: CheckInResponse[], kind: CheckInResponse["routineKind"]) => {
+    const slice = (items: CheckInResponse[]) => {
       const dayItems = items.filter((c) => inRange(c.scheduledAt, dayFrom, dayTo));
-      return adherence(
-        dayItems.length ? dayItems : synthesizeCheckIns(lovedOneId, kind, dayFrom, dayTo),
-      );
+      return adherence(dayItems);
     };
 
     return {
       label,
-      medication: slice(med, "medication") ?? 0,
-      meals: slice(food, "food") ?? 0,
-      health: slice(health, "health") ?? 0,
+      medication: slice(med) ?? 0,
+      meals: slice(food) ?? 0,
+      health: slice(health) ?? 0,
     };
   });
 }
@@ -386,9 +352,9 @@ export function buildReportModel(
   viewerTimeZone = "UTC",
 ): ReportModel {
   const bounds = getReportRangeBounds(preset, customFrom, customTo);
-  const med = filterOrSynthesize(store, lovedOne.id, "medication", bounds.from, bounds.to);
-  const food = filterOrSynthesize(store, lovedOne.id, "food", bounds.from, bounds.to);
-  const health = filterOrSynthesize(store, lovedOne.id, "health", bounds.from, bounds.to);
+  const med = filterCheckIns(store, lovedOne.id, "medication", bounds.from, bounds.to);
+  const food = filterCheckIns(store, lovedOne.id, "food", bounds.from, bounds.to);
+  const health = filterCheckIns(store, lovedOne.id, "health", bounds.from, bounds.to);
   const trendSeries = buildTrendSeries(lovedOne.id, med, food, health, bounds.from, bounds.to);
 
   const journals = store.voiceJournals

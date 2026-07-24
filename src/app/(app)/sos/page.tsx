@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { differenceInSeconds, formatDistanceToNow, parseISO } from "date-fns";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   CheckCircle2,
   Clock3,
+  FileBarChart,
   MapPin,
   MessageCircle,
   Phone,
@@ -169,6 +171,12 @@ export default function SosPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/reports?kind=sos">
+              <FileBarChart className="h-4 w-4" />
+              Get Report
+            </Link>
+          </Button>
           <Select
             value={selectedLovedOne?.id}
             onValueChange={(id) => setSelectedLovedOneId(id)}

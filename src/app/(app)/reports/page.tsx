@@ -1,14 +1,13 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 import { format, subDays } from "date-fns";
 import {
   ChevronDown,
   Download,
-  FileBarChart,
   FileSpreadsheet,
   HeartPulse,
-  Mic,
   Pill,
   Printer,
   Siren,
@@ -41,58 +40,51 @@ import {
 import {
   REPORT_KIND_META,
   buildReportModel,
+  reportKindToPdfKind,
   type ReportKind,
 } from "@/lib/report-analytics";
-import { exportReportCsv, exportReportPdf, openPrintView } from "@/lib/report-export";
+import { downloadPdfBlob, exportReportCsv, openPrintView } from "@/lib/report-export";
 import { useDomainStore } from "@/components/data/app-data-provider";
 import { cn } from "@/lib/utils";
 
-const kindIcons: Record<ReportKind, typeof Pill> = {
+const PDF_UI_KINDS = ["medication", "meals", "health", "sos"] as const;
+type PdfUiKind = (typeof PDF_UI_KINDS)[number];
+
+const kindIcons: Record<PdfUiKind, typeof Pill> = {
   medication: Pill,
   meals: Utensils,
   health: HeartPulse,
-  voice_journal: Mic,
   sos: Siren,
-  overall: FileBarChart,
 };
 
-/** Same accent colors as the dashboard metric cards */
-const kindTone: Record<ReportKind, "medication" | "meals" | "health" | "sos" | "default"> = {
+const kindTone: Record<PdfUiKind, "medication" | "meals" | "health" | "sos"> = {
   medication: "medication",
   meals: "meals",
   health: "health",
-  voice_journal: "default",
   sos: "sos",
-  overall: "default",
 };
 
-const kindIconClass: Record<ReportKind, string> = {
+const kindIconClass: Record<PdfUiKind, string> = {
   medication: "text-[#2F6FED] bg-[#2F6FED]/12",
   meals: "text-[#2F9E6B] bg-[#2F9E6B]/12",
   health: "text-[#D97706] bg-[#D97706]/12",
-  voice_journal: "text-primary bg-secondary",
   sos: "text-sos bg-sos-soft",
-  overall: "text-primary bg-secondary",
 };
 
 function metricTone(
   label: string,
   reportKind: ReportKind,
-): "medication" | "meals" | "health" | "sos" | "success" | "default" {
+): "medication" | "meals" | "health" | "sos" | "default" {
   const key = label.toLowerCase();
-  if (
-    key.includes("medication") ||
-    (key === "adherence" && reportKind === "medication")
-  ) {
+  if (key.includes("medication") || (key === "adherence" && reportKind === "medication")) {
     return "medication";
   }
-  if (key.includes("meal")) return "meals";
-  if (key.includes("health")) return "health";
-  if (key.includes("sos") || key === "active" || key === "events") {
-    return reportKind === "sos" || key.includes("sos") ? "sos" : kindTone[reportKind];
+  if (key.includes("meal") || key.includes("food")) return "meals";
+  if (key.includes("health") || key.includes("wellness")) return "health";
+  if (key.includes("sos") || key === "active" || key === "events") return "sos";
+  if ((PDF_UI_KINDS as readonly string[]).includes(reportKind)) {
+    return kindTone[reportKind as PdfUiKind];
   }
-  if (reportKind !== "overall") return kindTone[reportKind];
-  if (key.includes("overall") || key === "adherence") return "success";
   return "default";
 }
 
@@ -104,7 +96,16 @@ function weekAgoStr() {
   return format(subDays(new Date(), 6), "yyyy-MM-dd");
 }
 
+function parseKindParam(raw: string | null): ReportKind | null {
+  if (raw === "sos") return "sos";
+  if (raw === "medication") return "medication";
+  if (raw === "food" || raw === "meals") return "meals";
+  if (raw === "wellness" || raw === "health") return "health";
+  return null;
+}
+
 export default function ReportsPage() {
+  const searchParams = useSearchParams();
   const {
     store,
     setSelectedLovedOneId,
@@ -112,13 +113,19 @@ export default function ReportsPage() {
     lovedOne: selected,
     viewerTimeZone,
   } = useDomainStore();
-  const [kind, setKind] = useState<ReportKind>("overall");
+  const [kind, setKind] = useState<ReportKind>("medication");
   const [startDate, setStartDate] = useState(weekAgoStr);
   const [endDate, setEndDate] = useState(todayStr);
+  const [pdfBusy, setPdfBusy] = useState(false);
   const [openPanels, setOpenPanels] = useState<Record<string, boolean>>({
     timeline: false,
     table: false,
   });
+
+  useEffect(() => {
+    const fromQuery = parseKindParam(searchParams.get("kind"));
+    if (fromQuery) setKind(fromQuery);
+  }, [searchParams]);
 
   const lovedOne = selected;
 
@@ -160,9 +167,42 @@ export default function ReportsPage() {
     toast.success("CSV exported");
   };
 
-  const onPdf = () => {
-    exportReportPdf(model);
-    toast.success("PDF downloaded");
+  const onPdf = async () => {
+    const pdfKind = reportKindToPdfKind(kind);
+    if (!pdfKind) {
+      toast.error("This report type cannot be downloaded as PDF");
+      return;
+    }
+    setPdfBusy(true);
+    try {
+      const res = await fetch("/api/reports/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          elderId: lovedOne.id,
+          kind: pdfKind,
+          from: startDate,
+          to: endDate,
+        }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        toast.error(body?.error ?? "PDF download failed");
+        return;
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      const match = /filename="([^"]+)"/.exec(disposition);
+      const filename =
+        match?.[1] ??
+        `${lovedOne.firstName.toLowerCase()}-${pdfKind}-${startDate}.pdf`;
+      downloadPdfBlob(filename, blob);
+      toast.success("PDF downloaded");
+    } catch {
+      toast.error("PDF download failed");
+    } finally {
+      setPdfBusy(false);
+    }
   };
 
   const onPrint = () => {
@@ -174,7 +214,8 @@ export default function ReportsPage() {
     toast.success("Print view opened — use Save as PDF if needed");
   };
 
-  const Icon = kindIcons[kind];
+  const Icon = kindIcons[(kind as PdfUiKind)] ?? Pill;
+  const iconClass = kindIconClass[(kind as PdfUiKind)] ?? "text-primary bg-secondary";
 
   const togglePanel = (key: string) => {
     setOpenPanels((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -189,7 +230,8 @@ export default function ReportsPage() {
             Wellbeing reports
           </h1>
           <p className="mt-1 max-w-2xl text-muted-foreground">
-            Choose a Loved One, report type, and date range — then export CSV, PDF, or print.
+            Selected Loved One, report type, and date range — then download a PDF of observed
+            facts.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -197,9 +239,9 @@ export default function ReportsPage() {
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             CSV
           </Button>
-          <Button variant="outline" onClick={onPdf}>
+          <Button variant="outline" disabled={pdfBusy} onClick={() => void onPdf()}>
             <Download className="mr-2 h-4 w-4" />
-            PDF
+            {pdfBusy ? "Preparing…" : "Download PDF"}
           </Button>
           <Button onClick={onPrint}>
             <Printer className="mr-2 h-4 w-4" />
@@ -208,7 +250,6 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Filters */}
       <Card className="print:hidden">
         <CardContent className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="space-y-2">
@@ -290,7 +331,7 @@ export default function ReportsPage() {
               <span
                 className={cn(
                   "flex h-9 w-9 items-center justify-center rounded-xl",
-                  kindIconClass[kind],
+                  iconClass,
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -309,7 +350,7 @@ export default function ReportsPage() {
           {typeof model.adherencePercent === "number" ? (
             <div className="rounded-2xl bg-secondary px-4 py-3 text-center">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Score
+                Responded rate
               </p>
               <p className="font-mono text-3xl font-semibold text-primary">
                 {model.adherencePercent}%
@@ -412,8 +453,7 @@ export default function ReportsPage() {
               </div>
               {model.tableRows.length > 20 ? (
                 <p className="mt-3 text-xs text-muted-foreground">
-                  Showing 20 of {model.tableRows.length} rows — full set included in CSV/PDF
-                  export.
+                  Showing 20 of {model.tableRows.length} rows — full set included in CSV export and Download PDF.
                 </p>
               ) : null}
             </>

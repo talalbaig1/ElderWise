@@ -20,8 +20,8 @@ export function buildCsv(model: ReportModel) {
   return lines.join("\r\n");
 }
 
-export function downloadBlob(filename: string, content: string, mime: string) {
-  const blob = new Blob([content], { type: mime });
+export function downloadBlob(filename: string, content: string | Blob, mime: string) {
+  const blob = content instanceof Blob ? content : new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -39,88 +39,9 @@ export function exportReportCsv(model: ReportModel) {
   downloadBlob(name, buildCsv(model), "text/csv;charset=utf-8");
 }
 
-function pdfEscape(text: string) {
-  return text.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
-}
-
-/** Minimal single-page text PDF for demo export (no external deps). */
-export function buildSimplePdf(model: ReportModel) {
-  const lines: string[] = [
-    "ElderWise Care Report",
-    model.title,
-    `${model.lovedOne.firstName} ${model.lovedOne.surname}`,
-    `Range: ${model.rangeLabel}`,
-    `Generated: ${format(new Date(), "d MMM yyyy · HH:mm")}`,
-    "",
-    model.summary,
-    "",
-    "Metrics",
-    ...model.metrics.map((m) => `• ${m.label}: ${m.value}${m.hint ? ` (${m.hint})` : ""}`),
-    "",
-    "Timeline",
-    ...model.timeline.slice(0, 10).map((t) => `• ${t.time} — ${t.title}${t.status ? ` [${t.status}]` : ""}`),
-    "",
-    "Data rows (first 12)",
-    ...model.tableRows.slice(0, 12).map((row) =>
-      model.csvHeaders.map((h) => `${h}=${row[h] ?? ""}`).join(" | "),
-    ),
-  ];
-
-  const contentLines = lines.flatMap((line) => {
-    const chunks: string[] = [];
-    let rest = line;
-    while (rest.length > 90) {
-      chunks.push(rest.slice(0, 90));
-      rest = rest.slice(90);
-    }
-    chunks.push(rest);
-    return chunks;
-  });
-
-  const startY = 800;
-  const streamParts = ["BT", "/F1 11 Tf", "14 TL", `50 ${startY} Td`];
-  contentLines.forEach((line, i) => {
-    if (i === 0) {
-      streamParts.push(`(${pdfEscape(line)}) Tj`);
-    } else {
-      streamParts.push("T*");
-      streamParts.push(`(${pdfEscape(line)}) Tj`);
-    }
-  });
-  streamParts.push("ET");
-  const stream = streamParts.join("\n");
-
-  const objects: string[] = [];
-  objects.push("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
-  objects.push("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n");
-  objects.push(
-    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n",
-  );
-  objects.push(
-    `4 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}\nendstream\nendobj\n`,
-  );
-  objects.push("5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n");
-
-  let pdf = "%PDF-1.4\n";
-  const offsets: number[] = [0];
-  objects.forEach((obj) => {
-    offsets.push(pdf.length);
-    pdf += obj;
-  });
-  const xrefStart = pdf.length;
-  pdf += `xref\n0 ${objects.length + 1}\n`;
-  pdf += "0000000000 65535 f \n";
-  for (let i = 1; i <= objects.length; i++) {
-    pdf += `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
-  }
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
-  return pdf;
-}
-
-export function exportReportPdf(model: ReportModel) {
-  const stamp = format(new Date(), "yyyyMMdd-HHmm");
-  const name = `${model.lovedOne.firstName}-${model.kind}-${stamp}.pdf`.toLowerCase();
-  downloadBlob(name, buildSimplePdf(model), "application/pdf");
+/** Download a PDF blob from POST /api/reports/pdf. */
+export function downloadPdfBlob(filename: string, blob: Blob) {
+  downloadBlob(filename, blob, "application/pdf");
 }
 
 export function buildPrintHtml(model: ReportModel) {

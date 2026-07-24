@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  serverExternalPackages: ["@react-pdf/renderer"],
+  // Keep report TTFs in the serverless trace for /api/reports/pdf.
+  outputFileTracingIncludes: {
+    "/api/reports/pdf": ["./src/lib/reports/fonts/**/*"],
+  },
   images: {
     remotePatterns: [
       {
