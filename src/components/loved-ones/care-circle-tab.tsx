@@ -9,19 +9,27 @@ import { Label } from "@/components/ui/label";
 import { createBlankBuddy, createBlankDoctor } from "@/lib/loved-ones";
 import { useDomainStore } from "@/components/data/app-data-provider";
 import { upsertDoctor, upsertLocalCaregiver } from "@/lib/data/actions";
+import {
+  issueDoctorShareLink,
+  revokeDoctorShareLink,
+} from "@/lib/data/share-link-actions";
+import { formatViewerDateTime } from "@/lib/time/display";
 import type { FamilyDoctor, LocalBuddy } from "@/types";
 import { useRouter } from "next/navigation";
 
 export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
   const router = useRouter();
-  const { store, data } = useDomainStore();
+  const { store, data, viewerTimeZone } = useDomainStore();
   const buddy = store.localBuddies.find((b) => b.lovedOneId === lovedOneId) ?? null;
   const doctor = store.doctors.find((d) => d.lovedOneId === lovedOneId) ?? null;
   const carePartner = store.carePartner;
+  const shareLinks = data.doctorShareLinks.filter((l) => l.lovedOneId === lovedOneId);
+  const activeLinks = shareLinks.filter((l) => !l.revokedAt);
 
   const [buddyDraft, setBuddyDraft] = useState<LocalBuddy | null>(null);
   const [doctorDraft, setDoctorDraft] = useState<FamilyDoctor | null>(null);
   const [saving, setSaving] = useState(false);
+  const [issuedUrl, setIssuedUrl] = useState<string | null>(null);
 
   const saveBuddy = async (value: LocalBuddy) => {
     setSaving(true);
@@ -55,6 +63,51 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
     }
   };
 
+  const issueLink = async () => {
+    setSaving(true);
+    setIssuedUrl(null);
+    try {
+      const result = await issueDoctorShareLink(lovedOneId);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      const absolute =
+        typeof window !== "undefined"
+          ? `${window.location.origin}${result.urlPath}`
+          : result.urlPath;
+      setIssuedUrl(absolute);
+      try {
+        await navigator.clipboard.writeText(absolute);
+        toast.success("Share link issued and copied — shown once");
+      } catch {
+        toast.success("Share link issued — copy it now; it is shown once");
+      }
+      router.refresh();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const revokeLink = async (linkId: string) => {
+    if (!window.confirm("Revoke this doctor share link? It will stop working immediately.")) {
+      return;
+    }
+    setSaving(true);
+    try {
+      const result = await revokeDoctorShareLink(linkId, lovedOneId);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Share link revoked");
+      setIssuedUrl(null);
+      router.refresh();
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <Card>
@@ -81,23 +134,24 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
           <Button
             size="sm"
             variant="outline"
+            disabled={saving}
             onClick={() => setBuddyDraft(buddy ?? createBlankBuddy(lovedOneId))}
           >
             {buddy ? "Edit" : "Add"}
           </Button>
         </CardHeader>
-        <CardContent className="space-y-1 text-sm">
+        <CardContent className="space-y-3 text-sm">
           {buddyDraft ? (
             <div className="space-y-3">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <Label>Name</Label>
                 <Input
                   value={buddyDraft.name}
                   onChange={(e) => setBuddyDraft({ ...buddyDraft, name: e.target.value })}
                 />
               </div>
-              <div className="space-y-1">
-                <Label>WhatsApp contact number</Label>
+              <div className="space-y-1.5">
+                <Label>WhatsApp</Label>
                 <Input
                   value={buddyDraft.whatsappNumber}
                   onChange={(e) =>
@@ -105,8 +159,8 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
                   }
                 />
               </div>
-              <div className="space-y-1">
-                <Label>Direct contact number</Label>
+              <div className="space-y-1.5">
+                <Label>Direct contact</Label>
                 <Input
                   value={buddyDraft.directContactNumber || ""}
                   onChange={(e) =>
@@ -126,10 +180,10 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
           ) : buddy ? (
             <>
               <p className="font-semibold">{buddy.name}</p>
-              <p className="text-muted-foreground">WhatsApp · {buddy.whatsappNumber}</p>
-              <p className="text-muted-foreground">
-                Direct · {buddy.directContactNumber || "—"}
-              </p>
+              <p className="text-muted-foreground">{buddy.whatsappNumber}</p>
+              {buddy.directContactNumber ? (
+                <p className="text-muted-foreground">{buddy.directContactNumber}</p>
+              ) : null}
             </>
           ) : (
             <p className="text-muted-foreground">Not added yet</p>
@@ -143,23 +197,24 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
           <Button
             size="sm"
             variant="outline"
+            disabled={saving}
             onClick={() => setDoctorDraft(doctor ?? createBlankDoctor(lovedOneId))}
           >
             {doctor ? "Edit" : "Add"}
           </Button>
         </CardHeader>
-        <CardContent className="space-y-1 text-sm">
+        <CardContent className="space-y-3 text-sm">
           {doctorDraft ? (
             <div className="space-y-3">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <Label>Name</Label>
                 <Input
                   value={doctorDraft.name}
                   onChange={(e) => setDoctorDraft({ ...doctorDraft, name: e.target.value })}
                 />
               </div>
-              <div className="space-y-1">
-                <Label>WhatsApp number</Label>
+              <div className="space-y-1.5">
+                <Label>WhatsApp</Label>
                 <Input
                   value={doctorDraft.whatsappNumber}
                   onChange={(e) =>
@@ -167,16 +222,19 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
                   }
                 />
               </div>
-              <div className="space-y-1">
-                <Label>Direct contact number</Label>
+              <div className="space-y-1.5">
+                <Label>Direct contact</Label>
                 <Input
                   value={doctorDraft.directContactNumber || ""}
                   onChange={(e) =>
-                    setDoctorDraft({ ...doctorDraft, directContactNumber: e.target.value })
+                    setDoctorDraft({
+                      ...doctorDraft,
+                      directContactNumber: e.target.value,
+                    })
                   }
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <Label>Clinic or hospital</Label>
                 <Input
                   value={doctorDraft.clinicOrHospitalName || ""}
@@ -207,15 +265,62 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
       </Card>
 
       <Card className="lg:col-span-3">
-        <CardHeader>
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
           <CardTitle className="text-lg">Doctor share links</CardTitle>
+          <Button size="sm" disabled={saving || !doctor} onClick={issueLink}>
+            Issue share link
+          </Button>
         </CardHeader>
-        <CardContent>
-          {data.doctorShareLinks.length === 0 ? (
+        <CardContent className="space-y-4">
+          {!doctor ? (
             <p className="text-sm text-muted-foreground">
-              No active share links. Issue / revoke lands in A2.6.
+              Add a Family Doctor before issuing a read-only share link.
             </p>
           ) : null}
+          {issuedUrl ? (
+            <div className="rounded-xl border border-primary/30 bg-secondary/50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Copy now — raw token is not stored
+              </p>
+              <p className="mt-1 break-all font-mono text-xs">{issuedUrl}</p>
+            </div>
+          ) : null}
+          {activeLinks.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No active share links.</p>
+          ) : (
+            <ul className="space-y-2">
+              {activeLinks.map((link) => (
+                <li
+                  key={link.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm"
+                >
+                  <div>
+                    <p className="font-mono text-xs text-muted-foreground">
+                      Expires{" "}
+                      {link.expiresAt
+                        ? formatViewerDateTime(link.expiresAt, viewerTimeZone)
+                        : "never"}
+                    </p>
+                    {link.lastAccessedAt ? (
+                      <p className="font-mono text-[11px] text-muted-foreground">
+                        Last opened {formatViewerDateTime(link.lastAccessedAt, viewerTimeZone)}
+                      </p>
+                    ) : (
+                      <p className="font-mono text-[11px] text-muted-foreground">Not opened yet</p>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={saving}
+                    onClick={() => revokeLink(link.id)}
+                  >
+                    Revoke
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </div>

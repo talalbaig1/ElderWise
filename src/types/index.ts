@@ -182,6 +182,16 @@ export interface FamilyDoctor {
   updatedAt: string;
 }
 
+/** CT-facing share link row — never includes raw token or token_hash. */
+export interface DoctorShareLink {
+  id: ID;
+  lovedOneId: ID;
+  createdAt: string;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  lastAccessedAt: string | null;
+}
+
 export interface Medication {
   id: ID;
   lovedOneId: ID;

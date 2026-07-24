@@ -13,6 +13,7 @@ import type {
   ElderWiseStore,
   AuthSession,
   UserSettings,
+  DoctorShareLink,
 } from "@/types";
 import { defaultSettings } from "@/data/mock";
 import {
@@ -53,8 +54,7 @@ export interface AppReadModel {
   viewerTimeZone: string;
   /** Always empty in MVP — voice_journal_entries table does not exist */
   voiceJournals: [];
-  /** Always empty until A2.6 */
-  doctorShareLinks: [];
+  doctorShareLinks: DoctorShareLink[];
   /** Always empty until templates seeded */
   messageTemplates: [];
 }
@@ -98,6 +98,7 @@ export async function loadAppData(
     sosRes,
     sosNotifRes,
     ctNotifRes,
+    shareRes,
   ] = await Promise.all([
     supabase.from("care_partners").select("*").eq("id", user.id).maybeSingle(),
     // Same rule as hasOwnProductElder / countOwnActiveElders: product elder =
@@ -119,6 +120,10 @@ export async function loadAppData(
     supabase.from("sos_events").select("*").order("triggered_at", { ascending: false }),
     supabase.from("sos_notifications").select("*"),
     supabase.from("ct_notifications").select("*").order("sent_at", { ascending: false }),
+    supabase
+      .from("doctor_share_links")
+      .select("id, elder_id, created_at, expires_at, revoked_at, last_accessed_at")
+      .order("created_at", { ascending: false }),
   ]);
 
   const carePartner = cpRes.data
@@ -168,6 +173,15 @@ export async function loadAppData(
     (row) => ctNotificationFromRow(row, elderName(row.elder_id)),
   );
 
+  const doctorShareLinks: DoctorShareLink[] = (shareRes.data ?? []).map((row) => ({
+    id: row.id as string,
+    lovedOneId: row.elder_id as string,
+    createdAt: row.created_at as string,
+    expiresAt: (row.expires_at as string | null) ?? null,
+    revokedAt: (row.revoked_at as string | null) ?? null,
+    lastAccessedAt: (row.last_accessed_at as string | null) ?? null,
+  }));
+
   return {
     carePartner,
     lovedOnes,
@@ -181,7 +195,7 @@ export async function loadAppData(
     notifications,
     viewerTimeZone: carePartner?.timeZone ?? "UTC",
     voiceJournals: [],
-    doctorShareLinks: [],
+    doctorShareLinks,
     messageTemplates: [],
   };
 }
