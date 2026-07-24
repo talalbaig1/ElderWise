@@ -113,7 +113,7 @@ export default function DashboardPage() {
   }
 
   const careName = store.carePartner?.firstName ?? "there";
-  const greeting = greetingForHour();
+  const greeting = greetingForHour(new Date(), viewerTimeZone);
 
   const togglePanel = (key: string) => {
     setOpenPanels((prev) => ({ ...prev, [key]: !prev[key] }));

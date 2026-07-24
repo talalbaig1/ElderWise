@@ -7,8 +7,9 @@ export type EnsureCarePartnerResult =
   | { ok: false; error: string };
 
 /**
- * Idempotent care_partners upsert after Auth sign-up / first sign-in.
- * Timezone must come from the client (Intl) — M14; no auth.users trigger.
+ * Idempotent care_partners create / light update after Auth sign-up / first sign-in.
+ * Timezone: set on INSERT from the client (Intl) only — M14.
+ * Never overwrite timezone on an existing row (Settings / travel must not reset it).
  */
 export async function ensureCarePartnerProfile(input: {
   fullName: string;
@@ -38,17 +39,47 @@ export async function ensureCarePartnerProfile(input: {
     return { ok: false, error: "Timezone is required for your Care Partner profile." };
   }
 
-  const { data, error } = await supabase
+  const { data: existing, error: existingErr } = await supabase
     .from("care_partners")
-    .upsert(
-      {
-        id: user.id,
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (existingErr) {
+    return { ok: false, error: existingErr.message };
+  }
+
+  if (existing) {
+    const { data, error } = await supabase
+      .from("care_partners")
+      .update({
         full_name: fullName,
         email,
-        timezone: timeZone,
-      },
-      { onConflict: "id" },
-    )
+      })
+      .eq("id", user.id)
+      .select("id")
+      .maybeSingle();
+
+    if (error) {
+      return { ok: false, error: error.message };
+    }
+    if (!data) {
+      return {
+        ok: false,
+        error: "Profile save failed — no row returned (check RLS).",
+      };
+    }
+    return { ok: true };
+  }
+
+  const { data, error } = await supabase
+    .from("care_partners")
+    .insert({
+      id: user.id,
+      full_name: fullName,
+      email,
+      timezone: timeZone,
+    })
     .select("id")
     .maybeSingle();
 

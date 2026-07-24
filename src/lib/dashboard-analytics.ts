@@ -176,8 +176,20 @@ function filterOrSynthesize(
   return synthesizeCheckIns(lovedOneId, kind, from, to);
 }
 
-export function greetingForHour(date = new Date()) {
-  const h = date.getHours();
+export function greetingForHour(date = new Date(), viewerTimeZone = "UTC") {
+  let h = 0;
+  try {
+    const hourPart = new Intl.DateTimeFormat("en-GB", {
+      hour: "numeric",
+      hourCycle: "h23",
+      timeZone: viewerTimeZone,
+    })
+      .formatToParts(date)
+      .find((p) => p.type === "hour")?.value;
+    h = Number(hourPart ?? "0");
+  } catch {
+    h = date.getUTCHours();
+  }
   if (h < 12) return "Good morning";
   if (h < 17) return "Good afternoon";
   return "Good evening";

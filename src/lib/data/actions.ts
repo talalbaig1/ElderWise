@@ -328,9 +328,14 @@ export async function upsertDoctor(doctor: FamilyDoctor): Promise<ActionResult> 
   const ownErr = await assertOwnsElder(supabase, doctor.lovedOneId, user.id);
   if (ownErr) return fail(ownErr);
 
-  const row = {
-    id: doctor.id,
-    elder_id: doctor.lovedOneId,
+  const { data: existing, error: existingErr } = await supabase
+    .from("doctors")
+    .select("id")
+    .eq("elder_id", doctor.lovedOneId)
+    .maybeSingle();
+  if (existingErr) return fail(existingErr.message);
+
+  const base = {
     full_name: parsed.data.name,
     whatsapp_number: parsed.data.whatsappNumber,
     phone_number: parsed.data.directContactNumber || null,
@@ -338,14 +343,39 @@ export async function upsertDoctor(doctor: FamilyDoctor): Promise<ActionResult> 
     approved_by_ct: true,
   };
 
-  const { data, error } = await supabase
-    .from("doctors")
-    .upsert(row, { onConflict: "elder_id" })
-    .select("id, full_name")
-    .maybeSingle();
+  if (existing) {
+    // Never touch timezone on update — doctor has no settings screen to correct it.
+    const { data, error } = await supabase
+      .from("doctors")
+      .update(base)
+      .eq("id", existing.id)
+      .select("id, full_name")
+      .maybeSingle();
 
-  if (error) return fail(error.message);
-  if (!data) return fail("Doctor save failed — no row returned (check RLS)");
+    if (error) return fail(error.message);
+    if (!data) return fail("Doctor save failed — no row returned (check RLS)");
+  } else {
+    const { data: elder, error: elderErr } = await supabase
+      .from("elders")
+      .select("timezone")
+      .eq("id", doctor.lovedOneId)
+      .maybeSingle();
+    if (elderErr) return fail(elderErr.message);
+
+    const { data, error } = await supabase
+      .from("doctors")
+      .insert({
+        id: doctor.id,
+        elder_id: doctor.lovedOneId,
+        ...base,
+        timezone: elder?.timezone ?? "UTC",
+      })
+      .select("id, full_name")
+      .maybeSingle();
+
+    if (error) return fail(error.message);
+    if (!data) return fail("Doctor save failed — no row returned (check RLS)");
+  }
 
   revalidatePath(`/loved-ones/${doctor.lovedOneId}`);
   revalidateApp();

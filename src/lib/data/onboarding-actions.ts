@@ -296,9 +296,7 @@ export async function saveOnboardingDoctor(input: {
     .eq("elder_id", input.elderId)
     .maybeSingle();
 
-  const row = {
-    id: existing?.id ?? crypto.randomUUID(),
-    elder_id: input.elderId,
+  const base = {
     full_name: parsed.data.name,
     whatsapp_number: parsed.data.whatsappNumber,
     phone_number: parsed.data.directContactNumber || null,
@@ -306,9 +304,35 @@ export async function saveOnboardingDoctor(input: {
     approved_by_ct: true,
   };
 
+  if (existing) {
+    // Never overwrite doctors.timezone — no doctor settings UI to recover.
+    const { data, error } = await supabase
+      .from("doctors")
+      .update(base)
+      .eq("id", existing.id)
+      .select("id")
+      .maybeSingle();
+
+    if (error) return fail(error.message);
+    if (!data) return fail("Doctor save failed — no row returned (check RLS)");
+    return { ok: true };
+  }
+
+  const { data: elder, error: elderErr } = await supabase
+    .from("elders")
+    .select("timezone")
+    .eq("id", input.elderId)
+    .maybeSingle();
+  if (elderErr) return fail(elderErr.message);
+
   const { data, error } = await supabase
     .from("doctors")
-    .upsert(row, { onConflict: "elder_id" })
+    .insert({
+      id: crypto.randomUUID(),
+      elder_id: input.elderId,
+      ...base,
+      timezone: elder?.timezone ?? "UTC",
+    })
     .select("id")
     .maybeSingle();
 
