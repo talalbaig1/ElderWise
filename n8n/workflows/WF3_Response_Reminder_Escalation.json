@@ -1,0 +1,603 @@
+{
+  "name": "WF-3 Response Handler, Reminder & Escalation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf3-response",
+        "options": {}
+      },
+      "id": "eb1b0c4f-ef47-4468-8329-87aeccdec761",
+      "name": "On Response from WF-2",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1056,
+        208
+      ],
+      "webhookId": "wf3-response"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "c1ced445-f870-431c-9119-c953f6b552c0",
+      "name": "Every Minute - Check Reminders & Missed",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1056,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE checkins SET status = 'responded', response_value = '{{ $json.response_value }}', response_channel = '{{ $json.response_channel }}', responded_at = NOW() WHERE id = '{{ $json.checkin_id }}' RETURNING *;",
+        "options": {}
+      },
+      "id": "d70dddc8-06c7-43ad-b710-1ff835bbda83",
+      "name": "Save Response to DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -800,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO checkin_medication_items (checkin_id, medication_id, taken) VALUES {{ $json.medication_items }} RETURNING *;",
+        "options": {}
+      },
+      "id": "b0bf1013-db80-41e6-8bdb-01506ab85a9f",
+      "name": "Save Medication Items",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -800,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.domain }}",
+              "value2": "medication",
+              "operation": "equals"
+            }
+          ],
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "id": "35d5900a-0d80-4869-b57b-cd8c27b93d3f",
+      "name": "Is Medication?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -608,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT dc.ct_notification, cp.whatsapp_number AS ct_whatsapp, cp.full_name AS ct_name, e.first_name AS elder_name, c.domain, c.response_value FROM checkins c JOIN elders e ON c.elder_id = e.id JOIN care_partners cp ON e.care_partner_id = cp.id JOIN domain_configs dc ON dc.elder_id = e.id AND dc.domain = c.domain WHERE c.id = '{{ $json.checkin_id }}';",
+        "options": {}
+      },
+      "id": "ecab75d4-dba0-4c20-b815-975f97e243db",
+      "name": "Check CT Notification Preference",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -400,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.ct_notification }}",
+              "value2": "every_interaction",
+              "operation": "equals"
+            }
+          ],
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "id": "1ef9325e-7afe-4dd7-97e5-655e273b1515",
+      "name": "CT Wants Every Notification?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -208,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_BASE_URL }}/webhook/wf6-ct-notify",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "interaction"
+            },
+            {
+              "name": "ct_whatsapp",
+              "value": "={{ $json.ct_whatsapp }}"
+            },
+            {
+              "name": "ct_name",
+              "value": "={{ $json.ct_name }}"
+            },
+            {
+              "name": "elder_name",
+              "value": "={{ $json.elder_name }}"
+            },
+            {
+              "name": "domain",
+              "value": "={{ $json.domain }}"
+            },
+            {
+              "name": "response_value",
+              "value": "={{ $json.response_value }}"
+            },
+            {
+              "name": "elder_id",
+              "value": "={{ $json.elder_id }}"
+            },
+            {
+              "name": "care_partner_id",
+              "value": "={{ $json.care_partner_id }}"
+            },
+            {
+              "name": "checkin_id",
+              "value": "={{ $json.checkin_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f7c6103e-8758-4e67-b26b-c3f7f83a9067",
+      "name": "Fire WF-6 (Interaction)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT c.id AS checkin_id, c.elder_id, c.domain, c.sent_at, e.first_name AS elder_name, cp.id AS care_partner_id, cp.whatsapp_number AS ct_whatsapp, cp.full_name AS ct_name, COALESCE(m.escalation_minutes, fr.escalation_minutes, hr.escalation_minutes, 30) AS escalation_minutes FROM checkins c JOIN elders e ON c.elder_id = e.id JOIN care_partners cp ON e.care_partner_id = cp.id LEFT JOIN medications m ON c.domain = 'medication' AND m.elder_id = e.id LEFT JOIN food_routines fr ON c.domain = 'food' AND fr.elder_id = e.id LEFT JOIN health_routines hr ON c.domain = 'health' AND hr.elder_id = e.id WHERE c.status = 'sent' AND c.sent_at < NOW() - (COALESCE(m.escalation_minutes, fr.escalation_minutes, hr.escalation_minutes, 30) || ' minutes')::interval LIMIT 50;",
+        "options": {}
+      },
+      "id": "416a05c1-1348-4723-8e4d-faf654cd1af6",
+      "name": "Find Due Reminders",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -800,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.length }}",
+              "value2": 0,
+              "operation": "notEqual"
+            }
+          ],
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "id": "98d89bda-3a58-4e49-b0aa-ec254eb84f9e",
+      "name": "Any Due?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -608,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/{{ $env.WHATSAPP_PHONE_ID }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: $json.elder_whatsapp, type: 'template', template: { name: $json.domain + '_reminder', language: { code: 'en' }, components: [{ type: 'body', parameters: [{ type: 'text', text: $json.elder_name }] }] } }) }}",
+        "options": {}
+      },
+      "id": "eccda4d5-6138-430f-8fbc-7ac50c177935",
+      "name": "Send Reminder via WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -400,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE checkins SET status = 'reminded', reminder_sent_at = NOW() WHERE id = '{{ $json.checkin_id }}' RETURNING *;",
+        "options": {}
+      },
+      "id": "30c7d8a8-a0ee-4bdb-bd14-b52a54c05540",
+      "name": "Mark as Reminded",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -208,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT c.id AS checkin_id, c.elder_id, c.domain, c.reminder_sent_at, e.first_name AS elder_name, cp.id AS care_partner_id, cp.whatsapp_number AS ct_whatsapp, cp.full_name AS ct_name, COALESCE(m.escalation_minutes, fr.escalation_minutes, hr.escalation_minutes, 30) AS escalation_minutes FROM checkins c JOIN elders e ON c.elder_id = e.id JOIN care_partners cp ON e.care_partner_id = cp.id LEFT JOIN medications m ON c.domain = 'medication' AND m.elder_id = e.id LEFT JOIN food_routines fr ON c.domain = 'food' AND fr.elder_id = e.id LEFT JOIN health_routines hr ON c.domain = 'health' AND hr.elder_id = e.id WHERE c.status = 'reminded' AND c.reminder_sent_at < NOW() - (COALESCE(m.escalation_minutes, fr.escalation_minutes, hr.escalation_minutes, 30) || ' minutes')::interval LIMIT 50;",
+        "options": {}
+      },
+      "id": "425a04e0-c086-4973-8051-de97be43cd61",
+      "name": "Find Missed Check-ins",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -800,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.length }}",
+              "value2": 0,
+              "operation": "notEqual"
+            }
+          ],
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "id": "c3e792c5-2ccb-4848-8b4b-bc8d1673241b",
+      "name": "Any Missed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -608,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE checkins SET status = 'missed', missed_at = NOW(), escalated_at = NOW() WHERE id = '{{ $json.checkin_id }}' RETURNING *;",
+        "options": {}
+      },
+      "id": "5675e4f5-5a06-4b1b-90d3-98784abf0d58",
+      "name": "Mark as Missed + Escalated",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -400,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_BASE_URL }}/webhook/wf6-ct-notify",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "missed"
+            },
+            {
+              "name": "ct_whatsapp",
+              "value": "={{ $json.ct_whatsapp }}"
+            },
+            {
+              "name": "ct_name",
+              "value": "={{ $json.ct_name }}"
+            },
+            {
+              "name": "elder_name",
+              "value": "={{ $json.elder_name }}"
+            },
+            {
+              "name": "domain",
+              "value": "={{ $json.domain }}"
+            },
+            {
+              "name": "elder_id",
+              "value": "={{ $json.elder_id }}"
+            },
+            {
+              "name": "care_partner_id",
+              "value": "={{ $json.care_partner_id }}"
+            },
+            {
+              "name": "checkin_id",
+              "value": "={{ $json.checkin_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3f39ce81-a212-4e49-bd3d-41296be75de6",
+      "name": "Fire WF-6 (Missed)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -208,
+        752
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "33bed846-da8d-4074-bc73-bbc4fea3c560",
+      "name": "On Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1056,
+        1008
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ct_notifications (elder_id, care_partner_id, type, checkin_id, sent_at) VALUES ('{{ $json.elder_id }}', '{{ $json.care_partner_id }}', 'error', '{{ $json.checkin_id }}', NOW());",
+        "options": {}
+      },
+      "id": "e279401a-5aeb-4e8b-9909-c5b2b81c5d54",
+      "name": "Log Error to DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -800,
+        1008
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On Response from WF-2": {
+      "main": [
+        [
+          {
+            "node": "Save Response to DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Response to DB": {
+      "main": [
+        [
+          {
+            "node": "Is Medication?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Medication?": {
+      "main": [
+        [
+          {
+            "node": "Save Medication Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check CT Notification Preference",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Medication Items": {
+      "main": [
+        [
+          {
+            "node": "Check CT Notification Preference",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check CT Notification Preference": {
+      "main": [
+        [
+          {
+            "node": "CT Wants Every Notification?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CT Wants Every Notification?": {
+      "main": [
+        [
+          {
+            "node": "Fire WF-6 (Interaction)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every Minute - Check Reminders & Missed": {
+      "main": [
+        [
+          {
+            "node": "Find Due Reminders",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Find Missed Check-ins",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Due Reminders": {
+      "main": [
+        [
+          {
+            "node": "Any Due?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Due?": {
+      "main": [
+        [
+          {
+            "node": "Send Reminder via WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Reminder via WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Mark as Reminded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Missed Check-ins": {
+      "main": [
+        [
+          {
+            "node": "Any Missed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Missed?": {
+      "main": [
+        [
+          {
+            "node": "Mark as Missed + Escalated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark as Missed + Escalated": {
+      "main": [
+        [
+          {
+            "node": "Fire WF-6 (Missed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On Error": {
+      "main": [
+        [
+          {
+            "node": "Log Error to DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "f6a3b3f8-ff36-4568-96c3-d7cf20cef3a6",
+  "meta": {
+    "instanceId": "96d171da9174e56bf95b6a013fbd0e703f7c8706589c7ac76a8a22248c6850a5"
+  },
+  "id": "g20mwekbjFS8aVqq",
+  "tags": [
+    {
+      "name": "ElderWise",
+      "id": "RrGBNgU32rk3mnfn",
+      "updatedAt": "2026-07-23T13:20:44.015Z",
+      "createdAt": "2026-07-23T13:20:44.015Z"
+    }
+  ]
+}
