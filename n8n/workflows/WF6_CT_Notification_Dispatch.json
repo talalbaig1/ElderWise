@@ -1,0 +1,229 @@
+{
+  "name": "WF-6 CT Notification Dispatch",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf6-ct-notify",
+        "options": {}
+      },
+      "id": "3a4c5e8b-1273-4c1e-9201-9d0980d057a4",
+      "name": "Called by WF-3",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        112
+      ],
+      "webhookId": "35398be7-2bf3-4f7e-a88e-9cd498f63f43"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.type }}",
+              "value2": "missed",
+              "operation": "equals"
+            }
+          ],
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "id": "74bcc214-321a-4120-ad3f-244be7098101",
+      "name": "Is Missed or Interaction?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/{{ $env.WHATSAPP_PHONE_ID }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: $json.body.ct_whatsapp, type: 'template', template: { name: 'ct_missed_notice', language: { code: 'en' }, components: [{ type: 'body', parameters: [{ type: 'text', text: $json.body.elder_name }, { type: 'text', text: $json.body.domain }] }] } }) }}",
+        "options": {}
+      },
+      "id": "f38fd32a-234b-438e-aeb0-18a697c8390f",
+      "name": "Send Missed Notice to CT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/{{ $env.WHATSAPP_PHONE_ID }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: $json.body.ct_whatsapp, type: 'template', template: { name: 'ct_interaction_notice', language: { code: 'en' }, components: [{ type: 'body', parameters: [{ type: 'text', text: $json.body.elder_name }, { type: 'text', text: $json.body.domain }, { type: 'text', text: $json.body.response_value || 'responded' }] }] } }) }}",
+        "options": {}
+      },
+      "id": "d5d9df14-4859-42ca-b105-e592be822205",
+      "name": "Send Interaction Notice to CT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -224,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ct_notifications (elder_id, care_partner_id, type, checkin_id, wa_message_id, sent_at) VALUES ('{{ $json.body.elder_id }}', '{{ $json.body.care_partner_id }}', '{{ $json.body.type }}', '{{ $json.body.checkin_id }}', '{{ $json.messages[0].id }}', NOW()) RETURNING *;",
+        "options": {}
+      },
+      "id": "c3117c26-aa88-4f58-9257-7793089cc1a4",
+      "name": "Log Missed Notification",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        32,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ct_notifications (elder_id, care_partner_id, type, checkin_id, wa_message_id, sent_at) VALUES ('{{ $json.body.elder_id }}', '{{ $json.body.care_partner_id }}', '{{ $json.body.type }}', '{{ $json.body.checkin_id }}', '{{ $json.messages[0].id }}', NOW()) RETURNING *;",
+        "options": {}
+      },
+      "id": "3fdd4b20-b9af-44fa-a157-be86ba9908c8",
+      "name": "Log Interaction Notification",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        32,
+        208
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "f026a8d4-0254-42d0-b9e4-f747838d1334",
+      "name": "On Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ct_notifications (elder_id, care_partner_id, type, sent_at) VALUES ('{{ $json.body.elder_id }}', '{{ $json.body.care_partner_id }}', 'error', NOW());",
+        "options": {}
+      },
+      "id": "1e8f0d43-aa35-44c4-8ce3-81b9d9c5c958",
+      "name": "Log Error",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -480,
+        400
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Called by WF-3": {
+      "main": [
+        [
+          {
+            "node": "Is Missed or Interaction?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Missed or Interaction?": {
+      "main": [
+        [
+          {
+            "node": "Send Missed Notice to CT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Interaction Notice to CT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Missed Notice to CT": {
+      "main": [
+        [
+          {
+            "node": "Log Missed Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Interaction Notice to CT": {
+      "main": [
+        [
+          {
+            "node": "Log Interaction Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On Error": {
+      "main": [
+        [
+          {
+            "node": "Log Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "0febc554-141b-49f2-a095-14b6cdce6e15",
+  "meta": {
+    "instanceId": "96d171da9174e56bf95b6a013fbd0e703f7c8706589c7ac76a8a22248c6850a5"
+  },
+  "id": "jxkRTuQuiIWnDnaU",
+  "tags": [
+    {
+      "name": "ElderWise",
+      "id": "RrGBNgU32rk3mnfn",
+      "updatedAt": "2026-07-23T13:20:44.015Z",
+      "createdAt": "2026-07-23T13:20:44.015Z"
+    }
+  ]
+}
