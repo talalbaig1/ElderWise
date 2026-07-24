@@ -105,8 +105,13 @@ function weekAgoStr() {
 }
 
 export default function ReportsPage() {
-  const { store, setSelectedLovedOneId, hydrated, lovedOne: selected } =
-    useDomainStore();
+  const {
+    store,
+    setSelectedLovedOneId,
+    hydrated,
+    lovedOne: selected,
+    viewerTimeZone,
+  } = useDomainStore();
   const [kind, setKind] = useState<ReportKind>("overall");
   const [startDate, setStartDate] = useState(weekAgoStr);
   const [endDate, setEndDate] = useState(todayStr);
@@ -122,8 +127,16 @@ export default function ReportsPage() {
     const from = new Date(`${startDate}T00:00:00`);
     const to = new Date(`${endDate}T23:59:59`);
     const [customFrom, customTo] = from <= to ? [from, to] : [to, from];
-    return buildReportModel(store, lovedOne, kind, "custom", customFrom, customTo);
-  }, [store, lovedOne, kind, startDate, endDate]);
+    return buildReportModel(
+      store,
+      lovedOne,
+      kind,
+      "custom",
+      customFrom,
+      customTo,
+      viewerTimeZone,
+    );
+  }, [store, lovedOne, kind, startDate, endDate, viewerTimeZone]);
 
   if (!hydrated) {
     return <div className="h-40 animate-pulse rounded-2xl bg-secondary" />;

@@ -22,6 +22,28 @@ import type {
   SOSEvent,
   VoiceJournalEntry,
 } from "@/types";
+import { formatInTimeZone } from "@/lib/time/display";
+
+function fmtEvent(iso: string, viewerTimeZone: string) {
+  return formatInTimeZone(iso, viewerTimeZone, {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function fmtTable(iso: string, viewerTimeZone: string) {
+  return formatInTimeZone(iso, viewerTimeZone, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
 
 export type ReportKind =
   | "medication"
@@ -361,6 +383,7 @@ export function buildReportModel(
   preset: DateRangePreset,
   customFrom?: Date,
   customTo?: Date,
+  viewerTimeZone = "UTC",
 ): ReportModel {
   const bounds = getReportRangeBounds(preset, customFrom, customTo);
   const med = filterOrSynthesize(store, lovedOne.id, "medication", bounds.from, bounds.to);
@@ -406,14 +429,14 @@ export function buildReportModel(
       .map((item) => ({
         id: item.id,
         title: checkInTitle(item, store),
-        time: format(parseISO(item.scheduledAt), "d MMM · h:mm a"),
+        time: fmtEvent(item.scheduledAt, viewerTimeZone),
         description: item.notes || `Channel: ${item.channel}`,
         status: item.status,
         kind: item.routineKind,
       }));
 
     const tableRows = items.map((item) => ({
-      Date: format(parseISO(item.scheduledAt), "yyyy-MM-dd HH:mm"),
+      Date: fmtTable(item.scheduledAt, viewerTimeZone),
       Routine: checkInTitle(item, store),
       Status: item.status,
       Response: String(item.response ?? ""),
@@ -474,13 +497,13 @@ export function buildReportModel(
     const timeline: ReportTimelineItem[] = journals.slice(0, 12).map((j) => ({
       id: j.id,
       title: j.aiSummary.slice(0, 72) + (j.aiSummary.length > 72 ? "…" : ""),
-      time: format(parseISO(j.recordedAt), "d MMM · h:mm a"),
+      time: fmtEvent(j.recordedAt, viewerTimeZone),
       description: `${j.mood} · ${j.themes.join(", ") || "No themes"}`,
       kind: "voice_journal",
     }));
 
     const tableRows = journals.map((j) => ({
-      Date: format(parseISO(j.recordedAt), "yyyy-MM-dd HH:mm"),
+      Date: fmtTable(j.recordedAt, viewerTimeZone),
       Mood: j.mood,
       DurationSec: j.durationSeconds,
       Themes: j.themes.join("; "),
@@ -531,7 +554,7 @@ export function buildReportModel(
     const timeline: ReportTimelineItem[] = sosEvents.slice(0, 12).map((e) => ({
       id: e.id,
       title: `SOS · ${e.status}`,
-      time: format(parseISO(e.triggeredAt), "d MMM · h:mm a"),
+      time: fmtEvent(e.triggeredAt, viewerTimeZone),
       description:
         e.resolutionNotes ||
         `Responders: ${e.responders.join(", ") || "—"} · Channel: ${e.triggerChannel}`,
@@ -553,11 +576,11 @@ export function buildReportModel(
     });
 
     const tableRows = sosEvents.map((e) => ({
-      Triggered: format(parseISO(e.triggeredAt), "yyyy-MM-dd HH:mm"),
+      Triggered: fmtTable(e.triggeredAt, viewerTimeZone),
       Status: e.status,
       Channel: e.triggerChannel,
       Responders: e.responders.join("; "),
-      Resolved: e.resolvedAt ? format(parseISO(e.resolvedAt), "yyyy-MM-dd HH:mm") : "",
+      Resolved: e.resolvedAt ? fmtTable(e.resolvedAt, viewerTimeZone) : "",
       Notes: e.resolutionNotes ?? "",
     }));
 
@@ -620,7 +643,7 @@ export function buildReportModel(
     ...all.map((item) => ({
       id: item.id,
       title: checkInTitle(item, store),
-      time: format(parseISO(item.scheduledAt), "d MMM · h:mm a"),
+      time: fmtEvent(item.scheduledAt, viewerTimeZone),
       description: item.routineKind,
       status: item.status,
       kind: item.routineKind,
@@ -629,7 +652,7 @@ export function buildReportModel(
     ...sosEvents.map((e) => ({
       id: e.id,
       title: `SOS · ${e.status}`,
-      time: format(parseISO(e.triggeredAt), "d MMM · h:mm a"),
+      time: fmtEvent(e.triggeredAt, viewerTimeZone),
       description: e.resolutionNotes || e.triggerChannel,
       kind: "sos",
       sort: +parseISO(e.triggeredAt),
@@ -637,7 +660,7 @@ export function buildReportModel(
     ...journals.map((j) => ({
       id: j.id,
       title: "Voice Journal",
-      time: format(parseISO(j.recordedAt), "d MMM · h:mm a"),
+      time: fmtEvent(j.recordedAt, viewerTimeZone),
       description: j.aiSummary.slice(0, 80),
       kind: "voice_journal",
       sort: +parseISO(j.recordedAt),

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { format } from "date-fns";
 import {
   Bell,
   CircleHelp,
@@ -26,6 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/store";
+import { formatInTimeZone } from "@/lib/time/display";
 import { initials } from "@/lib/utils";
 
 interface AppHeaderProps {
@@ -67,7 +67,11 @@ export function AppHeader({ onMenuClick }: AppHeaderProps) {
 
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
           <time className="hidden font-mono text-xs text-muted-foreground xl:inline">
-            {format(new Date(), "EEE, d MMM")}
+            {formatInTimeZone(new Date(), data.viewerTimeZone, {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+            })}
           </time>
 
           <Sheet>

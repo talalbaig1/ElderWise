@@ -41,10 +41,13 @@ export function SosEmergencyTimeline({
   entries,
   className,
   live,
+  viewerTimeZone,
 }: {
   entries: SOSTimelineEntry[];
   className?: string;
   live?: boolean;
+  /** CT IANA timezone — D5 viewer display */
+  viewerTimeZone: string;
 }) {
   const reduceMotion = useReducedMotion();
   const endRef = useRef<HTMLDivElement>(null);
@@ -98,7 +101,7 @@ export function SosEmergencyTimeline({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-semibold leading-snug">{entry.title}</p>
                   <time className="font-mono text-[11px] text-muted-foreground">
-                    {formatSosClock(entry.at)}
+                    {formatSosClock(entry.at, viewerTimeZone)}
                   </time>
                 </div>
                 {entry.detail ? (
@@ -119,7 +122,7 @@ export function SosEmergencyTimeline({
                     </span>
                   ) : null}
                   <span className="font-mono text-[10px] text-muted-foreground/80">
-                    {formatSosDateTime(entry.at)}
+                    {formatSosDateTime(entry.at, viewerTimeZone)}
                   </span>
                 </div>
               </div>

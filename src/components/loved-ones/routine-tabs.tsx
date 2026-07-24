@@ -28,6 +28,7 @@ import {
   upsertHealthRoutine,
   upsertMedication,
 } from "@/lib/data/actions";
+import { labelElderLocalTime } from "@/lib/time/display";
 import type { FoodRoutine, HealthRoutine, Medication } from "@/types";
 import { useRouter } from "next/navigation";
 
@@ -39,6 +40,8 @@ export function MedicationTab({
 }) {
   const router = useRouter();
   const { store } = useDomainStore();
+  const elderTz =
+    store.lovedOnes.find((lo) => lo.id === lovedOneId)?.timeZone ?? "UTC";
   const items = store.medications.filter((m) => m.lovedOneId === lovedOneId);
   const [editing, setEditing] = useState<Medication | null>(null);
   const [busy, setBusy] = useState(false);
@@ -72,7 +75,7 @@ export function MedicationTab({
             <RoutineCard
               key={item.id}
               title={item.name || "Untitled"}
-              subtitle={`${item.dosage} ${item.dosageUnit} · ${item.times.join(", ")} · ${item.startDate}${item.endDate ? ` → ${item.endDate}` : ""}`}
+              subtitle={`${item.dosage} ${item.dosageUnit} · ${item.times.map((t) => labelElderLocalTime(t, elderTz)).join(", ")} · ${item.startDate}${item.endDate ? ` → ${item.endDate}` : ""}`}
               enabled={item.enabled}
               onToggle={async (enabled) => {
                 setBusy(true);
@@ -228,6 +231,8 @@ export function MedicationTab({
 export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
   const router = useRouter();
   const { store } = useDomainStore();
+  const elderTz =
+    store.lovedOnes.find((lo) => lo.id === lovedOneId)?.timeZone ?? "UTC";
   const items = store.foodRoutines.filter((f) => f.lovedOneId === lovedOneId);
   const [editing, setEditing] = useState<FoodRoutine | null>(null);
   const [busy, setBusy] = useState(false);
@@ -261,7 +266,7 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
             <RoutineCard
               key={item.id}
               title={item.mealName}
-              subtitle={`${item.checkInTime} · ${item.startDate}${item.endDate ? ` → ${item.endDate}` : ""}`}
+              subtitle={`${labelElderLocalTime(item.checkInTime, elderTz)} · ${item.startDate}${item.endDate ? ` → ${item.endDate}` : ""}`}
               enabled={item.enabled}
               onToggle={async (enabled) => {
                 setBusy(true);
@@ -359,6 +364,8 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
 export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
   const router = useRouter();
   const { store } = useDomainStore();
+  const elderTz =
+    store.lovedOnes.find((lo) => lo.id === lovedOneId)?.timeZone ?? "UTC";
   const items = store.healthRoutines.filter((h) => h.lovedOneId === lovedOneId);
   const [editing, setEditing] = useState<HealthRoutine | null>(null);
   const [busy, setBusy] = useState(false);
@@ -392,7 +399,7 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
             <RoutineCard
               key={item.id}
               title={item.name}
-              subtitle={`${item.time} · ${item.startDate}${item.endDate ? ` → ${item.endDate}` : ""} · Answer: ${item.answerType === "yes_no" ? "Yes/No" : `${item.answerType} (Coming soon)`}`}
+              subtitle={`${labelElderLocalTime(item.time, elderTz)} · ${item.startDate}${item.endDate ? ` → ${item.endDate}` : ""} · Answer: ${item.answerType === "yes_no" ? "Yes/No" : `${item.answerType} (Coming soon)`}`}
               enabled={item.enabled}
               onToggle={async (enabled) => {
                 setBusy(true);

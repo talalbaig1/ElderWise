@@ -54,9 +54,12 @@ function stepTone(status: SOSCascadeStep["status"]) {
 export function SosCascadeFlow({
   steps,
   className,
+  viewerTimeZone,
 }: {
   steps: SOSCascadeStep[];
   className?: string;
+  /** CT IANA timezone — D5 viewer display */
+  viewerTimeZone: string;
 }) {
   const reduceMotion = useReducedMotion();
 
@@ -121,9 +124,11 @@ export function SosCascadeFlow({
               ) : null}
               <div className="mt-2 flex flex-wrap gap-3 font-mono text-[11px] text-muted-foreground">
                 {step.contact ? <span>{step.contact}</span> : null}
-                {step.notifiedAt ? <span>Notified {formatSosClock(step.notifiedAt)}</span> : null}
+                {step.notifiedAt ? (
+                  <span>Notified {formatSosClock(step.notifiedAt, viewerTimeZone)}</span>
+                ) : null}
                 {step.acknowledgedAt ? (
-                  <span>Ack {formatSosClock(step.acknowledgedAt)}</span>
+                  <span>Ack {formatSosClock(step.acknowledgedAt, viewerTimeZone)}</span>
                 ) : null}
               </div>
             </div>

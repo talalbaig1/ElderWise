@@ -18,6 +18,7 @@ import type {
   ElderWiseStore,
   LovedOne,
 } from "@/types";
+import { formatInTimeZone, labelElderLocalTime } from "@/lib/time/display";
 
 export type DashboardRange = "today" | "week" | "month" | "year" | "custom";
 
@@ -186,6 +187,7 @@ export function buildDashboardModel(
   store: ElderWiseStore,
   lovedOne: LovedOne,
   range: DashboardRange | { from: Date; to: Date; priorFrom: Date; priorTo: Date; label?: string },
+  viewerTimeZone = "UTC",
 ) {
   const bounds =
     typeof range === "string"
@@ -203,7 +205,19 @@ export function buildDashboardModel(
               ? "This year"
               : "Custom range"
       : range.label ||
-        `${format(bounds.from, "d MMM h:mm a")} – ${format(bounds.to, "d MMM h:mm a")}`;
+        `${formatInTimeZone(bounds.from, viewerTimeZone, {
+          day: "numeric",
+          month: "short",
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        })} – ${formatInTimeZone(bounds.to, viewerTimeZone, {
+          day: "numeric",
+          month: "short",
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        })}`;
 
   const med = filterOrSynthesize(store, lovedOne.id, "medication", bounds.from, bounds.to);
   const food = filterOrSynthesize(store, lovedOne.id, "food", bounds.from, bounds.to);
@@ -292,7 +306,11 @@ export function buildDashboardModel(
           : item.routineKind === "food"
             ? "Meal check-in"
             : "Health check-in",
-      time: format(parseISO(item.scheduledAt), "h:mm a"),
+      time: formatInTimeZone(item.scheduledAt, viewerTimeZone, {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      }),
       status: item.status,
       kind: item.routineKind,
     }));
@@ -304,7 +322,7 @@ export function buildDashboardModel(
         m.times.map((t) => ({
           id: `${m.id}-${t}`,
           title: `${m.name} · ${m.dosage}${m.dosageUnit}`,
-          time: t,
+          time: labelElderLocalTime(t, lovedOne.timeZone),
           kind: "medication" as const,
         })),
       ),
@@ -313,7 +331,7 @@ export function buildDashboardModel(
       .map((f) => ({
         id: f.id,
         title: f.mealName,
-        time: f.checkInTime,
+        time: labelElderLocalTime(f.checkInTime, lovedOne.timeZone),
         kind: "food" as const,
       })),
     ...store.healthRoutines
@@ -321,7 +339,7 @@ export function buildDashboardModel(
       .map((h) => ({
         id: h.id,
         title: h.name,
-        time: h.time,
+        time: labelElderLocalTime(h.time, lovedOne.timeZone),
         kind: "health" as const,
       })),
   ]

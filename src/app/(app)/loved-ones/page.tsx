@@ -42,7 +42,7 @@ import { cn, initials } from "@/lib/utils";
 import type { WellbeingStatus } from "@/types";
 
 export default function LovedOnesPage() {
-  const { store, setSelectedLovedOneId, hydrated } = useDomainStore();
+  const { store, setSelectedLovedOneId, hydrated, viewerTimeZone } = useDomainStore();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | WellbeingStatus>("all");
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -213,7 +213,7 @@ export default function LovedOnesPage() {
                       </p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <StatusPill kind="wellbeing" status={lo.wellbeingStatus} />
-                        <ConsentStatusBadge lovedOne={lo} />
+                        <ConsentStatusBadge lovedOne={lo} viewerTimeZone={viewerTimeZone} />
                       </div>
                     </div>
                   </div>

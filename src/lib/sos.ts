@@ -1,4 +1,4 @@
-import { differenceInMinutes, format, parseISO } from "date-fns";
+import { differenceInMinutes, parseISO } from "date-fns";
 import type {
   CarePartner,
   ElderWiseStore,
@@ -10,6 +10,7 @@ import type {
   SOSEvent,
   SOSTimelineEntry,
 } from "@/types";
+import { formatViewerClock, formatViewerDateTime } from "@/lib/time/display";
 
 const ROLE_ORDER: SOSCascadeRole[] = [
   "loved_one",
@@ -535,17 +536,17 @@ export function applySosToStore(
   };
 }
 
-export function formatSosClock(iso: string) {
+export function formatSosClock(iso: string, viewerTimeZone: string) {
   try {
-    return format(parseISO(iso), "h:mm:ss a");
+    return formatViewerClock(parseISO(iso), viewerTimeZone);
   } catch {
     return iso;
   }
 }
 
-export function formatSosDateTime(iso: string) {
+export function formatSosDateTime(iso: string, viewerTimeZone: string) {
   try {
-    return format(parseISO(iso), "d MMM · h:mm a");
+    return formatViewerDateTime(parseISO(iso), viewerTimeZone);
   } catch {
     return iso;
   }

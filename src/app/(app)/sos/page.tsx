@@ -63,8 +63,13 @@ function useElapsedTick(enabled: boolean, setTick: Dispatch<SetStateAction<numbe
 }
 
 export default function SosPage() {
-  const { store, setSelectedLovedOneId, hydrated, lovedOne: selectedLovedOne } =
-    useDomainStore();
+  const {
+    store,
+    setSelectedLovedOneId,
+    hydrated,
+    lovedOne: selectedLovedOne,
+    viewerTimeZone,
+  } = useDomainStore();
   const reduceMotion = useReducedMotion();
 
   const events = useMemo(
@@ -295,7 +300,7 @@ export default function SosPage() {
                             {lo ? `${lo.firstName} ${lo.surname}` : "Loved One"}
                           </p>
                           <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                            {formatSosDateTime(event.triggeredAt)}
+                            {formatSosDateTime(event.triggeredAt, viewerTimeZone)}
                           </p>
                         </div>
                         <StatusPill kind="sos" status={event.status} />
@@ -414,7 +419,10 @@ export default function SosPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <SosCascadeFlow steps={selected.cascadeSteps} />
+                    <SosCascadeFlow
+                      steps={selected.cascadeSteps}
+                      viewerTimeZone={viewerTimeZone}
+                    />
                     {isOpen ? (
                       <div className="mt-2 flex flex-wrap gap-2 border-t pt-4">
                         <Button
@@ -459,6 +467,7 @@ export default function SosPage() {
                     <SosEmergencyTimeline
                       entries={selected.timeline}
                       live={!!isOpen && !!selected.autoCascade}
+                      viewerTimeZone={viewerTimeZone}
                     />
                   </CardContent>
                 </Card>
@@ -474,7 +483,7 @@ export default function SosPage() {
                     {selected.acknowledgedAt ? (
                       <AckRow
                         title={selected.acknowledgedBy || "Care Partner"}
-                        detail={`Acknowledged ${formatSosDateTime(selected.acknowledgedAt)}`}
+                        detail={`Acknowledged ${formatSosDateTime(selected.acknowledgedAt, viewerTimeZone)}`}
                       />
                     ) : (
                       <p className="text-sm text-muted-foreground">
@@ -543,7 +552,7 @@ export default function SosPage() {
                             </p>
                             <p className="mt-1 font-mono text-xs">
                               {selected.resolvedAt
-                                ? formatSosDateTime(selected.resolvedAt)
+                                ? formatSosDateTime(selected.resolvedAt, viewerTimeZone)
                                 : "—"}
                             </p>
                           </div>

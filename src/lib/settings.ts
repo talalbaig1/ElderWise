@@ -13,6 +13,7 @@ export const LANGUAGE_OPTIONS = [
 ] as const;
 
 export const TIMEZONE_OPTIONS = [
+  { value: "Asia/Riyadh", label: "Saudi Arabia (Asia/Riyadh)" },
   { value: "Asia/Kolkata", label: "India (Asia/Kolkata)" },
   { value: "Asia/Dubai", label: "UAE (Asia/Dubai)" },
   { value: "Asia/Singapore", label: "Singapore" },

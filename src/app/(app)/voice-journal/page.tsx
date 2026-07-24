@@ -27,7 +27,9 @@ import {
   fullTranscript,
   journalStats,
 } from "@/lib/voice-journal";
+import { useAppData } from "@/components/data/app-data-provider";
 import { useElderWiseStore, useSelectedLovedOne } from "@/lib/store";
+import { formatInTimeZone, formatViewerDateTime } from "@/lib/time/display";
 import { cn } from "@/lib/utils";
 import type { VoiceJournalEntry } from "@/types";
 
@@ -41,6 +43,7 @@ function monthAgoStr() {
 
 export default function VoiceJournalPage() {
   const { store, setStore, setSelectedLovedOneId, hydrated } = useElderWiseStore();
+  const { viewerTimeZone } = useAppData();
   const selectedLovedOne = useSelectedLovedOne();
   const reduceMotion = useReducedMotion();
 
@@ -214,7 +217,16 @@ export default function VoiceJournalPage() {
                       {lovedOneName(selected.lovedOneId)}
                     </CardTitle>
                     <CardDescription>
-                      {format(parseISO(selected.recordedAt), "EEEE, d MMMM yyyy · h:mm a")} ·{" "}
+                      {formatInTimeZone(selected.recordedAt, viewerTimeZone, {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                        hour12: true,
+                      })}{" "}
+                      ·{" "}
                       {formatDistanceToNow(parseISO(selected.recordedAt), { addSuffix: true })}
                     </CardDescription>
                   </div>
@@ -299,7 +311,7 @@ export default function VoiceJournalPage() {
                               {lovedOneName(entry.lovedOneId)}
                             </p>
                             <p className="font-mono text-[11px] text-muted-foreground">
-                              {format(parseISO(entry.recordedAt), "d MMM · h:mm a")}
+                              {formatViewerDateTime(entry.recordedAt, viewerTimeZone)}
                             </p>
                           </div>
                           <span className="font-mono text-[10px] text-muted-foreground">

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { format, formatDistanceToNow, parseISO } from "date-fns";
+import { formatDistanceToNow, parseISO } from "date-fns";
 import {
   ArrowLeft,
   FileBarChart,
@@ -33,13 +33,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ageFromDob } from "@/lib/loved-ones";
 import { useDomainStore } from "@/components/data/app-data-provider";
 import { updateElder } from "@/lib/data/actions";
+import { formatViewerDateTime } from "@/lib/time/display";
 import { initials } from "@/lib/utils";
 import type { Gender, LovedOne } from "@/types";
 
 export default function LovedOneProfilePage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { store, setSelectedLovedOneId, hydrated } = useDomainStore();
+  const { store, setSelectedLovedOneId, hydrated, viewerTimeZone } = useDomainStore();
   const lovedOne = store.lovedOnes.find((lo) => lo.id === params.id);
   const [editingOverview, setEditingOverview] = useState(false);
   const [draft, setDraft] = useState<LovedOne | null>(null);
@@ -139,7 +140,7 @@ export default function LovedOneProfilePage() {
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusPill kind="wellbeing" status={lovedOne.wellbeingStatus} />
-              <ConsentStatusBadge lovedOne={lovedOne} />
+              <ConsentStatusBadge lovedOne={lovedOne} viewerTimeZone={viewerTimeZone} />
             </div>
           </div>
         </div>
@@ -266,7 +267,11 @@ export default function LovedOneProfilePage() {
                         ? ` · ${lovedOne.consentAttestedAt.slice(0, 10)}`
                         : ""}
                     </p>
-                    <ConsentStatusBadge lovedOne={lovedOne} className="mt-2" />
+                    <ConsentStatusBadge
+                      lovedOne={lovedOne}
+                      viewerTimeZone={viewerTimeZone}
+                      className="mt-2"
+                    />
                   </div>
                   <div className="flex gap-2 sm:col-span-2">
                     <Button onClick={saveOverview} disabled={saving}>
@@ -331,7 +336,7 @@ export default function LovedOneProfilePage() {
                       {j.mood}
                     </Badge>
                     <span className="font-mono text-xs text-muted-foreground">
-                      {format(parseISO(j.recordedAt), "d MMM yyyy · h:mm a")}
+                      {formatViewerDateTime(j.recordedAt, viewerTimeZone)}
                     </span>
                     {j.attentionFlag ? <Badge variant="warning">Needs attention</Badge> : null}
                   </div>
@@ -356,7 +361,7 @@ export default function LovedOneProfilePage() {
                   <div>
                     <StatusPill kind="sos" status={event.status} />
                     <p className="mt-2 font-mono text-xs text-muted-foreground">
-                      {format(parseISO(event.triggeredAt), "d MMM yyyy · h:mm a")}
+                      {formatViewerDateTime(event.triggeredAt, viewerTimeZone)}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {event.locationPlaceholder || "Location unavailable"}

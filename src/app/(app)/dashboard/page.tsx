@@ -76,8 +76,8 @@ export default function DashboardPage() {
     if (bounds.to < bounds.from) {
       bounds = getCustomRangeBounds(endDate, startDate, endTime, startTime);
     }
-    return buildDashboardModel(store, lovedOne, bounds);
-  }, [store, lovedOne, startDate, endDate, startTime, endTime]);
+    return buildDashboardModel(store, lovedOne, bounds, viewerTimeZone);
+  }, [store, lovedOne, startDate, endDate, startTime, endTime, viewerTimeZone]);
 
   if (!hydrated) {
     return (
@@ -142,7 +142,7 @@ export default function DashboardPage() {
             doing · {model.wellbeingMessage}
           </p>
           <div className="mt-3">
-            <ConsentStatusBadge lovedOne={lovedOne} />
+            <ConsentStatusBadge lovedOne={lovedOne} viewerTimeZone={viewerTimeZone} />
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -365,7 +365,7 @@ export default function DashboardPage() {
                     {model.latestJournal.mood}
                   </Badge>
                   <span className="font-mono text-xs text-muted-foreground">
-                    {format(parseISO(model.latestJournal.recordedAt), "d MMM · h:mm a")}
+                    {formatInTimeZone(model.latestJournal.recordedAt, viewerTimeZone)}
                   </span>
                 </div>
                 <p className="text-sm leading-relaxed text-foreground">

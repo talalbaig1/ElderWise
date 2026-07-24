@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { formatViewerDate } from "@/lib/time/display";
 import { cn } from "@/lib/utils";
 import type { LovedOne } from "@/types";
 
@@ -12,25 +13,18 @@ import type { LovedOne } from "@/types";
  */
 export function ConsentStatusBadge({
   lovedOne,
+  viewerTimeZone = "UTC",
   className,
 }: {
   lovedOne: Pick<LovedOne, "consentConfirmedAt">;
+  /** CT IANA timezone — D5 viewer display */
+  viewerTimeZone?: string;
   className?: string;
 }) {
   const confirmedAt = lovedOne.consentConfirmedAt;
 
   if (confirmedAt) {
-    const dateLabel = (() => {
-      try {
-        return new Date(confirmedAt).toLocaleDateString(undefined, {
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        });
-      } catch {
-        return confirmedAt.slice(0, 10);
-      }
-    })();
+    const dateLabel = formatViewerDate(confirmedAt, viewerTimeZone);
 
     return (
       <Badge variant="success" className={cn("font-mono", className)}>
