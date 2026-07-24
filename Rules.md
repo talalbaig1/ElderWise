@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.4 |
-| **Date** | 23 July 2026 |
+| **Document** | Rules.md — v1.5 |
+| **Date** | 24 July 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
 
@@ -104,6 +104,7 @@ From `Architecture.md` §1 (P1). These are the walls that let eleven people work
 | **D9** | **`elders.consent_confirmed_at` is a hard gate, not a flag.** Any code path that schedules or sends a check-in must check it first. A NULL means that elder has not agreed to be messaged. |
 | **D10** | **`elders.address` is NOT NULL.** Mandatory even if Local Buddy / LCT is skipped. When an LCT exists, their SOS message carries the address — their purpose is to physically reach her. |
 | **D8** | **Foreign keys and indexes are not optional.** In particular `elders.whatsapp_number` must be indexed — the inbound webhook hits it on every single message. |
+| **D11** | **Drafts are hard-deleted; product data is soft-deleted.** A draft has no history worth keeping and holds a UNIQUE constraint (`elders.whatsapp_number`) hostage; a routine's history is the clinical record. |
 
 ---
 
@@ -131,6 +132,7 @@ From `Architecture.md` §1 (P1). These are the walls that let eleven people work
 | **SEC5** | **Verify Meta's webhook signature** on every inbound message. |
 | **SEC6** | **No secrets in the repo.** Ever. `.env` is gitignored; `.env.example` documents the shape with no values. If a secret is ever committed, it is burned — rotate it, don't just delete the commit. |
 | **SEC7** | **This system holds health-adjacent data about vulnerable people.** We make no HIPAA/GDPR compliance claims, but we behave as though someone is watching, because the data deserves it. |
+| **SEC8** | **The service-role key appears in exactly one Next.js module** (`src/lib/supabase/admin.ts`). Every other app path uses the anon key plus the user's session so RLS applies. A query that fails under RLS means the payload or ownership mapping is wrong — **never escalate privilege**. |
 
 ---
 
@@ -148,6 +150,7 @@ Defaults, not dogma. Consistency across eleven contributors matters more than an
 | **C6** | **Name things after the domain.** `elder`, `care_partner`, `local_caregiver`, `doctor`, `checkin`, `sos_event`. Not `user1`, `user2`, `contact_b`. UI labels (Loved One, Local Buddy, Family Doctor) map to these — see `Architecture.md` §5.5. The next person to read this code is a teammate in a different timezone at midnight. |
 | **C7** | **The product is spelled *ElderWise*.** Not ElderVoice. Not Elder Wise. It slips in meetings; it does not slip in the codebase. |
 | **C8** | **Every user-facing string is in English** (NFR-9). Multi-language is v2 — but don't hardcode strings in a way that makes v2 a rewrite. |
+| **C9** | **Never render a percentage on a zero denominator.** Show "—" or "No data". 100% on no data reads as perfect adherence when nothing happened. This occurred twice: the meal-completion card and nearly the PDF generator. |
 
 ---
 
@@ -292,6 +295,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 24 Jul 2026 | 1.5 | **Three rules from the 23–24 Jul build.** D11 draft hard-delete vs soft-delete history; SEC8 single admin module / never escalate past RLS; C9 no percentage on zero denominator. |
 | 23 Jul 2026 | 1.4 | **Companion-doc references no longer pin version numbers.** `main` is the single source of truth; pinned cross-references forced edits to every other doc on each version bump and went stale silently. Refs now name the file only. Each document's own version remains in its header. |
 | 22 Jul 2026 | 1.3 | **Docs ↔ front-end reconciliation.** Pointed domain naming (C6) at `Architecture.md` §5.5 glossary. Clarified D10: elder address remains mandatory when Local Buddy is optional; LCT SOS message carries address only when an LCT exists. |
 | 14 Jul 2026 | 1.2 | **N5 added — the elderly person must consent, herself** (two-layer opt-in; silence is not consent; nothing scheduled until `consent_confirmed_at` is set). Old N5 (data isolation) becomes N6. D9/D10 added: consent is a hard gate; `elders.address` is NOT NULL. Forbidden list: messaging an unconfirmed elder; WhatsApp Flows. |
@@ -300,4 +304,4 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 23 July 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 24 July 2026.*

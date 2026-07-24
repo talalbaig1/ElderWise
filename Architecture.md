@@ -5,8 +5,8 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.5 |
-| **Date** | 23 July 2026 |
+| **Document** | Architecture.md — v1.6 |
+| **Date** | 24 July 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
 
@@ -187,7 +187,7 @@ care_partners ──┐
 | `consent_attested_by_ct` | boolean | The CT's onboarding attestation (M16a). |
 | `consent_attested_at` | timestamptz | |
 | `consent_confirmed_at` | timestamptz | **The elder's in-channel confirmation** (M16b). **NULL ⇒ schedule nothing.** |
-| `active` | boolean | |
+| `active` | boolean | **Onboarding draft flag:** `false` while the wizard is in progress, `true` on finish. **All product reads filter `active = true`**, so a draft never appears in the dashboard, list, or selector. **At most one draft per care partner.** Discarding a draft is a **hard DELETE**, not a soft delete: `elders.whatsapp_number` is globally UNIQUE, so a soft-deleted draft would permanently lock that number against every care partner — including a sibling caring for the same parent. Safe because a draft has no history (`consent_confirmed_at` is null, nothing was scheduled, children cascade). **Contrast:** routine deletion is soft precisely because history must survive. |
 | `created_at` | timestamptz | |
 
 **`local_caregivers`** — LCT / Local Buddy. SOS-only. **Optional at onboarding** (front end: `skipLocalBuddy`). **Inherits the elder's timezone** (no `timezone` column, by design). If no LCT is set, SOS is handled by the Care Partner (CT is always present); LCT WhatsApp notification is **conditional** on a row existing. Elder `address` remains **NOT NULL** regardless.
@@ -208,9 +208,9 @@ care_partners ──┐
 |---|---|---|
 | `id` | uuid PK | |
 | `elder_id` | uuid FK | **Scoped to one elder.** |
-| `token_hash` | text | Store a hash, never the raw token. |
+| `token_hash` | text | **SHA-256** of the raw token (never store raw). See §7.3 for why not bcrypt/argon2. |
 | `created_by` | uuid FK → `care_partners.id` | |
-| `expires_at` | timestamptz | nullable |
+| `expires_at` | timestamptz | **Always set on create** (default 30 days). Open-ended links are forbidden. |
 | `revoked_at` | timestamptz | nullable — revocation is a Must-have |
 | `last_accessed_at` | timestamptz | |
 
@@ -222,11 +222,11 @@ care_partners ──┐
 | `elder_id` | uuid FK | |
 | `domain` | enum(`medication`,`health`,`food`) | UNIQUE with `elder_id` |
 | `enabled` | boolean | the Enable toggle |
-| `frequency` | jsonb | **Fully configurable** (FR-ON-4). Local times in the elder's tz, e.g. `{"times": ["08:00","20:00"]}`. No fixed 3×/day. |
+| `frequency` | jsonb | **Derived field** — the sorted union of times from routines that are both active (medications) / enabled and whose domain is enabled, refreshed on every routine write. Direct edits are overwritten on the next routine save. Shape e.g. `{"times": ["08:00","20:00"]}` (local times in the elder's tz). No fixed 3×/day (FR-ON-4). |
 | `ct_notification` | enum(`every_interaction`,`only_missed`) | M6 |
 | `escalate_to` | enum(`care_partner`) | Only the CT escalates. LCT/Doctor are SOS-only. Enum kept for v2 headroom. |
 
-> **Reconciled with the front end (22 Jul):** the front end models **`escalationMinutes` and `notifyCarePartner` per individual routine** (per medication, per food routine, per health routine) — finer-grained than one setting per domain, and a genuine improvement. **We adopt the front-end model.** `reminder_delay_minutes` (default 30) and `notify_care_partner` therefore live on each routine row (`medications`, `food_routines`, `health_routines` below), **not** on `domain_configs`. `domain_configs` retains the domain-level `enabled` toggle and the shared `frequency`/`ct_notification` defaults, which individual routines may override.
+> **Reconciled with the front end (22 Jul):** the front end models **`escalationMinutes` and `notifyCarePartner` per individual routine** (per medication, per food routine, per health routine) — finer-grained than one setting per domain, and a genuine improvement. **We adopt the front-end model.** `reminder_delay_minutes` (default 30) and `notify_care_partner` therefore live on each routine row (`medications`, `food_routines`, `health_routines` below), **not** on `domain_configs`. `domain_configs` retains the domain-level `enabled` toggle and `ct_notification`; `frequency` is **derived** from active/enabled routines (see above), not a manually edited default.
 
 **`medications`** — one row per medicine. Field names reconciled with the front-end `Medication` type (22 Jul).
 
@@ -261,6 +261,8 @@ care_partners ──┐
 | `id` uuid PK · `elder_id` uuid FK · `enabled` bool · `name` text · `type` enum(`sleep`,`blood_pressure`,`blood_sugar`,`water_intake`,`exercise`,`mood`,`weight`,`general_wellness`,`custom`) · `frequency` enum(`daily`,`every_2_days`,`weekly`,`custom`) · `time` time (local) · `start_date` date · `end_date` date null · `days_of_week` text[] · `question` text · `answer_type` enum(`yes_no`,`number`,`mood`,`short_text`) · `notify_care_partner` enum · `escalation_minutes` int (default 60) · `typical_bedtime` time null · `typical_wake_time` time null |
 
 > **Escalation defaults differ by domain in the front end** (medication 30 min, food 45, health 60). These are **defaults**, editable per routine. The old blanket "30 across the board" is superseded.
+
+> **Column asymmetry:** `medications` has both `active` and `enabled`; `food_routines` and `health_routines` have only `enabled`, so “pause” and “delete” are the same state for those two.
 
 **`checkins`** — one row per scheduled check-in occurrence. The heart of the system.
 
@@ -328,6 +330,8 @@ Index: `(elder_id, domain, scheduled_for)` and `(status, scheduled_for)` — the
 | Column | Type |
 |---|---|
 | `id` uuid PK · `elder_id` uuid FK · `care_partner_id` uuid FK · `type` enum(`interaction`,`missed`) · `checkin_id` uuid FK nullable · `wa_message_id` text · `sent_at` timestamptz |
+
+> No `read_at` column, so mark-read is disabled in the UI. **Open decision:** add the column, or defer to v2.
 
 **`message_templates`** — per-domain WhatsApp copy (M11).
 
@@ -450,8 +454,12 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 ### 7.3 Doctor
 **No account.** A tokenised, revocable, read-only share link scoped to a single elder (M15).
 
-- CT issues the link from the Care Circle screen → a cryptographically random token is generated, **hashed**, and stored in `doctor_share_links`. The raw token is shown **once** and lives only in the URL.
-- The doctor opens `/{share}/{token}`. A Next.js **server component / route handler** hashes the incoming token, looks it up, rejects if revoked or expired, and renders a read-only view of that one elder.
+- CT issues the link from the Care Circle screen → a cryptographically random token (**≥32 bytes**) is generated, **hashed with SHA-256**, and stored in `doctor_share_links`. The raw token is shown **once** and lives only in the URL. **Not bcrypt/argon2:** the token must be looked up **by its hash**, and a per-row-salted password hash makes that impossible. SHA-256 is correct here because the token is high-entropy random, not a user-chosen password.
+- **Default expiry 30 days, always set on create.** An open-ended link is a permanent credential sitting in someone's WhatsApp history.
+- The doctor opens `/share/{token}`. A Next.js **server component** hashes the incoming token, looks it up, rejects if revoked or expired, and scopes every query to that one `elder_id`.
+- **Click-through gate:** `/share/{token}` renders neutral copy first; clinical data loads only after human interaction. Reason: link-preview crawlers (WhatsApp, Slack, Signal, email scanners) fetch any URL a CT sends and would otherwise receive health data with nobody clicking. Supported by `noindex`/`nofollow`, no OG or Twitter meta tags, `Disallow: /share/` in `robots.txt`, `Referrer-Policy: no-referrer`, `Cache-Control: private, no-store`.
+- **Doctor view allowlist:** elder name, check-in history, active routines, and SOS events (`triggered_at`, `status`, `resolved_at`, `resolved_by_role`, `resolved_channel`, derived response time). **Excluded:** `sos_notifications`, `resolved_by_id`, CT and Local Buddy contact details, addresses, phone numbers. Reason: the event is clinical; the dispatch log is operational and carries third-party identifiers.
+- Rate limited to **20 requests per minute per platform IP** (`x-vercel-forwarded-for`; fall back to `x-forwarded-for` locally), **fail-open** — see §12.5.
 - **All data fetching for this route happens server-side.** No Supabase client is ever handed to the doctor's browser.
 - CT can revoke at any time — sets `revoked_at`, and the link dies on the next request.
 
@@ -550,6 +558,8 @@ Six workflows. Each is a separate n8n workflow so they can be built, tested, and
 | **LCT** | **Has no timezone column.** Inherits the elder's, by design. |
 | **Scheduling** | Every check-in fires in the **elder's** local time. `domain_configs.frequency` holds **local wall-clock times**; WF-1 converts to UTC at materialisation, using the IANA zone so DST is handled by the database, not by arithmetic. |
 | **Display** | Every timestamp renders in the **viewer's** timezone (the CT's on the dashboard; the doctor's on the share link). |
+| **PDF exception** | A document has no viewer session — generated by a CT in one zone, read by a clinician in another. Report bodies render in the **elder's** IANA zone, stated once in a header banner; the “generated on” line renders in the **CT's** zone and is explicitly labelled. |
+| **CT / doctor timezone write rule** | `care_partners.timezone` and `doctors.timezone` are set on **INSERT only** and never overwritten on subsequent sign-in. Detected browser timezone seeds the row at creation; after that the stored value wins. Reason: overwriting discarded the CT's explicit Settings choice and shifted the whole dashboard for anyone signing in while travelling — the product's core scenario. |
 | **Never** | Never store a UTC offset. Never do timezone maths with `+03:00` style offsets. Never assume the CT and the EP share a timezone — the entire premise of this product is that they don't. |
 
 ---
@@ -626,6 +636,13 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 | OpenAI / STT keys | n8n credentials | client-side |
 | Doctor share tokens | Hashed in the DB; raw token exists only in the URL | Stored raw. Ever. |
 
+### 12.5 Security posture (as built)
+
+- **The service-role key appears in exactly one Next.js module:** `src/lib/supabase/admin.ts`, imported only by the doctor share-link server paths. Every other app data path uses the anon key with the user's session so RLS applies. (n8n still holds the service-role key as trusted infrastructure — unchanged from §6.)
+- **Rate limiting is fail-open by design.** If the limiter is unreachable, misconfigured, or unset, the request proceeds and a warning is logged. The share token and the user session are the real access controls; a limiter outage must not stop a doctor reading a share or a CT downloading a PDF. Do not harden to fail-closed.
+- **The PDF route verifies elder ownership before generating.** A report is health data leaving the system. Cap: **5 requests per minute per user id**.
+- **Supabase Auth “IP address forwarding” is Off** (recorded, not changed). Auth's per-IP quotas may not key on the end-user IP behind Vercel.
+
 ---
 
 ## 13. What this architecture deliberately does not have
@@ -655,6 +672,8 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 | R5 | **11 distributed contributors, 6 weeks** | Merge chaos, inconsistent quality | Branch-per-member; shared `.cursor/rules`; the n8n/Next.js split (P1) lets both halves proceed in parallel. |
 | R6 | **Timezone bugs** | Reminders fire at the wrong hour — a silent, humiliating failure in a demo | §10. IANA only, UTC storage, elder-tz scheduling. |
 | R7 | **Scope creep** | Both mentors flagged feature overload as this team's main risk | Must-have only. Should/Could do not enter the MVP without a team-lead decision. |
+| R8 | **Leaked-password protection is a Pro-plan feature** | Security advisor shows a permanent `auth_leaked_password_protection` WARN on free tier | **Knowingly accepted for MVP** (Dev and Prod free tier). Compensating control: password length and complexity configured in Auth settings. |
+| R9 | **PDF script coverage is Latin + Devanagari only** | Arabic-script names render unjoined and mis-ordered | `@react-pdf/renderer` performs no bidirectional text or Arabic contextual shaping. **Accepted for MVP.** |
 
 ---
 
@@ -668,6 +687,8 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 | A-4 | ~~How WF-4 observes a dashboard-side SOS resolution~~ — **RESOLVED 14 Jul: authenticated webhook from the Next.js route handler → n8n** (fast path), **plus a status re-check before every nudge** (safety net). No polling, no Realtime subscription. | Closed |
 | A-5 | **WhatsApp backup account** — R1 is currently unmitigated. | Talal |
 | A-6 | Confirm all 11 members have GitHub accounts (blocks branch assignment). | Talal |
+| A-7 | **Dev project test accounts** — several test care-partner accounts from GATE A3 and build verification. Clean up before Demo Day. | Talal |
+| A-8 | **A3.5 rate limiting is implemented but INACTIVE** — `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` are not configured on Vercel, so the limiter no-ops in Production. Fail-open by design, so nothing appears broken. | Talal |
 
 ---
 
@@ -675,6 +696,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | Date | Version | Change |
 |---|---|---|
+| 24 Jul 2026 | 1.6 | **Docs ↔ built product (23–24 Jul).** Elders draft/`active` + hard-delete draft vs soft-delete history; derived `domain_configs.frequency`; routine column asymmetry; `ct_notifications` mark-read open decision. §7.3: SHA-256 share tokens, 30-day expiry, click-through gate, doctor allowlist, fail-open IP rate limit. §10: PDF elder-tz exception; CT/doctor timezone INSERT-only. §12.5: single admin module, fail-open limiter, PDF ownership, Auth IP-forwarding Off. Risks/open: leaked-password WARN accepted (R8); Arabic PDF limitation (R9); Dev test-account cleanup (A-7); Upstash unset so A3.5 limiter inactive in Production (A-8). |
 | 23 Jul 2026 | 1.5 | **Companion-doc references no longer pin version numbers.** `main` is the single source of truth; pinned cross-references forced edits to every other doc on each version bump and went stale silently. Refs now name the file only. Each document's own version remains in its header. Phase A2.1 applied on the Dev project. §5.1 ER diagram corrected to include `food_routines` and `health_routines`. §12.3 records the out-of-band `rls_auto_enable()` event trigger and its Prod implication. No schema decisions changed — `domain_configs` remains the 7 columns of v1.4. |
 | 22 Jul 2026 | 1.4 | **Docs ↔ front-end reconciliation.** Added **§5.5 Canonical glossary** (roles + check-in UI↔backend status map + SOS display vs dispatch). Documented **SOS as two layers**: front-end display (`active`/`acknowledged`/`resolved`/`cancelled` + demo cascade) vs n8n dispatch (parallel CT + optional LCT + optional Doctor; 4 nudges / 2 min; `sos_events.status` = `open`\|`resolved` is source of truth). **Local Buddy / LCT made optional** at onboarding (`local_caregivers` 0..1); SOS always notifies CT; LCT alert conditional. Elder address remains mandatory. |
 | 22 Jul 2026 | 1.3 | **Reconciled with Sama's front-end build.** Adopted the front end's **per-routine** escalation/notification model (finer-grained than per-domain) — `escalation_minutes` + `notify_care_partner` now live on `medications`, `food_routines`, `health_routines` (defaults 30/45/60), not on `domain_configs`. Expanded the three routine tables to match the front-end types exactly. Added §5.3 (front-end ↔ schema naming map: Loved One=EP, Care Partner=CT, Local Buddy=LCT, Family Doctor=DR) and §5.4 (v2/Could-have front-end stubs the MVP backend must NOT build: extra notification channels, voice-journal AI fields, quiet hours, rich health answer types). |
@@ -684,4 +706,4 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 23 July 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 24 July 2026.*

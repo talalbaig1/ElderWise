@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.4 |
-| **Date** | 23 July 2026 |
+| **Document** | Phases.md — v1.5 |
+| **Date** | 24 July 2026 |
 | **Demo Day** | **Saturday 29 August 2026** — 46 days from today |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Templates.md` |
 
@@ -112,20 +112,22 @@ Build all 8 screens against hardcoded fixtures. **No database. No auth. No API.*
 
 ### A2 · Wire to Supabase — single seeded user, RLS ON *(Sprint 4 → early Sprint 5, by ~7 Aug)*
 
+> **Sequence change (recorded):** A3 (authentication) was taken **before** A2.4 (onboarding writes), against the written order. Reason: after A2.3 added a server-side auth gate, the deployed app had no route to the dashboard, and A2.4 would otherwise have written elders scoped to `auth.uid()` while the UI's notion of identity still came from `localStorage`.
+
 | # | Task |
 |---|---|
-| A2.1 | Schema migrations written (`Architecture.md` §5) — **RLS policies in the same migration as the table.** Never after. |
-| A2.2 | One **seeded auth user** + one seeded elder + fixture data. App auto-signs-in as that user. |
-| A2.3 | Every screen reads and writes real data. Fixtures deleted. |
-| A2.4 | Onboarding wizard writes real records (elder, contacts, `domain_configs`, medications). **Includes the mandatory elder address (M17) and the CT consent attestation (M16a) — onboarding cannot complete without either.** |
-| A2.5 | Timezone handling implemented per `Rules.md` D3–D5 — IANA only, UTC storage, viewer-local display. |
-| A2.6 | Doctor share link: issue, revoke, **server-side token validation** (`Architecture.md` §7.3). |
-| A2.7 | Dashboard SOS-resolution route handler + **authenticated webhook to n8n** (§8, WF-4). |
-| A2.8 | Reports / PDF generation. |
+| A2.1 | ~~Schema migrations written (`Architecture.md` §5) — **RLS policies in the same migration as the table.** Never after.~~ — **DONE.** |
+| A2.2 | ~~One **seeded auth user** + one seeded elder + fixture data. App auto-signs-in as that user.~~ — **DONE** (superseded by A3.3). |
+| A2.3 | ~~Every screen reads and writes real data. Fixtures deleted.~~ — **DONE.** |
+| A2.4 | ~~Onboarding wizard writes real records (elder, contacts, `domain_configs`, medications). **Includes the mandatory elder address (M17) and the CT consent attestation (M16a) — onboarding cannot complete without either.**~~ — **DONE.** |
+| A2.5 | ~~Timezone handling implemented per `Rules.md` D3–D5 — IANA only, UTC storage, viewer-local display.~~ — **DONE** (includes PDF elder-tz exception; CT/doctor timezone INSERT-only — see `Architecture.md` §10). |
+| A2.6 | ~~Doctor share link: issue, revoke, **server-side token validation** (`Architecture.md` §7.3).~~ — **DONE.** |
+| A2.7 | Dashboard SOS-resolution route handler + **authenticated webhook to n8n** (§8, WF-4). — **DEFERRED.** Needs Robert's endpoint — the only point where Track A and Track B meet. |
+| A2.8 | ~~Reports / PDF generation.~~ — **DONE** (23–24 Jul). |
 
 **Owner:** Ferdous (schema) + TBD (application wiring).
 
-**🚪 GATE A2.** All screens work on real data as a single user. **RLS is enabled on every table** — verified, not assumed.
+**🚪 GATE A2.** Met **except A2.7** (deferred pending Robert's n8n webhook). All other screens work on real data. **RLS is enabled on every table** — verified, not assumed.
 
 ### A3 · Authentication UI *(Sprint 5, by ~14 Aug)*
 
@@ -133,13 +135,13 @@ Because RLS and `auth.uid()` already exist, this is **UI work, not a security re
 
 | # | Task |
 |---|---|
-| A3.1 | Signup / signin (Supabase Auth — email + password **and Google OAuth**) |
-| A3.2 | Session handling (httpOnly cookies, SSR client), protected routes |
-| A3.3 | Seeded-user auto-login removed |
-| A3.4 | **Multi-user + multi-elder** — one CT with several EPs; elder selector |
-| A3.5 | **Rate limiting** — share reveal (platform IP) + PDF (per user id); Auth signup/login left to Supabase quotas (Pass 3) |
+| A3.1 | ~~Signup / signin (Supabase Auth — email + password **and Google OAuth**)~~ — **DONE.** |
+| A3.2 | ~~Session handling (httpOnly cookies, SSR client), protected routes~~ — **DONE.** |
+| A3.3 | ~~Seeded-user auto-login removed~~ — **DONE.** |
+| A3.4 | ~~**Multi-user + multi-elder** — one CT with several EPs; elder selector~~ — **DONE.** |
+| A3.5 | ~~**Rate limiting** — share reveal (platform IP) + PDF (per user id); Auth signup/login left to Supabase quotas (Pass 3)~~ — **DONE** (code landed; Upstash unset on Vercel so limiter currently no-ops — see `Architecture.md` A-8). |
 
-**🚪 GATE A3 — the isolation test.** Create **two** care partners with different elders. Sign in as CT-A. **Attempt to reach CT-B's data by every route: URL, ID, API call.** If any attempt succeeds, everything stops until it doesn't. This is X1, and X1 is a release blocker.
+**🚪 GATE A3 — the isolation test.** **PASSED 24 July 2026.** Two care partners, both directions, **48 checks** — URL, elder ID, unfiltered API reads, and cross-tenant write attempts. Evidence: `scripts/rls-cross-tenant.mjs` (in the repo and re-runnable). This is X1, and X1 is a release blocker.
 
 ---
 
@@ -290,6 +292,7 @@ The proposal is a **second channel (Telegram)** so the demo can run even if temp
 
 | Date | Version | Change |
 |---|---|---|
+| 24 Jul 2026 | 1.5 | **Track A status sync.** A2.1–A2.6, A2.8 complete; A2.7 deferred (needs Robert's SOS webhook). A3.1–A3.5 complete; GATE A3 PASSED 24 Jul (48 checks, `scripts/rls-cross-tenant.mjs`). Recorded sequence change: A3 before A2.4 after the A2.3 auth gate left no dashboard path under localStorage identity. GATE A2 met except A2.7. |
 | 23 Jul 2026 | 1.4 | **Companion-doc references no longer pin version numbers.** `main` is the single source of truth; pinned cross-references forced edits to every other doc on each version bump and went stale silently. Refs now name the file only. Each document's own version remains in its header. |
 | 22 Jul 2026 | 1.3 | **Docs ↔ front-end reconciliation.** Companion doc versions bumped. A0 note updated: SOS display vs dispatch are two layers; Local Buddy optional; vocabulary points at `Architecture.md` §5.5. |
 | 22 Jul 2026 | 1.2 | Added **A0 — front-end reconciliation patch** (owner: Cursor, per `patch_frontend.md`) as a gate before DB wiring, following the review of Sama's build. |
@@ -298,4 +301,4 @@ The proposal is a **second channel (Telegram)** so the demo can run even if temp
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 23 July 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 24 July 2026.*

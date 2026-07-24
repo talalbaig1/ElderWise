@@ -35,6 +35,9 @@ Authority when conflicted: `PRD.md` > `Architecture.md` > `Rules.md` > `Phases.m
 - Must-haves only unless team lead expands scope (`Rules.md` S1–S3).
 - Schema: migration in `/supabase/migrations` with **RLS in the same migration**. No ad-hoc Supabase dashboard edits.
 - Secrets: never client-side; never in `NEXT_PUBLIC_*`. Service-role key = server/n8n only.
+- **SEC8:** service-role in Next.js lives in **exactly one module** (`src/lib/supabase/admin.ts`). Query fails under RLS → fix ownership/payload — **never escalate privilege**.
+- **D11:** drafts (`elders.active = false`) are **hard-deleted**; product rows soft-deleted. Soft-deleting a draft would lock `whatsapp_number` UNIQUE forever.
+- **C9:** never render a % on a zero denominator — show "—" / "No data", not 100%.
 - **No RAG / pgvector / embeddings** — care-circle lookup is relational (`Architecture.md` §3.1).
 - Naming: `Architecture.md` §5.5 glossary (Loved One=EP, Care Partner=CT, Local Buddy=LCT, Family Doctor=DR; check-in/SOS status maps).
 - Stack is fixed (`Architecture.md` §3). No new deps/services without asking.
