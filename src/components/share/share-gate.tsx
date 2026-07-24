@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import {
   revealDoctorShareSummary,
-  touchShareLastAccessed,
 } from "@/lib/data/share-link-actions";
 import type { DoctorShareSummary } from "@/lib/share/types";
 import { formatInTimeZone, labelElderLocalTime } from "@/lib/time/display";
@@ -47,7 +46,6 @@ export function ShareGate({ token }: { token: string }) {
               return;
             }
             setSummary(result.summary);
-            void touchShareLastAccessed(result.summary.linkId);
           });
         }}
       >

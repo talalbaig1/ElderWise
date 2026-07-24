@@ -24,6 +24,17 @@ export async function loadDoctorShareSummary(
     return null;
   }
 
+  // Best-effort telemetry — only after token validation. Never block the summary.
+  void admin
+    .from("doctor_share_links")
+    .update({ last_accessed_at: new Date().toISOString() })
+    .eq("id", link.id)
+    .then(({ error }) => {
+      if (error) {
+        console.warn("[share] last_accessed_at update failed:", error.message);
+      }
+    });
+
   const elderId = link.elder_id as string;
 
   const [elderRes, doctorRes, medRes, checkinRes, sosRes] = await Promise.all([

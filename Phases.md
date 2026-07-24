@@ -137,7 +137,7 @@ Because RLS and `auth.uid()` already exist, this is **UI work, not a security re
 | A3.2 | Session handling (httpOnly cookies, SSR client), protected routes |
 | A3.3 | Seeded-user auto-login removed |
 | A3.4 | **Multi-user + multi-elder** — one CT with several EPs; elder selector |
-| A3.5 | **Rate limiting** on signup / login / password reset (Pass 3) |
+| A3.5 | **Rate limiting** — share reveal (platform IP) + PDF (per user id); Auth signup/login left to Supabase quotas (Pass 3) |
 
 **🚪 GATE A3 — the isolation test.** Create **two** care partners with different elders. Sign in as CT-A. **Attempt to reach CT-B's data by every route: URL, ID, API call.** If any attempt succeeds, everything stops until it doesn't. This is X1, and X1 is a release blocker.
 

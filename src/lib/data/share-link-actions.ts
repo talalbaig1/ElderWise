@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { checkRateLimit, clientIpFromHeaders } from "@/lib/rate-limit";
 import {
   generateShareToken,
   hashShareToken,
@@ -127,6 +128,7 @@ export async function revokeDoctorShareLink(
 /**
  * Doctor click-through reveal — service-role, elder-scoped.
  * Called only after human interaction so crawlers never receive clinical HTML.
+ * Rate-limited per platform IP (fail-open) — see checkRateLimit.
  */
 export async function revealDoctorShareSummary(
   rawToken: string,
@@ -134,6 +136,17 @@ export async function revealDoctorShareSummary(
   const token = rawToken.trim();
   if (!token || token.length < 32) {
     return fail("This link is invalid.");
+  }
+
+  // Platform IP (x-vercel-forwarded-for) — clients can forge x-forwarded-for.
+  const limited = await checkRateLimit(
+    "share:reveal",
+    clientIpFromHeaders(await headers()),
+    { max: 20, window: "1 m" },
+  );
+  if (!limited.ok) {
+    // Same message shape as other failures — do not leak whether the token is valid.
+    return fail("Too many requests. Try again shortly.");
   }
 
   try {
@@ -149,15 +162,3 @@ export async function revealDoctorShareSummary(
   }
 }
 
-/** Touch last_accessed_at (best-effort; never fails the reveal). */
-export async function touchShareLastAccessed(linkId: string): Promise<void> {
-  try {
-    const admin = createAdminClient();
-    await admin
-      .from("doctor_share_links")
-      .update({ last_accessed_at: new Date().toISOString() })
-      .eq("id", linkId);
-  } catch {
-    // ignore
-  }
-}

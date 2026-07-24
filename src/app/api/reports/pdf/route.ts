@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { loadReportData } from "@/lib/reports/load-report-data";
 import { renderReportPdf } from "@/lib/reports/render-pdf";
 import { isPdfReportKind } from "@/lib/reports/types";
@@ -22,6 +23,18 @@ export async function POST(request: Request) {
 
   if (!user) {
     return Response.json({ error: "Not signed in" }, { status: 401 });
+  }
+
+  // Per user id (not IP) — households share one NAT. Fail-open if Redis down.
+  const limited = await checkRateLimit("reports:pdf", user.id, {
+    max: 5,
+    window: "1 m",
+  });
+  if (!limited.ok) {
+    return Response.json(
+      { error: "Too many requests. Try again shortly." },
+      { status: 429 },
+    );
   }
 
   let body: unknown;
