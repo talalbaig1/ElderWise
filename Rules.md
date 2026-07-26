@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.5 |
-| **Date** | 24 July 2026 |
+| **Document** | Rules.md — v1.6 |
+| **Date** | 26 July 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
 
@@ -105,6 +105,7 @@ From `Architecture.md` §1 (P1). These are the walls that let eleven people work
 | **D10** | **`elders.address` is NOT NULL.** Mandatory even if Local Buddy / LCT is skipped. When an LCT exists, their SOS message carries the address — their purpose is to physically reach her. |
 | **D8** | **Foreign keys and indexes are not optional.** In particular `elders.whatsapp_number` must be indexed — the inbound webhook hits it on every single message. |
 | **D11** | **Drafts are hard-deleted; product data is soft-deleted.** A draft has no history worth keeping and holds a UNIQUE constraint (`elders.whatsapp_number`) hostage; a routine's history is the clinical record. |
+| **D12** | **One time per medication row.** `medications.times` has exactly one entry (`CHECK (array_length(times, 1) = 1)`). Two doses a day = two medication rows (Duplicate). Do not reintroduce multi-time UI or writers. |
 
 ---
 
@@ -114,7 +115,7 @@ From `Architecture.md` §1 (P1). These are the walls that let eleven people work
 |---|---|
 | **W1** | **Workflows are exported to JSON and committed** to `/n8n/workflows`. A workflow that exists only in someone's n8n UI is not part of the product — it's a liability with a single point of failure named after a person. |
 | **W2** | **Every workflow has an explicit error branch.** A failed node must never silently end an execution. Silence on the SOS path is the worst possible failure mode. |
-| **W3** | **Every WhatsApp send is logged with its `wa_message_id`, or it is not sent.** An unlogged message is an untraceable one, and we cannot debug what we cannot see. |
+| **W3** | **Every attempted WhatsApp send is logged with its `wa_message_id`, or it is not sent.** An unlogged message is an untraceable one, and we cannot debug what we cannot see. **Intentional non-sends are not silent failures:** (a) SOS doctor nudge with no channel → `sos_notifications` row with `status = skipped`, `skip_reason`, `wa_message_id` NULL, `sent_at` NULL; (b) routine `notify_care_partner = not_required` → no CT WhatsApp at all, miss still recorded on the dashboard. Configured mute ≠ workflow failure. |
 | **W4** | **Credentials live in n8n's credential store**, never hardcoded in a node, never in a committed JSON export. **Scrub credentials before exporting.** |
 | **W5** | **Dev and prod workflows are separate** inside the single n8n instance and point at different Supabase projects. Never test against prod. |
 | **W6** | **n8n uses the service-role key and therefore bypasses RLS.** This is deliberate — n8n is trusted infrastructure. It also means an n8n bug can touch *any* family's data. Write these workflows accordingly. |
@@ -295,6 +296,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 26 Jul 2026 | 1.6 | **A4.** D12 — one time per medication row. W3 clarified: intentional non-sends (SOS skip rows; `not_required` mute) are logged/configured, not silent failures. No other rule changes. |
 | 24 Jul 2026 | 1.5 | **Three rules from the 23–24 Jul build.** D11 draft hard-delete vs soft-delete history; SEC8 single admin module / never escalate past RLS; C9 no percentage on zero denominator. |
 | 23 Jul 2026 | 1.4 | **Companion-doc references no longer pin version numbers.** `main` is the single source of truth; pinned cross-references forced edits to every other doc on each version bump and went stale silently. Refs now name the file only. Each document's own version remains in its header. |
 | 22 Jul 2026 | 1.3 | **Docs ↔ front-end reconciliation.** Pointed domain naming (C6) at `Architecture.md` §5.5 glossary. Clarified D10: elder address remains mandatory when Local Buddy is optional; LCT SOS message carries address only when an LCT exists. |
@@ -304,4 +306,4 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 24 July 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 26 July 2026.*

@@ -4,9 +4,9 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.5 |
-| **Date** | 24 July 2026 |
-| **Demo Day** | **Saturday 29 August 2026** — 46 days from today |
+| **Document** | Phases.md — v1.7 |
+| **Date** | 26 July 2026 |
+| **Demo Day** | **Saturday 29 August 2026** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Templates.md` |
 
 ---
@@ -104,7 +104,7 @@ Build all 8 screens against hardcoded fixtures. **No database. No auth. No API.*
 | Voice Journal (**hard-coded demo placeholder** — FR-DB-6) | TBD |
 | Reports (timeline dropdown · download) | TBD |
 | Settings (timezone · frequency + escalation overrides · password) | TBD |
-| Onboarding wizard (4 contact groups + 3 sub-forms) | TBD |
+| Onboarding wizard (4 steps: Get Started · Care Circle · Wellness Details · Review) | Superseded by **A4** |
 
 **Design authority:** Sama (UI/UX). Mobile prototype → **converted to web**.
 
@@ -120,7 +120,7 @@ Build all 8 screens against hardcoded fixtures. **No database. No auth. No API.*
 | A2.2 | ~~One **seeded auth user** + one seeded elder + fixture data. App auto-signs-in as that user.~~ — **DONE** (superseded by A3.3). |
 | A2.3 | ~~Every screen reads and writes real data. Fixtures deleted.~~ — **DONE.** |
 | A2.4 | ~~Onboarding wizard writes real records (elder, contacts, `domain_configs`, medications). **Includes the mandatory elder address (M17) and the CT consent attestation (M16a) — onboarding cannot complete without either.**~~ — **DONE.** |
-| A2.5 | ~~Timezone handling implemented per `Rules.md` D3–D5 — IANA only, UTC storage, viewer-local display.~~ — **DONE** (includes PDF elder-tz exception; CT/doctor timezone INSERT-only — see `Architecture.md` §10). |
+| A2.5 | ~~Timezone handling implemented per `Rules.md` D3–D5 — IANA only, UTC storage, viewer-local display.~~ — **DONE** (PDF + share page use elder TZ — see `Architecture.md` §10; CT timezone INSERT-only). |
 | A2.6 | ~~Doctor share link: issue, revoke, **server-side token validation** (`Architecture.md` §7.3).~~ — **DONE.** |
 | A2.7 | Dashboard SOS-resolution route handler + **authenticated webhook to n8n** (§8, WF-4). — **DEFERRED.** Needs Robert's endpoint — the only point where Track A and Track B meet. |
 | A2.8 | ~~Reports / PDF generation.~~ — **DONE** (23–24 Jul). |
@@ -141,7 +141,33 @@ Because RLS and `auth.uid()` already exist, this is **UI work, not a security re
 | A3.4 | ~~**Multi-user + multi-elder** — one CT with several EPs; elder selector~~ — **DONE.** |
 | A3.5 | ~~**Rate limiting** — share reveal (platform IP) + PDF (per user id); Auth signup/login left to Supabase quotas (Pass 3)~~ — **DONE** (code landed; Upstash unset on Vercel so limiter currently no-ops — see `Architecture.md` A-8). |
 
-**🚪 GATE A3 — the isolation test.** **PASSED 24 July 2026.** Two care partners, both directions, **48 checks** — URL, elder ID, unfiltered API reads, and cross-tenant write attempts. Evidence: `scripts/rls-cross-tenant.mjs` (in the repo and re-runnable). This is X1, and X1 is a release blocker.
+**🚪 GATE A3 — the isolation test.** **PASSED 24 July 2026** (evidence: `scripts/rls-cross-tenant.mjs`, 48 checks). This is X1, and X1 is a release blocker.
+
+> **⚠ GATE A3 evidence does not survive A4.0.** The 24–25 July runs authenticated as pre-existing tenants from env vars; those tenants and all public rows are deleted by the A4.0 wipe. The gate scripts **seed nothing**. After A4.0 + schema migration, GATE A3 must be **re-earned** against two fresh tenants. Do **not** leave A3 marked green as if the old evidence still holds — treat it as **requires re-verification** until the scripts pass again.
+
+### A4 · Onboarding restructure & schema alignment *(after A3 — docs 26 Jul; build next)*
+
+> **Not** Architecture open item A-4 (SOS webhook — already closed). This is Track A phase **A4**.
+
+| # | Task |
+|---|---|
+| **A4.0** | **Full data reset** — execute **at the start of the migration window**, not before (otherwise the team refills with test data). Sequence: (1) full backup (dashboard backup or `pg_dump`) — irreversible otherwise; (2) delete all rows in public tables; (3) delete **all** Supabase Auth users (`care_partners.id` FK → `auth.users`; truncating public alone leaves accounts and `ensureCarePartner` silently recreates rows); (4) re-onboard two fresh tenants and update `.env.local` (`TENANT_A_*` / `TENANT_B_*` including elder IDs); (5) re-run `scripts/rls-cross-tenant.mjs`, `rls-proof.mjs`, `share-link-isolation.mjs`, and the `verify-*` scripts against the new schema. No Storage buckets in use; Redis holds only self-expiring rate-limit keys. **Discharges Architecture open item A-7.** |
+| A4.1 | Schema migrations per `Architecture.md` v1.7: enum `not_required` **in its own migration first**; then column add/rename/drop, `times` CHECK length 1, doctor WA nullable, `clinic_name`, Review consent columns, `sos_notifications` skip fields. RLS re-verified (new columns inherit policies). |
+| A4.2 | Care Circle write path — `SECURITY INVOKER` RPC (`Architecture.md` §5.7); remove `skipLocalBuddy` / `skipDoctor` draft flags and the KNOWN LIMITATION in `onboarding-actions.ts`. |
+| A4.3 | UI — 4-step flow (Get Started progress chrome on `/sign-up` · Care Circle · Wellness Details · Review). Named step IDs. Add-another progress = **Step N of 3**. Field lists per `PRD.md` §7.1. |
+| A4.4 | Post-login alignment — Settings, Care Circle tab, Loved One detail, `routine-tabs`, reports loader, doctor share page (`load-share-data.ts` → elder timezone), mappers, seed. |
+| A4.5 | **Rebuild demo seed data** against the new schema (`supabase/seed.sql` + any demo fixtures) so Demo Day tenants match A4 columns and enums. Explicit deliverable — not optional cleanup. |
+| A4.6 | Privacy/Terms rewrite **content** (supplied for approval — not drafted by agents) landed on `/privacy` and `/terms` so Review consent is honest. Must follow `PRD.md` §12.4 (no registered entity; demo/capstone disclosures; dated `consent_terms_version`). |
+| A4.7 | Track B handoff — Robert implements WF-6 per-routine `notify_care_partner` (incl. `not_required`) and WF-4 doctor skip logging (`Architecture.md` A-9 / WF-4). |
+
+**🚪 GATE A4.** All of the following:
+
+- [ ] A4.0 wipe completed with backup; two fresh tenants in env; GATE A3 scripts **re-passed**
+- [ ] Schema matches `Architecture.md` §5.2 (incl. enum ordering); unused-column register respected
+- [ ] Onboarding is 4 steps; Care Circle atomic RPC; Review four consents; Not Required warning placeholder present
+- [ ] Demo seed rebuilt (A4.5)
+- [ ] Share page renders in elder timezone; no non-WhatsApp phone capture in product paths
+- [ ] RLS + verify scripts green on new schema
 
 ---
 
@@ -292,6 +318,8 @@ The proposal is a **second channel (Telegram)** so the demo can run even if temp
 
 | Date | Version | Change |
 |---|---|---|
+| 26 Jul 2026 | 1.7 | A4.6 points at corrected `PRD.md` §12.4 legal posture (no entity; dated `consent_terms_version`). |
+| 26 Jul 2026 | 1.6 | **A4 added** — onboarding restructure & schema alignment. **A4.0** full public + Auth wipe (discharges Architecture A-7); GATE A3 evidence marked **requires re-verification** after wipe; A4.5 demo seed rebuild; GATE A4 checklist. Not Architecture A-4 (SOS webhook). |
 | 24 Jul 2026 | 1.5 | **Track A status sync.** A2.1–A2.6, A2.8 complete; A2.7 deferred (needs Robert's SOS webhook). A3.1–A3.5 complete; GATE A3 PASSED 24 Jul (48 checks, `scripts/rls-cross-tenant.mjs`). Recorded sequence change: A3 before A2.4 after the A2.3 auth gate left no dashboard path under localStorage identity. GATE A2 met except A2.7. |
 | 23 Jul 2026 | 1.4 | **Companion-doc references no longer pin version numbers.** `main` is the single source of truth; pinned cross-references forced edits to every other doc on each version bump and went stale silently. Refs now name the file only. Each document's own version remains in its header. |
 | 22 Jul 2026 | 1.3 | **Docs ↔ front-end reconciliation.** Companion doc versions bumped. A0 note updated: SOS display vs dispatch are two layers; Local Buddy optional; vocabulary points at `Architecture.md` §5.5. |
@@ -301,4 +329,4 @@ The proposal is a **second channel (Telegram)** so the demo can run even if temp
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 24 July 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 26 July 2026.*

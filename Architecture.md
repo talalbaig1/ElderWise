@@ -5,8 +5,8 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.6 |
-| **Date** | 24 July 2026 |
+| **Document** | Architecture.md — v1.8 |
+| **Date** | 26 July 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
 
@@ -164,14 +164,16 @@ care_partners ──┐
 | Column | Type | Notes |
 |---|---|---|
 | `id` | uuid PK | = `auth.users.id` |
-| `full_name` | text | |
+| `first_name` | text **NOT NULL** | From `/sign-up`. Replaces `full_name`. |
+| `last_name` | text **NOT NULL** | From `/sign-up`. Replaces `full_name`. |
 | `email` | text | |
 | `whatsapp_number` | text | E.164. No verification (NFR-11). |
-| `phone_number` | text | |
 | `timezone` | text | IANA, e.g. `Asia/Riyadh` |
-| `address` | text | nullable |
-| `secondary_contact` | jsonb | nullable (Settings) |
+| `address` | text | nullable — **unused** (see §5.6) |
+| `secondary_contact` | jsonb | nullable — **unused** (see §5.6) |
 | `created_at` | timestamptz | |
+
+> **Dropped (A4):** `full_name`, `phone_number`. No non-WhatsApp phone capture. Do not reintroduce a `full_name` split heuristic in mappers.
 
 **`elders`** — the Elderly Patient (EP). **One CT → many EPs.**
 
@@ -179,28 +181,46 @@ care_partners ──┐
 |---|---|---|
 | `id` | uuid PK | |
 | `care_partner_id` | uuid FK → `care_partners.id` | **The isolation key.** |
-| `first_name`, `surname` | text | |
-| `gender` | text | |
+| `first_name`, `last_name` | text | `surname` **renamed** to `last_name` (A4). |
+| `age` | smallint **NOT NULL** | `CHECK (age BETWEEN 1 AND 120)`. **Stored snapshot** — does not self-update. |
+| `relationship_to_care_partner` | text **NOT NULL** | New (A4). No prior column; UI previously hardcoded blank. |
+| `gender` | text | **Unused** — not collected (see §5.6). |
 | `whatsapp_number` | text UNIQUE | E.164. The inbound-webhook lookup key — **must be indexed**. |
 | `timezone` | text | IANA. **All schedules fire in this timezone** (M14). |
 | `address` | text **NOT NULL** | **Mandatory** (M17), even if Local Buddy is skipped. When an LCT exists, their SOS message carries it — they exist to physically reach her. |
-| `consent_attested_by_ct` | boolean | The CT's onboarding attestation (M16a). |
+| `consent_attested_by_ct` | boolean | The CT's onboarding attestation (M16a / N5). |
 | `consent_attested_at` | timestamptz | |
 | `consent_confirmed_at` | timestamptz | **The elder's in-channel confirmation** (M16b). **NULL ⇒ schedule nothing.** |
+| `consent_med_accuracy_at` | timestamptz | nullable — non-null **is** the consent (Review). |
+| `consent_data_sharing_at` | timestamptz | nullable — conditional if Doctor or Local Buddy added. |
+| `consent_terms_at` | timestamptz | nullable — Terms & Privacy re-confirm at Review. |
+| `consent_terms_version` | text | nullable — **dated** policy version consented to (e.g. `2026-07-v1`). Must match the Privacy/Terms text shown at Review; bump when approved page text changes. |
 | `active` | boolean | **Onboarding draft flag:** `false` while the wizard is in progress, `true` on finish. **All product reads filter `active = true`**, so a draft never appears in the dashboard, list, or selector. **At most one draft per care partner.** Discarding a draft is a **hard DELETE**, not a soft delete: `elders.whatsapp_number` is globally UNIQUE, so a soft-deleted draft would permanently lock that number against every care partner — including a sibling caring for the same parent. Safe because a draft has no history (`consent_confirmed_at` is null, nothing was scheduled, children cascade). **Contrast:** routine deletion is soft precisely because history must survive. |
 | `created_at` | timestamptz | |
 
-**`local_caregivers`** — LCT / Local Buddy. SOS-only. **Optional at onboarding** (front end: `skipLocalBuddy`). **Inherits the elder's timezone** (no `timezone` column, by design). If no LCT is set, SOS is handled by the Care Partner (CT is always present); LCT WhatsApp notification is **conditional** on a row existing. Elder `address` remains **NOT NULL** regardless.
+**`local_caregivers`** — LCT / Local Buddy. SOS-only. **Optional at onboarding** (per-card Skip). **Inherits the elder's timezone** (no `timezone` column, by design). If no LCT is set, SOS is handled by the Care Partner (CT is always present); LCT WhatsApp notification is **conditional** on a row existing. Elder `address` remains **NOT NULL** regardless. Absent row after Care Circle submit = deliberate skip.
 
 | Column | Type |
 |---|---|
-| `id` uuid PK · `elder_id` uuid FK UNIQUE · `full_name` text · `whatsapp_number` text · `phone_number` text · `action_plan` text · `created_at` timestamptz |
+| `id` uuid PK · `elder_id` uuid FK UNIQUE · `first_name` text NOT NULL · `last_name` text NOT NULL · `whatsapp_number` text · `action_plan` text (**unused** — §5.6) · `created_at` timestamptz |
+
+> **Dropped (A4):** `full_name`, `phone_number`.
 
 **`doctors`** — optional, SOS-only + read-only dashboard.
 
-| Column | Type |
-|---|---|
-| `id` uuid PK · `elder_id` uuid FK UNIQUE · `full_name` text · `whatsapp_number` text · `phone_number` text · `address` text · `timezone` text · `approved_by_ct` boolean · `created_at` timestamptz |
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `elder_id` | uuid FK UNIQUE | |
+| `first_name` | text **NOT NULL** | Replaces `full_name`. |
+| `last_name` | text **NOT NULL** | Replaces `full_name`. |
+| `whatsapp_number` | text | **Nullable** (A4). If null, SOS skips the doctor nudge and logs `sos_notifications.status = skipped` / `skip_reason = no_whatsapp_number`. |
+| `clinic_name` | text **NOT NULL** | Renamed from `address` (that column already stored clinic name in practice). |
+| `timezone` | text | **Still present** but **no longer collected** at onboarding. Share page must **not** use it for display — render in the **elder's** timezone (§10). May be null on new rows. |
+| `approved_by_ct` | boolean | |
+| `created_at` | timestamptz | |
+
+> **Dropped (A4):** `full_name`, `phone_number`.
 
 **`doctor_share_links`** — tokenised read-only access (M15). No doctor account.
 
@@ -223,42 +243,44 @@ care_partners ──┐
 | `domain` | enum(`medication`,`health`,`food`) | UNIQUE with `elder_id` |
 | `enabled` | boolean | the Enable toggle |
 | `frequency` | jsonb | **Derived field** — the sorted union of times from routines that are both active (medications) / enabled and whose domain is enabled, refreshed on every routine write. Direct edits are overwritten on the next routine save. Shape e.g. `{"times": ["08:00","20:00"]}` (local times in the elder's tz). No fixed 3×/day (FR-ON-4). |
-| `ct_notification` | enum(`every_interaction`,`only_missed`) | M6 |
+| `ct_notification` | enum(`every_interaction`,`only_missed`,`not_required`) | **Derived / deprecated (A4).** Not authoritative for Track B. Kept in sync from routine rows for backward compatibility until Robert removes the WF-6 dependency — see Track B action below. |
 | `escalate_to` | enum(`care_partner`) | Only the CT escalates. LCT/Doctor are SOS-only. Enum kept for v2 headroom. |
 
-> **Reconciled with the front end (22 Jul):** the front end models **`escalationMinutes` and `notifyCarePartner` per individual routine** (per medication, per food routine, per health routine) — finer-grained than one setting per domain, and a genuine improvement. **We adopt the front-end model.** `reminder_delay_minutes` (default 30) and `notify_care_partner` therefore live on each routine row (`medications`, `food_routines`, `health_routines` below), **not** on `domain_configs`. `domain_configs` retains the domain-level `enabled` toggle and `ct_notification`; `frequency` is **derived** from active/enabled routines (see above), not a manually edited default.
+> **A4 resolution — notify authority:** For medication, food, and health, **`notify_care_partner` on the routine row is authoritative** (`every_time` \| `only_missed` \| `not_required`). `domain_configs.ct_notification` is **derived/deprecated** — application may mirror a summary value, but n8n **must not** use it as the send decision. **Track B action (Robert):** update WF-6 (and any related branches) to read the owning routine's `notify_care_partner`, including `not_required` = total silence (no confirmation and no missed push; miss still recorded on the dashboard).
 
-**`medications`** — one row per medicine. Field names reconciled with the front-end `Medication` type (22 Jul).
+> **Enum migration ordering (Postgres):** `ALTER TYPE … ADD VALUE 'not_required'` **cannot** be used in the same transaction that references the new value. Enum additions for `notify_care_partner_mode` and `ct_notification_mode` **must** ship in their **own migration file(s), ahead of** any migration that writes or checks `not_required`.
+
+**`medications`** — one row per medicine. Field names reconciled with the front-end `Medication` type (22 Jul); A4 semantics below.
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | uuid PK | |
 | `elder_id` | uuid FK | |
 | `enabled` | boolean | per-medicine toggle (FE `enabled`) |
-| `name` | text | brand name — generics differ by country |
-| `dosage` | text | numeric-as-text, e.g. `500` |
-| `dosage_unit` | text | e.g. `mg` (FE `dosageUnit`) |
-| `times` | text[] | local wall-clock, elder tz |
-| `days_of_week` | text[] | FE `daysOfWeek` |
+| `name` | text | Include **strength** in the name (e.g. `Metformin 500mg`). |
+| `dosage` | text | **Quantity per intake** (e.g. `1`, `5`) — not strength. |
+| `dosage_unit` | text | Free text (UI dropdown: `TAB` / `ML` / `CAP` / `DROPS` / `PUFF` / `UNIT`). **No enum / CHECK** — dropdown may widen without a migration. |
+| `times` | text[] | local wall-clock, elder tz. **`CHECK (array_length(times, 1) = 1)`** — one time per row; two doses/day = two medication rows (Rules.md D12). |
+| `days_of_week` | text[] | **Unused** — not collected (see §5.6). |
 | `start_date` | date | |
 | `end_date` | date | nullable |
-| `timing_preference` | enum(`before_food`,`after_food`,`no_preference`) | FE `timingPreference` |
+| `timing_preference` | enum(`before_food`,`after_food`,`no_preference`) | UI offers `before_food` / `after_food` only. `no_preference` remains in the enum but is **unselectable**. Do not drop the enum value. |
 | `instructions` | text | nullable |
-| `notify_care_partner` | enum(`every_time`,`only_missed`) | **per-medicine** (M6) — FE `notifyCarePartner` |
-| `escalation_minutes` | integer | **per-medicine**, default 30, min 5 max 240 (FE `escalationMinutes`) |
+| `notify_care_partner` | enum(`every_time`,`only_missed`,`not_required`) | **Authoritative** per-medicine (M6). |
+| `escalation_minutes` | integer | **per-medicine**, default 30, min 5 max 240 (FE `escalationMinutes`) — UI label: "Alert Care Partner if not taken within (minutes)". |
 | `active` | boolean | |
 
 **`food_routines`** — one row per meal check-in (FE `FoodRoutine`).
 
 | Column | Type |
 |---|---|
-| `id` uuid PK · `elder_id` uuid FK · `enabled` bool · `meal_name` text · `meal_type` enum(`breakfast`,`lunch`,`dinner`,`snack`,`custom`) · `check_in_time` time (local) · `start_date` date · `end_date` date null · `days_of_week` text[] · `frequency` enum(`daily`,`weekly`,`custom`) · `notify_care_partner` enum · `escalation_minutes` int (default 45) · `notes` text |
+| `id` uuid PK · `elder_id` uuid FK · `enabled` bool · `meal_name` text · `meal_type` enum(**unused** — §5.6) · `check_in_time` time (local) · `start_date` date NOT NULL (app supplies **today in the elder's timezone**) · `end_date` date null (no longer collected — open-ended) · `days_of_week` text[] (**unused**) · `frequency` enum(**unused**) · `notify_care_partner` enum(`every_time`,`only_missed`,`not_required`) · `escalation_minutes` int (default 45) · `notes` text (**unused**) |
 
 **`health_routines`** — one row per wellness check-in (FE `HealthRoutine`).
 
 | Column | Type |
 |---|---|
-| `id` uuid PK · `elder_id` uuid FK · `enabled` bool · `name` text · `type` enum(`sleep`,`blood_pressure`,`blood_sugar`,`water_intake`,`exercise`,`mood`,`weight`,`general_wellness`,`custom`) · `frequency` enum(`daily`,`every_2_days`,`weekly`,`custom`) · `time` time (local) · `start_date` date · `end_date` date null · `days_of_week` text[] · `question` text · `answer_type` enum(`yes_no`,`number`,`mood`,`short_text`) · `notify_care_partner` enum · `escalation_minutes` int (default 60) · `typical_bedtime` time null · `typical_wake_time` time null |
+| `id` uuid PK · `elder_id` uuid FK · `enabled` bool · `name` text · `type` enum(**unused** — §5.6) · `frequency` enum(**unused**) · `time` time (local) · `start_date` date NOT NULL (today in elder tz) · `end_date` date null (open-ended) · `days_of_week` text[] (**unused**) · `question` text (**unused**) · `answer_type` enum(**unused**) · `notify_care_partner` enum(`every_time`,`only_missed`,`not_required`) · `escalation_minutes` int (default 60) · `typical_bedtime` time null (**unused**) · `typical_wake_time` time null (**unused**) |
 
 > **Escalation defaults differ by domain in the front end** (medication 30 min, food 45, health 60). These are **defaults**, editable per routine. The old blanket "30 across the board" is superseded.
 
@@ -319,11 +341,21 @@ Index: `(elder_id, domain, scheduled_for)` and `(status, scheduled_for)` — the
 | `resolved_channel` | enum(`whatsapp`,`dashboard`) | **Both paths must work** (M14b) |
 | `resolved_at` | timestamptz | |
 
-**`sos_notifications`** — one row per (recipient × nudge).
+**`sos_notifications`** — one row per (recipient × nudge), including **intentional skips**.
 
-| Column | Type |
-|---|---|
-| `id` uuid PK · `sos_event_id` uuid FK · `recipient_role` enum · `recipient_id` uuid · `nudge_index` int (0–3) · `wa_message_id` text · `sent_at` timestamptz · `delivered_at` timestamptz |
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `sos_event_id` | uuid FK | |
+| `recipient_role` | enum | |
+| `recipient_id` | uuid | |
+| `nudge_index` | int (0–3) | |
+| `status` | enum(`sent`,`failed`,`skipped`) | A4: distinguish delivery from intentional non-send. |
+| `skip_reason` | text | nullable; first value `no_whatsapp_number` when doctor has no channel. |
+| `wa_message_id` | text | **NULL** when `status = skipped`. Required on successful sends (W3). |
+| `sent_at` | timestamptz | **Nullable** — skipped rows must not carry a send time. |
+| `delivered_at` | timestamptz | nullable |
+| `created_at` | timestamptz **NOT NULL DEFAULT now()** | Audit time for skips and sends alike. |
 
 **`ct_notifications`** — the care-partner notification trail (Sukin's must-have).
 
@@ -383,8 +415,8 @@ The front-end type model defines several fields ahead of scope. They are allowed
 |---|---|---|---|
 | **Loved One** | Elderly Patient | **EP** | WhatsApp-only end user. Never logs into the dashboard. |
 | **Care Partner** | Care Partner / Target Customer | **CT** | Primary user and buyer. Always present. Owns the dashboard. |
-| **Local Buddy** | Local Caregiver | **LCT** | SOS-only. **Optional at onboarding** (`skipLocalBuddy`). If absent, SOS is handled by the CT. |
-| **Family Doctor** | Doctor | **DR** | Optional. SOS + read-only share link. No account in the MVP. |
+| **Local Buddy** | Local Caregiver | **LCT** | SOS-only. **Optional at onboarding** (per-card Skip — no `skipLocalBuddy` draft flag). If absent, SOS is handled by the CT. |
+| **Family Doctor** | Doctor | **DR** | Optional. SOS (only if `whatsapp_number` present) + read-only share link. No account in the MVP. |
 
 Field-name convention remains: front end `camelCase` ↔ database `snake_case` (see §5.3).
 
@@ -411,6 +443,34 @@ Negative or partial medication answers that still count as a recorded response r
 | **Dispatch (n8n / DB)** | `sos_events.status` = `open` \| `resolved`; parallel notify CT + LCT (if present) + Doctor (if present); 4 nudges, 2 min apart | **Source of truth** |
 
 See WF-4 for the full dispatch rules. The display cascade must **not** replace Meeting-11 parallel dispatch.
+
+### 5.6 Unused-column register (A4)
+
+Columns that remain in the schema but are **not collected or relied on by product UI**. Do not treat them as live requirements. Prefer leaving them in place over drive-by drops unless a dedicated cleanup migration is approved.
+
+| Table | Column(s) | Notes |
+|---|---|---|
+| `care_partners` | `address`, `secondary_contact` | Unused by any screen. |
+| `elders` | `gender` | Collected nowhere. |
+| `local_caregivers` | `action_plan` | Unused. |
+| `medications` | `days_of_week` | Not collected by UI. |
+| `food_routines` | `meal_type`, `frequency`, `days_of_week`, `notes` | Defaulted / unused. |
+| `health_routines` | `type`, `frequency`, `days_of_week`, `question`, `answer_type`, `typical_bedtime`, `typical_wake_time` | Defaulted / unused. |
+
+`doctors.timezone` is **not** in this register — the column still exists and is readable, but onboarding **stops collecting** it and the share page must render in the **elder's** timezone (§10).
+
+### 5.7 Care Circle write model (A4)
+
+Care Circle is **one screen** that writes `care_partners`, draft `elders` (`active = false`), and optionally `local_caregivers` / `doctors`. Supabase JS has no multi-statement transaction.
+
+**Decided approach:** a Postgres RPC `save_care_circle_draft` (name may vary) with **`SECURITY INVOKER`** so RLS still applies as the calling CT. One transaction:
+
+1. Upsert `care_partners` (WhatsApp + timezone; names from Auth / existing row — not re-collected on this screen).
+2. Insert/update draft `elders` with required Loved One fields (`active = false`).
+3. Insert `local_caregivers` / `doctors` only when that card was engaged; skipped cards write **no row**.
+4. Any error → full rollback (no orphan elder, no permanent `whatsapp_number` UNIQUE lock).
+
+Draft discard remains **hard DELETE** (D11). Product activation (`active = true`) and Review consents remain later in the wizard. New columns inherit existing table RLS; re-verify policies after migration (`Phases.md` GATE A4).
 
 ## 6. Data isolation (RLS) — P4
 
@@ -489,9 +549,9 @@ Six workflows. Each is a separate n8n workflow so they can be built, tested, and
   - **Unrecognised** → a gentle, plain-language re-prompt. Never a silent drop; never an error message an elderly person has to interpret.
 
 ### WF-3 · Response handler, reminder & escalation
-- **On response:** write to `checkins` (+ `checkin_medication_items` for medication), set `status = responded`. Fire WF-6 if the CT's config is `every_interaction`.
-- **Reminder sweep (cron):** find `checkins` where `status = sent` and `now() > sent_at + escalation_minutes` (read from the **routine** that owns the check-in — per-medicine / per-food / per-health, default 30/45/60). Send **exactly one** reminder → `status = reminded`, set `reminder_sent_at`.
-- **Missed sweep (cron):** find `checkins` where `status = reminded` and the delay has elapsed again → `status = missed`, set `missed_at`, run the escalation from `domain_configs` → **escalate to the CT only** (LCT and Doctor are never contacted on a missed check-in) → fire WF-6.
+- **On response:** write to `checkins` (+ `checkin_medication_items` for medication), set `status = responded`. Fire WF-6 if the owning routine's `notify_care_partner = every_time`.
+- **Reminder sweep (cron):** find `checkins` where `status = sent` and `now() > sent_at + escalation_minutes` (read from the **routine** that owns the check-in — per-medicine / per-food / per-health, default 30/45/60). Send **exactly one** reminder → `status = reminded`, set `reminder_sent_at`. Skip CT push paths when `notify_care_partner = not_required`.
+- **Missed sweep (cron):** find `checkins` where `status = reminded` and the delay has elapsed again → `status = missed`, set `missed_at`. If `notify_care_partner ≠ not_required`, escalate to the **CT only** (LCT and Doctor are never contacted on a missed check-in) → fire WF-6. If `not_required`, record the miss and send nothing.
 
 ### WF-4 · SOS orchestrator — **the critical path (P2)**
 
@@ -505,8 +565,10 @@ Six workflows. Each is a separate n8n workflow so they can be built, tested, and
 
 - **Trigger:** SOS from WF-2. Runs **immediately**; must never wait behind routine traffic.
 - Creates `sos_events` (`status = open`), resolves the elder's care circle via a **relational lookup** of CT + optional LCT + optional Doctor (§3.1 — not RAG).
-- Fans out WhatsApp messages **in parallel** to every contact that exists: **CT always**; **LCT only if a `local_caregivers` row exists**; **Doctor only if onboarded**. Writes `sos_notifications` rows. If no LCT is set, SOS is still handled by the CT (always present).
-- **Nudge loop: 4 nudges, 2 minutes apart** (M7). Each nudge goes to every recipient who has not yet resolved.
+- Fans out WhatsApp messages **in parallel** to every contact that exists: **CT always**; **LCT only if a `local_caregivers` row exists**; **Doctor only if a `doctors` row exists and `whatsapp_number` is non-null**. Writes `sos_notifications` rows for every attempted send **and** every intentional skip.
+- **Doctor with no WhatsApp number:** do **not** send. Insert `sos_notifications` with `status = skipped`, `skip_reason = no_whatsapp_number`, `wa_message_id` NULL, `sent_at` NULL, `created_at = now()`. This is auditable and is **not** a delivery failure (W3 — intentional non-sends are logged as skips).
+- If no LCT is set, SOS is still handled by the CT (always present).
+- **Nudge loop: 4 nudges, 2 minutes apart** (M7). Each nudge goes to every recipient who has not yet resolved **and** who has a sendable channel.
 - **Resolution — two paths, both must work (M14b):**
   1. **WhatsApp** — any recipient replies/taps to resolve → WF-2 routes it here.
   2. **Dashboard** — the CT (or Doctor via share link) resolves in the UI → a Next.js **route handler** writes `sos_events.status = 'resolved'` **and then fires an authenticated webhook to n8n** so the nudge loop stops immediately, with no polling delay. This is the one documented exception to P1 (§1), taken because on the SOS path latency is the harm.
@@ -526,8 +588,10 @@ Six workflows. Each is a separate n8n workflow so they can be built, tested, and
 - **Low confidence → do not guess (P3).** Re-ask once, in plain language (`reask_count` → 1). If the second attempt also fails, the check-in follows the normal missed path. **Never infer "yes" on a medication question from muddy audio.**
 
 ### WF-6 · CT notification dispatch
-- Sends the WhatsApp notification to the CT per `domain_configs.ct_notification` (`every_interaction` | `only_missed`).
-- Writes `ct_notifications`.
+- **Authoritative setting:** the owning routine's `notify_care_partner` (`every_time` | `only_missed` | `not_required`) on `medications` / `food_routines` / `health_routines`.
+- **`not_required`:** send **nothing** — no confirmation and no missed-routine WhatsApp. The check-in miss is still written to the DB and visible on the dashboard. Do not escalate a mute into a silent workflow failure.
+- **`domain_configs.ct_notification` is derived/deprecated** — do not use it as the send decision. **Action on Robert (Track B):** migrate WF-6 off `domain_configs.ct_notification` onto per-routine `notify_care_partner`.
+- On send: write `ct_notifications` with `wa_message_id`.
 - **WhatsApp only** in the MVP. SMS / email / push are Could-have (C8).
 
 ---
@@ -554,12 +618,12 @@ Six workflows. Each is a separate n8n workflow so they can be built, tested, and
 | Rule | |
 |---|---|
 | **Storage** | All timestamps are `timestamptz`, stored in **UTC**. Always. |
-| **Timezones held** | `elders.timezone`, `care_partners.timezone`, `doctors.timezone` — all **IANA** strings (`Asia/Kolkata`, not `+05:30`). |
+| **Timezones held** | `elders.timezone`, `care_partners.timezone` — **IANA** strings (`Asia/Kolkata`, not `+05:30`). `doctors.timezone` may still exist on the row but is **not collected** and **must not** drive share-page display. |
 | **LCT** | **Has no timezone column.** Inherits the elder's, by design. |
 | **Scheduling** | Every check-in fires in the **elder's** local time. `domain_configs.frequency` holds **local wall-clock times**; WF-1 converts to UTC at materialisation, using the IANA zone so DST is handled by the database, not by arithmetic. |
-| **Display** | Every timestamp renders in the **viewer's** timezone (the CT's on the dashboard; the doctor's on the share link). |
-| **PDF exception** | A document has no viewer session — generated by a CT in one zone, read by a clinician in another. Report bodies render in the **elder's** IANA zone, stated once in a header banner; the “generated on” line renders in the **CT's** zone and is explicitly labelled. |
-| **CT / doctor timezone write rule** | `care_partners.timezone` and `doctors.timezone` are set on **INSERT only** and never overwritten on subsequent sign-in. Detected browser timezone seeds the row at creation; after that the stored value wins. Reason: overwriting discarded the CT's explicit Settings choice and shifted the whole dashboard for anyone signing in while travelling — the product's core scenario. |
+| **Display (dashboard)** | Every timestamp renders in the **viewer's** (CT) timezone. |
+| **Share page + PDF** | No reliable "viewer session" timezone for the clinician. Both the doctor **share page** and report **PDF bodies** render in the **elder's** IANA zone (stated once in a header/banner). PDF “generated on” line renders in the **CT's** zone and is explicitly labelled. *(A4: removes the former exception that rendered the share link in `doctors.timezone`.)* |
+| **CT timezone write rule** | `care_partners.timezone` is set on **INSERT only** and never overwritten on subsequent sign-in. Detected browser timezone seeds the row at creation; after that the stored value wins. Reason: overwriting discarded the CT's explicit Settings choice and shifted the whole dashboard for anyone signing in while travelling — the product's core scenario. |
 | **Never** | Never store a UTC offset. Never do timezone maths with `+03:00` style offsets. Never assume the CT and the EP share a timezone — the entire premise of this product is that they don't. |
 
 ---
@@ -576,7 +640,8 @@ Six workflows. Each is a separate n8n workflow so they can be built, tested, and
 | **P3** | Report generation, cosmetic |
 
 **Additional requirements:**
-- **Every WhatsApp send is logged with its `wa_message_id`**, or it is not sent. An unlogged message is an untraceable one.
+- **Every attempted WhatsApp send is logged with its `wa_message_id`**, or it is not sent. An unlogged message is an untraceable one.
+- **Intentional non-sends** (e.g. doctor SOS nudge with no WhatsApp number; routine `notify_care_partner = not_required`) are **not** silent failures — they are either a logged `sos_notifications` skip row or a configured mute with a recorded miss on the dashboard (Rules.md W3).
 - n8n workflows have explicit **error branches**. A failed node must not silently end an execution — least of all in WF-4.
 - The SOS path must degrade loudly, never quietly.
 
@@ -687,8 +752,9 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 | A-4 | ~~How WF-4 observes a dashboard-side SOS resolution~~ — **RESOLVED 14 Jul: authenticated webhook from the Next.js route handler → n8n** (fast path), **plus a status re-check before every nudge** (safety net). No polling, no Realtime subscription. | Closed |
 | A-5 | **WhatsApp backup account** — R1 is currently unmitigated. | Talal |
 | A-6 | Confirm all 11 members have GitHub accounts (blocks branch assignment). | Talal |
-| A-7 | **Dev project test accounts** — several test care-partner accounts from GATE A3 and build verification. Clean up before Demo Day. | Talal |
+| A-7 | ~~**Dev project test accounts** — clean up before Demo Day.~~ — **CLOSED 26 Jul 2026.** Discharged by **Phases.md A4.0** (full public-table + Auth wipe at the start of the A4 migration window), which supersedes ad-hoc account cleanup. | Closed |
 | A-8 | **A3.5 rate limiting is implemented but INACTIVE** — `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` are not configured on Vercel, so the limiter no-ops in Production. Fail-open by design, so nothing appears broken. | Talal |
+| A-9 | **Track B — WF-6 notify authority** — Robert: stop reading `domain_configs.ct_notification`; honour per-routine `notify_care_partner` including `not_required`. | Robert |
 
 ---
 
@@ -696,6 +762,8 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | Date | Version | Change |
 |---|---|---|
+| 26 Jul 2026 | 1.8 | **`consent_terms_version`** documented as a dated string (e.g. `2026-07-v1`) tied to exact Privacy/Terms text at Review (`PRD.md` §12.4). |
+| 26 Jul 2026 | 1.7 | **A4 — schema alignment & Track B contract.** `first_name`/`last_name` replace `full_name`; drop `phone_number`; elders: `last_name`, `age`, `relationship_to_care_partner`, Review consent columns; doctors: nullable WA, `clinic_name`, stop collecting timezone; meds: dosage=quantity, `times` length=1, `not_required` notify mode; enum ADD VALUE ordering; §5.6 unused register; §5.7 Care Circle `SECURITY INVOKER` RPC; `sos_notifications` skip status + `created_at` / nullable `sent_at`; WF-4 doctor skip branch; WF-6 per-routine authority (`domain_configs.ct_notification` derived/deprecated — A-9 Robert); §10 share page uses elder TZ (doctor-TZ exception removed); A-7 closed → discharged by Phases A4.0 wipe. |
 | 24 Jul 2026 | 1.6 | **Docs ↔ built product (23–24 Jul).** Elders draft/`active` + hard-delete draft vs soft-delete history; derived `domain_configs.frequency`; routine column asymmetry; `ct_notifications` mark-read open decision. §7.3: SHA-256 share tokens, 30-day expiry, click-through gate, doctor allowlist, fail-open IP rate limit. §10: PDF elder-tz exception; CT/doctor timezone INSERT-only. §12.5: single admin module, fail-open limiter, PDF ownership, Auth IP-forwarding Off. Risks/open: leaked-password WARN accepted (R8); Arabic PDF limitation (R9); Dev test-account cleanup (A-7); Upstash unset so A3.5 limiter inactive in Production (A-8). |
 | 23 Jul 2026 | 1.5 | **Companion-doc references no longer pin version numbers.** `main` is the single source of truth; pinned cross-references forced edits to every other doc on each version bump and went stale silently. Refs now name the file only. Each document's own version remains in its header. Phase A2.1 applied on the Dev project. §5.1 ER diagram corrected to include `food_routines` and `health_routines`. §12.3 records the out-of-band `rls_auto_enable()` event trigger and its Prod implication. No schema decisions changed — `domain_configs` remains the 7 columns of v1.4. |
 | 22 Jul 2026 | 1.4 | **Docs ↔ front-end reconciliation.** Added **§5.5 Canonical glossary** (roles + check-in UI↔backend status map + SOS display vs dispatch). Documented **SOS as two layers**: front-end display (`active`/`acknowledged`/`resolved`/`cancelled` + demo cascade) vs n8n dispatch (parallel CT + optional LCT + optional Doctor; 4 nudges / 2 min; `sos_events.status` = `open`\|`resolved` is source of truth). **Local Buddy / LCT made optional** at onboarding (`local_caregivers` 0..1); SOS always notifies CT; LCT alert conditional. Elder address remains mandatory. |
@@ -706,4 +774,4 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 24 July 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 26 July 2026.*

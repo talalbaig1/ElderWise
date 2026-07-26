@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · Team Lead: Talal Baig |
-| **Document** | Templates.md — v1.3 |
-| **Date** | 23 July 2026 |
+| **Document** | Templates.md — v1.4 |
+| **Date** | 26 July 2026 |
 | **Purpose** | Every message ElderWise sends. The submission and approval tracker for Meta. |
 | **Owner** | Talal (submission) · Sama + Reema (copy & tone) |
 | **Status** | 🔴 **Nothing submitted yet. This is the critical path** (`Phases.md` §7). |
@@ -154,7 +154,7 @@ From `Rules.md` §9. These are not suggestions.
 **Variables:** `{{1}}` = `Fatima` · `{{2}}` = `8:00 AM` · `{{3}}` = `Amlodipine, Metformin, Aspirin`
 **Buttons:** `[ Yes, all ]` · `[ Some of them ]` · `[ Not yet ]`
 
-**`{{3}}` names every medicine scheduled at that time** — pulled from her `medications` table. She never has to remember what she's supposed to be taking; the message tells her.
+**`{{3}}` names every medicine scheduled at that time** — pulled from her `medications` table (medicine **name**, which includes strength, e.g. `Metformin 500mg`). She never has to remember what she's supposed to be taking; the message tells her. Scheduled Meta bodies do **not** embed dosage quantity/unit — those appear in the free-form picker (§7.1). **A4:** `dosage` = quantity per intake; strength lives in `name`. No Meta resubmission required for that semantics change.
 
 **Behaviour:**
 - **"Yes, all"** → every medicine in `{{3}}` recorded as taken. Done. **One tap. This is the common path.**
@@ -222,7 +222,7 @@ From `Rules.md` §9. These are not suggestions.
 ## 5. Care-circle templates
 
 ### 8 · `elderwise_ct_interaction_notice`
-**Audience:** Care Partner · **Sent:** when `ct_notification = every_interaction`
+**Audience:** Care Partner · **Sent:** when the owning routine's `notify_care_partner = every_time` (authoritative). **Do not send** when `notify_care_partner = not_required` (total silence — miss/response still recorded on the dashboard). `domain_configs.ct_notification` is derived/deprecated — do not key sends off it.
 
 > ElderWise update — {{1}}
 > {{2}}: {{3}}
@@ -235,7 +235,7 @@ From `Rules.md` §9. These are not suggestions.
 ---
 
 ### 9 · `elderwise_ct_missed_notice`
-**Audience:** Care Partner · **Sent:** on escalation, after the unanswered reminder
+**Audience:** Care Partner · **Sent:** on escalation, after the unanswered reminder, **only when** the owning routine's `notify_care_partner` is `every_time` or `only_missed`. **Never send** when `not_required`.
 
 > ElderWise — {{1}} hasn't responded.
 > {{2}} was due at {{3}}. We sent a reminder and haven't heard back.
@@ -291,6 +291,8 @@ From `Rules.md` §9. These are not suggestions.
 **Buttons:** `[ Acknowledged ]` ← resolves the SOS
 **Note:** `{{3}}` is the **read-only share link** (M15). No diagnosis, no interpretation — the doctor gets facts and a link (N1).
 
+**A4 — no WhatsApp number:** if `doctors.whatsapp_number` is null, **do not send** this template. Log `sos_notifications` with `status = skipped`, `skip_reason = no_whatsapp_number` (`Architecture.md` WF-4 / Rules.md W3). Not a delivery failure.
+
 ---
 
 ### 13 · `elderwise_sos_nudge`
@@ -325,11 +327,11 @@ Sent only after the elder taps **"Some of them"** or **"Not yet"**.
 
 > Which ones did you take, {{name}}?
 > *(multi-select list, one row per medicine)*
-> ☐ Amlodipine — 1 tablet
-> ☐ Metformin — 1 tablet
-> ☐ Aspirin — 1 tablet
+> ☐ Amlodipine 5mg — 1 TAB
+> ☐ Metformin 500mg — 1 TAB
+> ☐ Aspirin 81mg — 1 TAB
 
-Up to 10 rows. Populated from that elder's `medications` table.
+Up to 10 rows. Populated from that elder's `medications` table: **name** (incl. strength) + **dosage** (quantity) + **dosage_unit** (`TAB` / `ML` / …). Matches A4 dosage-as-quantity semantics.
 
 ### 7.1b Consent declined / no response
 If the elder answers **"No, thank you"**, send nothing further — ever — and notify the CT from the dashboard, not from WhatsApp. If she **never responds**, send nothing further either. **Silence is not consent.**
@@ -389,6 +391,7 @@ Sent immediately when the elder triggers an SOS — she must not be left in sile
 
 | Date | Version | Change |
 |---|---|---|
+| 26 Jul 2026 | 1.4 | **A4 contract notes.** Dosage = quantity; strength in medicine name — Meta `{{3}}` bodies unchanged (no resubmission). Free-form picker rows show name + quantity + unit. Templates 8/9 keyed off per-routine `notify_care_partner` incl. **never send on `not_required`**. Template 12: skip + log when doctor has no WhatsApp. |
 | 23 Jul 2026 | 1.3 | **Companion-doc references no longer pin version numbers.** `main` is the single source of truth; pinned cross-references forced edits to every other doc on each version bump and went stale silently. Refs now name the file only. Each document's own version remains in its header. |
 | 22 Jul 2026 | 1.2 | **Docs ↔ front-end reconciliation.** Template 11 (`elderwise_sos_alert_lct`) noted as **conditional** — sent only when a Local Buddy / LCT exists; SOS still always alerts the CT. Elder address remains mandatory. Vocabulary aligned with `Architecture.md` §5.5. |
 | 14 Jul 2026 | 1.1 | **All three blockers resolved and verified against Meta's live docs (Context7).** Medication check-in: three quick-reply buttons with **every scheduled medicine named in the body**; follow-up interactive list only on *"Some of them"*. Elder opt-in: **two-layer consent** — CT attestation at onboarding + the elder's own in-channel confirmation, with **nothing scheduled until she confirms** and **silence treated as refusal**. Elder address: **mandatory**, and now carried in the Local Caregiver's SOS message. WhatsApp Flows noted as a v2 route to true multi-select. |
@@ -396,4 +399,4 @@ Sent immediately when the elder triggers an SOS — she must not be left in sile
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 23 July 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 26 July 2026.*

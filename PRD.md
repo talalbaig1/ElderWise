@@ -5,8 +5,8 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | PRD.md — v1.8 |
-| **Date** | 23 July 2026 |
+| **Document** | PRD.md — v1.10 |
+| **Date** | 26 July 2026 |
 | **Format** | AIGF Framework 9 (F9) PRD structure + technical build sections |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Demo Day** | 29 August 2026 |
@@ -96,11 +96,11 @@ This split is the central design constraint: **the person who uses the product i
 | Code | Role | Interface | Normal notification | SOS notification | Dashboard access |
 |---|---|---|---|---|---|
 | **EP** | Elderly Patient | WhatsApp only | Receives all scheduled check-ins | Can trigger SOS | No |
-| **CT** | Care Partner / Target Customer (**primary user, buyer**) | Web dashboard + WhatsApp | Yes — **configurable** (on every interaction / only-if-missed) | Yes | **Full** (owner) |
+| **CT** | Care Partner / Target Customer (**primary user, buyer**) | Web dashboard + WhatsApp | Yes — **configurable** (every time / only if missed / **not required**) | Yes | **Full** (owner) |
 | **LCT** | Local Caregiver / **Local Buddy** (UI) — someone who does **not** live with the EP but is physically within reach in an emergency. **Optional at onboarding.** | WhatsApp | **Never** | Yes — **only if onboarded** | No |
-| **DR** | Doctor (**optional**, gated behind explicit approval at onboarding) | WhatsApp + web dashboard (via share link) | **Never** | Yes | **Read-only, via a revocable share link — no account** (see M15) |
+| **DR** | Doctor (**optional**, gated behind explicit approval at onboarding) | WhatsApp + web dashboard (via share link) | **Never** | Yes — **only if a WhatsApp number was provided** | **Read-only, via a revocable share link — no account** (see M15) |
 
-**Cardinality:** one CT **may manage multiple EPs** (1 → many). Each EP has exactly one CT (owner), **zero-or-one LCT** (optional — skippable at onboarding; front end: `skipLocalBuddy`), and zero-or-one Doctor. If no LCT is set, SOS is handled by the CT (always present). Vocabulary: see `Architecture.md` §5.5.
+**Cardinality:** one CT **may manage multiple EPs** (1 → many). Each EP has exactly one CT (owner), **zero-or-one LCT** (optional — skippable per-card at onboarding; completable later from Settings), and zero-or-one Doctor (same). If no LCT is set, SOS is handled by the CT (always present). Vocabulary: see `Architecture.md` §5.5.
 
 **Data isolation:** a CT must never see another CT's EP data. Enforced at the database layer (see `Architecture.md` — Row-Level Security).
 
@@ -116,13 +116,13 @@ This split is the central design constraint: **the person who uses the product i
 
 | # | Feature |
 |---|---|
-| M1 | **Onboarding form** — four contact groups: Elderly Patient, Care Partner (primary), Local Caregiver (**optional**), Doctor (optional). |
-| M2 | **Food / Medication / Health sub-forms** — each with an Enable toggle, **fully configurable frequency**, and a CT-notification setting. Medication additionally captures medicine **name, time, and dosage**. |
+| M1 | **Onboarding — 4 steps.** (1) Get Started `/sign-up` (pre-auth) · (2) Care Circle · (3) Wellness Details · (4) Review. Completion screen is not a counted step. Care Circle holds four stacked cards: Care Partner, Loved One, Local Buddy (**skippable**), Doctor (**skippable**). |
+| M2 | **Wellness Details** — three stacked cards (Medication, Food, Health), each with an Enable toggle and a per-item CT-notification setting (`every_time` \| `only_missed` \| `not_required`). Medication additionally captures name (with strength), dosage **quantity**, unit, one time, meal selection, and missed-dose alert minutes. |
 | M3 | **WhatsApp Business API messaging** to the EP using **Meta-approved templates with Yes/No buttons** (feasibility confirmed — buttons are possible via templates). |
 | M4 | **Response capture — text (Yes/No button) and voice reply** → written to the database. |
 | M4a | **Voice-reply transcription (STT)** — voice replies are transcribed so the system can determine the answer accurately (Yes / No, or which medicine was taken) and act on it exactly as it would on a button tap. A voice reply is a **first-class response**, not a second-class one. Audio is retained alongside the transcript. |
 | M5 | **Missed-response rule** — default: **one reminder after 30 minutes**; if still no reply → mark the check-in *missed* and **escalate to the Care Partner (CT)**. The escalation policy is **an editable configuration**, held **per EP, per domain**, set at onboarding and changeable in Settings. Escalation never reaches the LCT or Doctor — they remain **SOS-only**. |
-| M6 | **Care-partner notifications** — configurable: on every interaction, or only when a check-in is missed. **WhatsApp only.** |
+| M6 | **Care-partner notifications** — configurable **per routine item**: Every Time · Only If Missed · **Not Required**. **WhatsApp only.** `Not Required` means **total silence** — no confirmation and no missed-routine push; the miss is still recorded and visible on the dashboard. Inline warning required when selected (copy TBD — see §7.1). |
 | M7 | **SOS flow** — EP triggers → **immediately** notify CT + LCT (if present) + Doctor (if present) via WhatsApp + update dashboard. **WhatsApp-first: 4 nudges, 2 minutes apart**, stopping early if the SOS is resolved. |
 | M8 | **Care-partner web dashboard** — daily adherence %, health, food, SOS panel, care-circle profile, daily summary, PDF report. |
 | M9 | **Database** — per-domain schemas (Medication / Health / Food) + a separate SOS schema. |
@@ -131,10 +131,12 @@ This split is the central design constraint: **the person who uses the product i
 | M12 | **Medication response format** — the check-in message **names every scheduled medicine** in the body and offers **three options**: *Yes, all* · *Some of them* · *Not yet*. If the EP answers *Some of them*, a follow-up **dropdown list** lets her select which ones. *(Meta templates support only quick-reply/URL/phone buttons — a list cannot be the opening scheduled message. Verified against Meta docs, 14 Jul.)* |
 | M13 | **Authentication** — CT signup/signin for the dashboard. *(Promoted from Won't-have → Must-have, 14 Jul 2026.)* |
 | M14b | **SOS resolution** — any recipient (CT / LCT / Doctor) can resolve an SOS **either by replying on WhatsApp or by acting on the dashboard** (both channels supported). Resolving stops the nudge sequence and records who resolved it and when. |
-| M16 | **Elder consent (opt-in)** — two layers. **(a)** At onboarding the CT must explicitly attest that the elderly person has agreed to receive ElderWise messages; the attestation, the attesting CT, and a timestamp are stored. **(b)** The elder must then **confirm in-channel** by responding to the welcome message. **No check-in is scheduled until (b) has happened.** WhatsApp requires recipient opt-in; a family member cannot consent on someone's behalf inside the channel. |
+| M16 | **Elder WhatsApp consent (opt-in)** — two layers (N5 gate). **(a)** At Review the CT must explicitly attest that the elderly person has agreed to receive ElderWise messages; the attestation, the attesting CT, and a timestamp are stored. **(b)** The elder must then **confirm in-channel** by responding to the welcome message. **No check-in is scheduled until (b) has happened.** WhatsApp requires recipient opt-in; a family member cannot consent on someone's behalf inside the channel. |
+| M16a | **Additional Review consents** — captured separately at step 4: (1) medication-details accuracy + no-medical-advice acknowledgement (`consent_med_accuracy_at`); (2) data-sharing with named Doctor/Local Buddy when either was added (`consent_data_sharing_at` — **conditional**, omitted if both skipped); (3) Terms & Privacy re-confirmation (`consent_terms_at` + dated `consent_terms_version`, e.g. `2026-07-v1`). Each new consent is a nullable `timestamptz` alone — non-null **is** the consent. |
 | M17 | **Elder address** — captured at onboarding and **mandatory** (even if Local Buddy is skipped). When an LCT exists, the SOS message to them must carry the address so they can physically reach the elder. |
-| M15 | **Doctor share link** — read-only dashboard access for the Doctor via a **tokenised, revocable share link scoped to a single EP**. No doctor account, no password, no signup. A full doctor login role is deferred to v2. |
-| M14 | **Multi-timezone support** — independent timezones stored for **EP, CT, and Doctor**. The **LCT inherits the EP's timezone**. All schedules fire in the **EP's** local time; all dashboard timestamps render in the **viewer's** timezone. *(Promoted to Must-have, 14 Jul 2026.)* |
+| M15 | **Doctor share link** — read-only dashboard access for the Doctor via a **tokenised, revocable share link scoped to a single EP**. No doctor account, no password, no signup. Share-page timestamps render in the **elder's** timezone (same rule as PDF bodies). A full doctor login role is deferred to v2. |
+| M14 | **Multi-timezone support** — independent timezones stored for **EP and CT**. The **LCT inherits the EP's timezone**. Doctor timezone is **not collected**; the doctor share page renders in the **elder's** zone. All schedules fire in the **EP's** local time; dashboard timestamps render in the **viewer's** (CT) timezone. *(Promoted to Must-have, 14 Jul 2026.)* |
+| M18 | **Legal pages** — `/privacy` and `/terms` must accurately describe production data handling. **As of 26 Jul 2026 both pages are factually false and blocking** (see §12.4). Rewrite content is supplied separately for approval; do not invent copy. |
 
 ### 6.2 SHOULD HAVE (→ v2)
 
@@ -178,19 +180,74 @@ This split is the central design constraint: **the person who uses the product i
 
 ### 7.1 Onboarding (FR-ON)
 
+Onboarding is **4 counted steps**. The completion screen is unchanged and is **not** a step.
+
+| Step | Screen | Route / home |
+|---|---|---|
+| 1 | **Get Started** | `/sign-up` — **pre-auth**. Renders the same "Step 1 of 4" progress chrome as the wizard. **Must not** live inside the onboarding provider (no session yet). Shares the progress bar only — do not "fix" this by merging routes. |
+| 2 | **Care Circle** | Onboarding wizard (post-auth) |
+| 3 | **Wellness Details** | Onboarding wizard (post-auth) |
+| 4 | **Review** | Onboarding wizard (post-auth) |
+
+**Add-another Loved One:** an existing CT adding a second elder **never** sees step 1. Progress shows **Step 1 of 3 → 2 of 3 → 3 of 3** for Care Circle → Wellness Details → Review.
+
+#### Step 2 — Care Circle (four cards, top to bottom)
+
+| Card | Skippable | Fields |
+|---|---|---|
+| **Care Partner** | No | WhatsApp number (mandatory) · Timezone (mandatory). First name, last name, and email come from `/sign-up` and are **not** re-collected. No other CT fields in onboarding. |
+| **Loved One** | No | WhatsApp (mandatory) · First Name · Last Name · Age · Timezone · Relationship with the Care Partner · Address — all mandatory. Age is a **stored snapshot** and does not self-update. |
+| **Local Buddy** | Yes — "Skip for now" | First Name · Last Name · WhatsApp — mandatory **once the card is engaged**. Skipped card writes **no row**; completable later from Settings. |
+| **Doctor** | Yes — "Skip for now" | First Name · Last Name · Clinic/Hospital (mandatory once engaged) · WhatsApp (**optional**). Skipped card writes no row. |
+
+**Skip semantics:** fields inside a card are mandatory once engaged. Because the screen saves in one action, an absent buddy/doctor row after a successful Care Circle submit is a **deliberate skip** (not "not yet reached"). No draft skip flags.
+
+**No non-WhatsApp phone numbers** are collected anywhere in product or schema.
+
+#### Step 3 — Wellness Details (three cards: Medication, Food, Health)
+
+Each card keeps its enable/disable toggle at the top.
+
+**Medication** (per entry):
+- Row 1: Medication Name (helper: include strength, e.g. "Metformin 500mg") · Dosage = **quantity per intake** (e.g. "1", "5") · Unit dropdown: `TAB` / `ML` / `CAP` / `DROPS` / `PUFF` / `UNIT`
+- Row 2: Time (**one** time) · Start date · End date (optional)
+- Row 3: Meal Selection (Before Meal / After Meal) · Notify Care Partner (Every Time / Only If Missed / Not Required) · Alert Care Partner if not taken within (minutes)
+- **Removed:** "Add time". Two doses/day = duplicate the medication. **Kept:** enable toggle, Duplicate per entry, "Add medication"
+
+**Food** (per meal, one row): Meal Name · Check-in Time · Notify Care Partner (same three modes). No start/end dates collected. Toggle + "Add another meal" kept.
+
+**Health** (per routine, one row): Routine Name · Check-in Time · Notify Care Partner (same three modes). No start/end dates collected. Toggle + "Add health routine" kept.
+
+#### `Not Required` (safety-relevant)
+
+`Not Required` means **total silence**. The CT receives **no** confirmation notification and **no** missed-routine notification for that item. The miss is still recorded and still visible on the dashboard. `escalate_target` has exactly one value (`care_partner`) — silence means silence entirely.
+
+> **WARNING COPY PLACEHOLDER — DO NOT SHIP WITHOUT APPROVED TEXT.**  
+> When the CT selects **Not Required**, show an inline warning beneath the control.  
+> `[PLACEHOLDER: Not Required warning copy — awaiting team-lead approval. Must state that the care partner will receive no WhatsApp alerts for this item, including misses.]`
+
+#### Step 4 — Review (four consents)
+
+| Consent | Storage | Required |
+|---|---|---|
+| Elder has agreed to receive ElderWise WhatsApp messages (N5 gate) | `consent_attested_by_ct` + `consent_attested_at` | Always — hard gate on activation |
+| CT confirms medication details are accurate and understands ElderWise gives no medical advice | `consent_med_accuracy_at` | Always |
+| CT consents to sharing health summaries with the named Doctor and Local Buddy | `consent_data_sharing_at` | **Only if** Doctor or Local Buddy was added |
+| Terms & Privacy re-confirmed at the point of entering care data | `consent_terms_at` + `consent_terms_version` (dated string, e.g. `2026-07-v1`) | Always |
+
 | ID | Requirement |
 |---|---|
-| FR-ON-1 | A CT signs up, authenticates, and completes a multi-step onboarding form. |
-| FR-ON-2 | The form captures four contact groups. **Elderly Patient:** WhatsApp details, name, surname, gender, **timezone**, **address (mandatory — needed for SOS; required even if Local Buddy is skipped)**. **Care Partner:** WhatsApp details, name, direct contact number, **timezone**. **Local Caregiver (optional — skippable):** WhatsApp details, name, direct contact number (timezone inherited from the EP). **Doctor (optional):** WhatsApp details, name, direct contact number, address, **timezone**. |
-| FR-ON-3 | Three sub-forms follow. **Food:** Enable · Frequency · CT Notification. **Medication:** Enable · Medicine Name(s) · Time(s) · Dosage · CT Notification. **Health:** Enable · Frequency · CT Notification. |
-| FR-ON-4 | **Frequency is fully configurable per domain**, set by the CT at onboarding and overridable in Settings. There is no fixed 3×/day schedule. |
-| FR-ON-5 | The escalation policy (default: 1 reminder after 30 min → escalate to the CT) is presented at onboarding and is **editable per EP, per domain**. |
-| FR-ON-5a | **Elder consent gate.** The CT must tick an explicit consent attestation ("I confirm that [Elder] has agreed to receive ElderWise messages"). Onboarding cannot complete without it. The attestation, CT identity, and timestamp are stored. |
+| FR-ON-1 | A CT completes the **4-step** flow above (Get Started → Care Circle → Wellness Details → Review). Step 1 is pre-auth; steps 2–4 are post-auth. |
+| FR-ON-2 | Care Circle fields and skip semantics as specified in the Step 2 table. Names are **First Name / Last Name** everywhere. No gender field. No direct/non-WhatsApp phone numbers. |
+| FR-ON-3 | Wellness Details fields as specified in the Step 3 section. Per-item CT notification includes `not_required`. |
+| FR-ON-4 | **Frequency is fully configurable** via the times/check-in times on routine items, overridable in Settings. There is no fixed 3×/day schedule. Domain-level frequency on `domain_configs` is **derived** from those times (`Architecture.md`). |
+| FR-ON-5 | Missed-dose / missed-routine alert delay is **per medication** (and equivalent escalation minutes on food/health routines), editable after onboarding. Escalation target remains the CT only. |
+| FR-ON-5a | **Review consents** — all applicable consents in the Step 4 table. N5 attestation remains a hard gate. |
 | FR-ON-5b | **In-channel confirmation.** After onboarding, ElderWise sends the elder a **welcome message** naming the business and its purpose. **No check-in may be scheduled until the elder responds to it.** An elder who never confirms is never messaged again beyond a single welcome. |
-| FR-ON-6 | **Mandatory fields are kept to the minimum** to avoid onboarding drop-off. Everything not required to run a check-in or an SOS is optional. |
-| FR-ON-7 | Adding the Doctor requires **explicit approval** by the CT. |
-| FR-ON-8 | WhatsApp numbers are captured as **numbers only, with no verification step** (see §12.3). |
-| FR-ON-9 | A CT can onboard and manage **multiple EPs**. |
+| FR-ON-6 | **Mandatory fields are kept to the minimum** to avoid onboarding drop-off. Local Buddy and Doctor are skippable; everything else on engaged cards is required. |
+| FR-ON-7 | Adding the Doctor requires **explicit approval** by the CT (existing `approved_by_ct`). |
+| FR-ON-8 | WhatsApp numbers are captured as **numbers only, with no verification step** (see §12.3). Doctor WhatsApp may be left blank; SOS then skips the doctor nudge and logs the skip (`Architecture.md` WF-4). |
+| FR-ON-9 | A CT can onboard and manage **multiple EPs**. Add-another flow skips step 1; progress is **Step N of 3**. |
 
 ### 7.2 Reminder engine (FR-RE)
 
@@ -211,7 +268,7 @@ This split is the central design constraint: **the person who uses the product i
 | FR-RH-2a | If a voice reply cannot be confidently interpreted, the system must **not** guess. It re-asks the EP once in plain language; failing that, the check-in follows the normal missed-response path. |
 | FR-RH-3 | If no response is received, **one reminder is sent after 30 minutes** (configurable). |
 | FR-RH-4 | If there is still no response after the reminder, the check-in is marked **missed** and the configured escalation runs — **escalation target = the CT**. The LCT and Doctor are **never** contacted on a missed check-in; they are SOS-only. |
-| FR-RH-5 | The CT is notified per their configuration: **on every interaction**, or **only on a missed check-in**. Channel = **WhatsApp only**. |
+| FR-RH-5 | The CT is notified per the **owning routine's** `notify_care_partner`: **every time**, **only if missed**, or **not required** (total silence — see §7.1). Channel = **WhatsApp only**. |
 | FR-RH-6 | The dashboard updates in near-real-time on every response and every missed check-in. |
 
 ### 7.4 SOS (FR-SOS)
@@ -247,7 +304,7 @@ This split is the central design constraint: **the person who uses the product i
 | FR-DB-5 | SOS History — list of triggered SOS events with timeline + filters; Get Report. |
 | FR-DB-6 | Voice Journal — **hard-coded demo placeholder** for the MVP: voice summary cards with timeline and filter. Not wired to live data. |
 | FR-DB-7 | Reports — dropdown by timeline (Medication / Food / Wellness / SOS history) + Download (PDF). |
-| FR-DB-8 | Personal Profile / Settings — name, **timezone**, change password, contact details (address, WhatsApp, phone), optional secondary contact; **frequency and escalation overrides**. |
+| FR-DB-8 | Personal Profile / Settings — first/last name, **timezone**, change password, WhatsApp; **frequency and escalation overrides**. No non-WhatsApp phone capture. Local Buddy / Doctor may be completed here if skipped at onboarding. |
 | FR-DB-9 | Home button in header and footer on every page. |
 | FR-DB-10 | Where a CT manages multiple EPs, the dashboard scopes to one EP at a time via a selector. |
 
@@ -280,7 +337,8 @@ EP triggers SOS (WhatsApp)
    → Dispatch WhatsApp message IMMEDIATELY, in parallel, to every contact that exists:
         ├── Care Partner (CT) — always
         ├── Local Caregiver (LCT) — only if onboarded
-        └── Doctor — only if onboarded
+        └── Doctor — only if onboarded **and** a WhatsApp number is present
+             (no number → nudge skipped and logged; not a delivery failure)
    → 4 nudges, 2 minutes apart, to every recipient who has not resolved
    → Resolved by ANY of CT / LCT / Doctor — via WhatsApp reply OR dashboard action
         → nudges stop immediately; resolver + timestamp recorded
@@ -304,21 +362,24 @@ One record structure per domain, each carrying:
 
 `EP Name · EP WhatsApp No · EP {Domain} Details · Frequency of {Domain} · Answers (Yes/No | medicine selection) · CT Name · CT WhatsApp · CT Notification Frequency · Local CT Name · Local CT WhatsApp No · Local CT Frequency (when to message) · Message Formatting`
 
-Medication additionally carries **medicine name(s), time(s), and dosage**.
+Medication additionally carries **medicine name (incl. strength), one time, dosage quantity, unit, meal timing, and notify mode**.
 
 ### 9.2 SOS record (separate)
 
-`EP WhatsApp No · CT Name · CT Number · CT WhatsApp · Local CT Name · Local CT Number · Local CT WhatsApp No · DR Name · DR Number · DR WhatsApp No · Message Formatting`
+`EP WhatsApp No · CT Name · CT WhatsApp · Local CT Name · Local CT WhatsApp No · DR Name · DR WhatsApp No (nullable) · Message Formatting`
+
+No non-WhatsApp phone numbers on the SOS record.
 
 ### 9.3 Additional MVP requirements on the data model
 
-- **Timezone** fields for EP, CT, and Doctor (LCT inherits EP's).
-- **Escalation configuration** — held **per routine** (per medication, per food routine, per health routine), matching the front-end model. Each routine carries its own reminder delay and CT-notification setting. *(Supersedes the earlier per-EP-per-domain granularity, 22 Jul.)*
-- **Auth / user identity** for the CT, with **one CT → many EPs**.
+- **Timezone** fields for EP and CT (LCT inherits EP's). Doctor share view uses the **elder's** timezone.
+- **Escalation / notify configuration** — held **per routine** (`notify_care_partner` including `not_required`). Authoritative for Track B. `domain_configs.ct_notification` is derived/deprecated (`Architecture.md`).
+- **Auth / user identity** for the CT, with **one CT → many EPs**. Names are `first_name` / `last_name` on care partners, elders, local caregivers, and doctors.
 - **Doctor share-link tokens** — scoped to one EP, revocable.
-- **Elder consent** — CT attestation (who, when) **and** in-channel confirmation timestamp (M16). Scheduling is gated on the latter.
-- **Elder address** — mandatory (M17).
-- **SOS resolution** — resolver identity, channel (WhatsApp | dashboard), and timestamp per SOS event; open/resolved state.
+- **Elder WhatsApp consent** — CT attestation (who, when) **and** in-channel confirmation timestamp (M16). Scheduling is gated on the latter.
+- **Review consents** — `consent_med_accuracy_at`, conditional `consent_data_sharing_at`, `consent_terms_at` + `consent_terms_version` (M16a).
+- **Elder address** — mandatory (M17). **Age** and **relationship_to_care_partner** — mandatory snapshots on the elder.
+- **SOS resolution** — resolver identity, channel (WhatsApp | dashboard), and timestamp per SOS event; open/resolved state. Skipped doctor nudges recorded on `sos_notifications` with status `skipped`.
 - **Voice replies** — stored audio **and** its transcript, linked to the check-in they answer.
 - Every check-in must be individually addressable (sent / responded / reminded / missed) with timestamps.
 
@@ -331,13 +392,16 @@ Medication additionally carries **medicine name(s), time(s), and dosage**.
 | # | Screen | Contents |
 |---|---|---|
 | 1 | **Landing** | Product details · Signup · Signin |
+| 1a | **Get Started** (`/sign-up`) | Step 1 of 4 — account creation (pre-auth progress chrome only) |
+| 1b | **Onboarding wizard** | Steps 2–4: Care Circle · Wellness Details · Review (+ completion, not counted) |
 | 2 | **Dashboard** | Medication history (% + history) · Health · Food · SOS summary · filters (Days/Months/Years/Timeline) · Get Report |
 | 3 | **Edit Profile — "Loved One"** | EP name card → Food Routine profile · Medication profile · Wellness profile · Save |
-| 4 | **Care Circle** | Local Buddy (definition + action plan) · Doctor |
+| 4 | **Care Circle** | Local Buddy · Doctor (complete-later if skipped at onboarding) |
 | 5 | **SOS History** | SOS events with timeline · filters · Get Report |
 | 6 | **Voice Journal** | Hard-coded demo cards with timeline + filter *(placeholder — Could-have feature)* |
 | 7 | **Reports** | Timeline dropdown (Medication / Food / Wellness / SOS) · Download |
-| 8 | **Personal Profile / Settings** | Name · timezone · change password · contact details · secondary contact (optional) · frequency + escalation overrides |
+| 8 | **Personal Profile / Settings** | First/last name · timezone · change password · WhatsApp · frequency + escalation overrides |
+| 9 | **Privacy / Terms** | `/privacy` · `/terms` — **currently factually false; rewrite blocking** (see §12.4) |
 
 Global: Home button in header and footer.
 
@@ -400,6 +464,25 @@ Rationale, versions, and integration details are specified in `Architecture.md`.
 | NFR-14 | The team is **11 people, geographically distributed** across GMT+2 to GMT+10. Parallel work must be possible without blocking. |
 | NFR-15 | **Hard deadline: Demo Day, 29 August 2026.** |
 
+### 12.4 Privacy Policy and Terms — **blocking**
+
+`/privacy` and `/terms` on `main` are **factually false**, not merely stale. Privacy currently states data is held in browser localStorage with no cloud backend. Terms currently state passwords are stored locally. In production, data lives in **Supabase** and passwords are in **Supabase Auth**.
+
+**Status:** rewrite is **blocking** for honest Review-step Terms & Privacy consent (M16a / M18). Content will be supplied for approval — **do not draft it in this pass.**
+
+**Naming / legal posture (no entity):** pages name **ElderWise**, a **non-commercial capstone project** by **AIGF Cohort 7 Group 7**, operated by the project team. There is **no registered company** (do not write "Corp" or any corporate suffix). **No governing-law clause** — state plainly that **no legal entity exists** and **no service contract is offered**. Contact: **elderwise0@gmail.com**.
+
+**`consent_terms_version`:** a **dated version string** (e.g. `2026-07-v1`) so each Review consent record points at the **exact** Privacy/Terms text it was given against. Bump the string whenever either page’s approved text changes.
+
+The rewrite **must** disclose:
+
+- This is a **demonstration / capstone project** — **do not enter real personal health information**.
+- Accounts and data **may be deleted at any time without notice** (including full resets such as A4.0).
+- ElderWise is **not** a HIPAA covered entity or business associate.
+- Per N1 / SEC7: **not** a medical device; provides **no** medical advice.
+- Data residency: Supabase **ap-northeast-2 (Seoul)**; Upstash Redis **us-east-1**; Vercel edge network.
+- The four consents captured at Review, and the dated `consent_terms_version` each was given against.
+
 ---
 
 ## 13. Out of Scope
@@ -447,6 +530,8 @@ Demo Day ships the **MVP**. Should- and Could-have items are not permitted to en
 
 | Date | Version | Change |
 |---|---|---|
+| 26 Jul 2026 | 1.10 | **§9 / §12.4 correction.** Remove "ElderWise Corp" — no registered entity; name ElderWise as AIGF Cohort 7 Group 7 non-commercial capstone; no governing-law / no service contract. Rewrite must disclose demo-only PHI warning, A4.0-style deletion without notice, not HIPAA CE/BA, N1/SEC7, data residency. `consent_terms_version` = dated string (e.g. `2026-07-v1`). |
+| 26 Jul 2026 | 1.9 | **A4 — Onboarding restructure.** 8-step wizard → **4 steps** (Get Started pre-auth + Care Circle + Wellness Details + Review). First/Last name everywhere; non-WhatsApp phones removed. Care Circle skip semantics; Wellness field lists; dosage = quantity; one time per medication. M6 gains **Not Required** (total silence) + warning-copy placeholder. Four Review consents (M16a). Privacy/Terms flagged factually false and blocking (§12.4 / M18). Doctor share TZ → elder zone (M14/M15). Add-another progress = Step N of 3. |
 | 23 Jul 2026 | 1.8 | **Companion-doc references no longer pin version numbers.** `main` is the single source of truth; pinned cross-references forced edits to every other doc on each version bump and went stale silently. Refs now name the file only. Each document's own version remains in its header. |
 | 22 Jul 2026 | 1.7 | **Docs ↔ front-end reconciliation.** Documented **SOS as two layers** (display vs dispatch) in §7.4 / §8.2 — Meeting-11 parallel dispatch preserved; FE cascade is presentation only. **Local Buddy / LCT made optional** at onboarding; SOS always notifies CT; LCT alert conditional; elder address still mandatory. Removed stale **RAG** wording (FR-SOS-2, §8.2, §11) — care circle is a relational lookup. Pointed vocabulary at `Architecture.md` §5.5. |
 | 22 Jul 2026 | 1.6 | **Reconciled with Sama's front-end build.** Escalation/notification granularity moved from per-EP-per-domain to **per-routine** (adopting the finer-grained front-end model). Added front-end ↔ role-code mapping (Loved One=EP, Care Partner=CT, Local Buddy=LCT, Family Doctor=DR) and flagged front-end fields that are v2/Could-have stubs. Front-end gaps to be patched by Cursor are specified in `patch_frontend.md`: elder consent (M16), elder address (M17), medication two-step response (M12), Google OAuth, buddy/doctor "added" acknowledgement. |
@@ -459,4 +544,4 @@ Demo Day ships the **MVP**. Should- and Could-have items are not permitted to en
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 23 July 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 26 July 2026.*
