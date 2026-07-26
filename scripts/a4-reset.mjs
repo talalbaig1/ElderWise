@@ -1,8 +1,10 @@
 /**
- * A4.0 — full Dev-project data reset (Phases.md).
+ * A4.0 — full data reset for the live ElderWise Supabase project (Phases.md).
  *
- * Deletes ALL rows in public tables, then ALL Supabase Auth users.
- * Irreversible. Team lead runs this manually after a backup — never auto-run.
+ * There is only one Supabase project: vkrjupjqwdeghvpjsvai ("ElderWise MVP").
+ * It serves the live site. This script deletes ALL public rows and ALL Auth users
+ * on that project. Irreversible. Team lead runs it manually after a backup —
+ * never auto-run.
  *
  * Required env (never logged):
  *   NEXT_PUBLIC_SUPABASE_URL
@@ -11,17 +13,19 @@
  * Usage:
  *   node --env-file=.env.local scripts/a4-reset.mjs --i-understand-this-deletes-everything
  *
- * Optional second confirmation after the dry summary:
- *   ... --i-understand-this-deletes-everything --confirm-delete
+ * After printing a deletion summary, the operator must type the project ref at an
+ * interactive prompt. A flag alone cannot execute the wipe (shell-history recall
+ * must not re-trigger deletion).
  *
- * Without --confirm-delete the script only prints the summary and exits 0.
- * Refuse to run against any host that is not the ElderWise Dev project.
+ * Refuses to run if NEXT_PUBLIC_SUPABASE_URL is not the ElderWise MVP project.
  */
+import * as readline from "node:readline/promises";
+import { stdin as input, stdout as output } from "node:process";
 import { createClient } from "@supabase/supabase-js";
 
-/** Dev project ref from the A4 prompt / live Supabase project. */
-const DEV_PROJECT_REF = "vkrjupjqwdeghvpjsvai";
-const DEV_HOST = `${DEV_PROJECT_REF}.supabase.co`;
+/** Live ElderWise MVP project (only Supabase project — serves the live site). */
+const TARGET_PROJECT_REF = "vkrjupjqwdeghvpjsvai";
+const TARGET_HOST = `${TARGET_PROJECT_REF}.supabase.co`;
 
 /**
  * Child → parent order so FK deletes succeed without CASCADE assumptions.
@@ -48,7 +52,6 @@ const PUBLIC_TABLES = [
 ];
 
 const CONFIRM_FLAG = "--i-understand-this-deletes-everything";
-const EXECUTE_FLAG = "--confirm-delete";
 
 const args = new Set(process.argv.slice(2));
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -65,9 +68,8 @@ if (!args.has(CONFIRM_FLAG)) {
       "Refusing to run: missing explicit confirmation flag.",
       "",
       `Usage: node --env-file=.env.local scripts/a4-reset.mjs ${CONFIRM_FLAG}`,
-      `       node --env-file=.env.local scripts/a4-reset.mjs ${CONFIRM_FLAG} ${EXECUTE_FLAG}`,
       "",
-      "Without --confirm-delete this script only prints a deletion summary.",
+      "After the summary, you must type the project ref at the prompt to delete.",
     ].join("\n"),
   );
 }
@@ -83,11 +85,11 @@ try {
   fail("NEXT_PUBLIC_SUPABASE_URL is not a valid URL");
 }
 
-if (host !== DEV_HOST) {
+if (host !== TARGET_HOST) {
   fail(
     [
-      "Refusing to run: Supabase URL is not the ElderWise Dev project.",
-      `  expected host: ${DEV_HOST}`,
+      "Refusing to run: Supabase URL is not the ElderWise MVP project (live site).",
+      `  expected host: ${TARGET_HOST}`,
       `  got host:      ${host}`,
     ].join("\n"),
   );
@@ -123,9 +125,10 @@ async function listAllAuthUsers() {
   return users;
 }
 
-console.log("A4.0 reset — Dev project only");
-console.log(`  project: ${DEV_PROJECT_REF}`);
+console.log("A4.0 reset — ElderWise MVP (LIVE project)");
+console.log(`  project: ${TARGET_PROJECT_REF} ("ElderWise MVP")`);
 console.log(`  host:    ${host}`);
+console.log("  WARNING: This is the only Supabase project and it serves the live site.");
 console.log("");
 console.log("Will delete (after backup by team lead):");
 console.log("  1. ALL rows in public tables (order below)");
@@ -152,14 +155,16 @@ for (const u of authUsers) {
   console.log(`    - ${u.id}  ${u.email ?? "(no email)"}`);
 }
 
-const execute = args.has(EXECUTE_FLAG);
-if (!execute) {
-  console.log("");
-  console.log("Dry run only. No deletions performed.");
-  console.log(
-    `Re-run with ${CONFIRM_FLAG} ${EXECUTE_FLAG} to proceed after your backup.`,
-  );
-  process.exit(0);
+console.log("");
+console.log("No deletions yet. Type the project ref to proceed, or anything else to abort.");
+const rl = readline.createInterface({ input, output });
+const typed = (
+  await rl.question(`Type exactly "${TARGET_PROJECT_REF}" to delete: `)
+).trim();
+rl.close();
+
+if (typed !== TARGET_PROJECT_REF) {
+  fail("Confirmation did not match. Aborting. No deletions performed.");
 }
 
 console.log("");
@@ -192,6 +197,9 @@ for (const u of authUsers) {
 
 console.log("");
 console.log("A4.0 reset complete.");
-console.log("Next (manual): re-onboard two tenants; update TENANT_A_* / TENANT_B_* in .env.local;");
-console.log("then re-run rls-cross-tenant / rls-proof / share-link-isolation / verify-* scripts.");
+console.log("Next (manual):");
+console.log("  1. Apply A4.1 migrations (empty DB required for new NOT NULL columns).");
+console.log("  2. Re-onboard two tenants; update TENANT_A_* / TENANT_B_* in .env.local.");
+console.log("  3. A4.5 seed — see scripts/a4-seed-checklist.md (includes message_templates).");
+console.log("  4. Re-run rls-cross-tenant / rls-proof / share-link-isolation / verify-* scripts.");
 process.exit(0);
