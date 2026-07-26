@@ -259,7 +259,7 @@ export default function LovedOnesPage() {
           <DialogHeader>
             <DialogTitle>Remove Loved One?</DialogTitle>
             <DialogDescription>
-              This removes their routines, care circle links, and related history from this demo
+              This removes their routines, care circle links, and related history from your account
               device. This cannot be undone.
             </DialogDescription>
           </DialogHeader>

@@ -194,7 +194,7 @@ export default function SettingsPage() {
   const onResetDemo = () => {
     resetDemoData();
     setResetOpen(false);
-    toast.success("Demo data reset — your session and settings were kept");
+    toast.success("Local cache cleared — your session and settings were kept");
   };
 
   const onLogout = async () => {
@@ -703,16 +703,16 @@ export default function SettingsPage() {
             <div className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Reset demo data</CardTitle>
+                  <CardTitle>Clear local cache</CardTitle>
                   <CardDescription>
-                    Restore seed Loved Ones, routines, SOS, journals, and reports. Your signed-in
-                    session and settings preferences are kept.
+                    Clears onboarding drafts and stale browser storage. Loved Ones and clinical
+                    data live in Supabase and are not affected. Session and settings stay.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Button variant="warning" className="gap-2" onClick={() => setResetOpen(true)}>
                     <RotateCcw className="h-4 w-4" />
-                    Reset demo data
+                    Clear local cache
                   </Button>
                 </CardContent>
               </Card>
@@ -743,10 +743,10 @@ export default function SettingsPage() {
       <Dialog open={resetOpen} onOpenChange={setResetOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reset demo data?</DialogTitle>
+            <DialogTitle>Clear local cache?</DialogTitle>
             <DialogDescription>
-              This replaces Loved Ones, routines, check-ins, SOS, Voice Journal, and reports with
-              the seeded demo. Settings and your login stay intact.
+              Removes onboarding drafts and old browser storage on this device. Supabase data is
+              unchanged. Settings and your login stay intact.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -754,7 +754,7 @@ export default function SettingsPage() {
               Cancel
             </Button>
             <Button variant="warning" onClick={onResetDemo}>
-              Reset data
+              Clear cache
             </Button>
           </DialogFooter>
         </DialogContent>

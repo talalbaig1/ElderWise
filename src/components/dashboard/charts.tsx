@@ -35,17 +35,23 @@ export function AdherenceLineChart({
         <CardDescription>Completion rate across medication, meals, and health</CardDescription>
       </CardHeader>
       <CardContent className="h-[260px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#D9DED7" vertical={false} />
-            <XAxis dataKey="label" tick={{ fill: "#5C6B64", fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis domain={[0, 100]} tick={{ fill: "#5C6B64", fontSize: 11 }} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Line type="monotone" dataKey="medication" stroke="#1F4B45" strokeWidth={2.5} dot={false} />
-            <Line type="monotone" dataKey="meals" stroke="#5C8C6B" strokeWidth={2.5} dot={false} />
-            <Line type="monotone" dataKey="health" stroke="#E3A23C" strokeWidth={2.5} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
+        {data.length === 0 ? (
+          <p className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            No data
+          </p>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#D9DED7" vertical={false} />
+              <XAxis dataKey="label" tick={{ fill: "#5C6B64", fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis domain={[0, 100]} tick={{ fill: "#5C6B64", fontSize: 11 }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Line type="monotone" dataKey="medication" stroke="#1F4B45" strokeWidth={2.5} dot={false} />
+              <Line type="monotone" dataKey="meals" stroke="#5C8C6B" strokeWidth={2.5} dot={false} />
+              <Line type="monotone" dataKey="health" stroke="#E3A23C" strokeWidth={2.5} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
         <p className="sr-only">
           Line chart of adherence percentages for medication, meals, and health over the selected period.
         </p>
@@ -107,15 +113,21 @@ export function MealBarChart({
         <CardDescription>Daily meal check-in completion</CardDescription>
       </CardHeader>
       <CardContent className="h-[260px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#D9DED7" vertical={false} />
-            <XAxis dataKey="label" tick={{ fill: "#5C6B64", fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis domain={[0, 100]} tick={{ fill: "#5C6B64", fontSize: 11 }} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Bar dataKey="meals" fill="#1F4B45" radius={[8, 8, 4, 4]} />
-          </BarChart>
-        </ResponsiveContainer>
+        {data.length === 0 ? (
+          <p className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            No data
+          </p>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#D9DED7" vertical={false} />
+              <XAxis dataKey="label" tick={{ fill: "#5C6B64", fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis domain={[0, 100]} tick={{ fill: "#5C6B64", fontSize: 11 }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Bar dataKey="meals" fill="#1F4B45" radius={[8, 8, 4, 4]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </CardContent>
     </Card>
   );

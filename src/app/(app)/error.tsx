@@ -23,7 +23,7 @@ export default function AppError({
       </span>
       <h2 className="font-display text-2xl">This screen could not load</h2>
       <p className="mt-2 max-w-md text-sm text-muted-foreground">
-        Try again. If it keeps happening, reset demo data from Settings or return to the dashboard.
+        Try again. If it keeps happening, clear local cache from Settings or return to the dashboard.
       </p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">
         <Button onClick={reset}>Try again</Button>

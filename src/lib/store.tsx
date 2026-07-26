@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { createDemoStore } from "@/data/mock";
+import { createEmptyStore } from "@/data/mock";
 import { createClient } from "@/lib/supabase/client";
 import { normalizeSettings } from "@/lib/settings";
 import { readStorage, STORAGE_KEYS, writeStorage, removeStorage } from "@/lib/storage";
@@ -22,6 +22,7 @@ interface StoreContextValue {
   setStore: (updater: ElderWiseStore | ((prev: ElderWiseStore) => ElderWiseStore)) => void;
   setSelectedLovedOneId: (id: string | null) => void;
   updateSettings: (partial: Partial<UserSettings>) => void;
+  /** Clears local client shell only — does not touch Supabase. */
   resetDemoData: () => void;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
@@ -52,41 +53,34 @@ function stripLegacySession(session: ElderWiseStore["session"] & { onboardingCom
   };
 }
 
+/**
+ * Persist only session + settings + selection.
+ * Domain rows (loved ones, check-ins, SOS, …) come from the server read model —
+ * never revive old localStorage demo seed data.
+ */
+function clientShellFrom(
+  saved: Partial<ElderWiseStore> | null,
+  prevSession?: ElderWiseStore["session"],
+  prevSettings?: UserSettings,
+): ElderWiseStore {
+  const empty = createEmptyStore();
+  return {
+    ...empty,
+    session: stripLegacySession(saved?.session ?? prevSession ?? empty.session),
+    settings: normalizeSettings(saved?.settings ?? prevSettings ?? empty.settings),
+    selectedLovedOneId: saved?.selectedLovedOneId ?? null,
+  };
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [store, setStoreState] = useState<ElderWiseStore>(() => createDemoStore());
+  const [store, setStoreState] = useState<ElderWiseStore>(() => createEmptyStore());
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     const saved = readStorage<ElderWiseStore | null>(STORAGE_KEYS.store, null);
-    if (saved?.version === 1) {
-      const today = new Date().toISOString().slice(0, 10);
-      setStoreState({
-        ...saved,
-        session: stripLegacySession(saved.session),
-        settings: normalizeSettings(saved.settings),
-        lovedOnes: (saved.lovedOnes ?? []).map((lo) => ({
-          ...lo,
-          address: lo.address ?? "",
-          consentAttestedByCarePartner: lo.consentAttestedByCarePartner ?? false,
-          consentAttestedAt: lo.consentAttestedAt ?? "",
-          consentConfirmedAt: lo.consentConfirmedAt ?? null,
-        })),
-        foodRoutines: (saved.foodRoutines ?? []).map((item) => ({
-          ...item,
-          startDate: item.startDate || today,
-          endDate: item.endDate || today,
-        })),
-        healthRoutines: (saved.healthRoutines ?? []).map((item) => ({
-          ...item,
-          startDate: item.startDate || today,
-          endDate: item.endDate || today,
-        })),
-      });
-    } else {
-      const demo = createDemoStore();
-      writeStorage(STORAGE_KEYS.store, demo);
-      setStoreState(demo);
-    }
+    const next = clientShellFrom(saved?.version === 1 ? saved : null);
+    writeStorage(STORAGE_KEYS.store, next);
+    setStoreState(next);
     setHydrated(true);
   }, []);
 
@@ -94,7 +88,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (updater: ElderWiseStore | ((prev: ElderWiseStore) => ElderWiseStore)) => {
       setStoreState((prev) => {
         const next = typeof updater === "function" ? updater(prev) : updater;
-        writeStorage(STORAGE_KEYS.store, next);
+        // Persist shell only — drop any domain arrays callers may have written.
+        const shell = clientShellFrom(next, next.session, next.settings);
+        writeStorage(STORAGE_KEYS.store, shell);
         return next;
       });
     },
@@ -120,14 +116,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const resetDemoData = useCallback(() => {
     setStoreState((prev) => {
-      const demo = createDemoStore();
-      const next: ElderWiseStore = {
-        ...demo,
-        session: prev.session,
-        settings: normalizeSettings(prev.settings),
-        carePartner: prev.carePartner,
-        selectedLovedOneId: null,
-      };
+      const next = clientShellFrom(null, prev.session, prev.settings);
       writeStorage(STORAGE_KEYS.store, next);
       removeStorage(STORAGE_KEYS.onboardingDraft);
       return next;

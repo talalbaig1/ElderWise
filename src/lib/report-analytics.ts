@@ -224,6 +224,9 @@ function buildTrendSeries(
     ? Math.min(12, Math.max(1, Math.ceil(daySpan / 30)))
     : Math.min(14, Math.max(1, daySpan));
 
+  // No check-ins in range → empty series (do not plot flat 0% as if it were data).
+  if (med.length + food.length + health.length === 0) return [];
+
   return Array.from({ length: points }, (_, i) => {
     let dayFrom: Date;
     let dayTo: Date;

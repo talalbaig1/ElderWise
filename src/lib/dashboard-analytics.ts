@@ -96,7 +96,7 @@ function adherence(items: CheckInResponse[]): number | null {
   const takenOrMissed = scored.filter(
     (i) => i.status === "taken" || i.status === "missed",
   );
-  // No taken/missed ⇒ no % (avoids 100% on delayed-only / empty).
+  // No taken/missed ⇒ no % (C9 — never 100% on empty).
   if (takenOrMissed.length === 0) return null;
   const good = scored.filter((i) => i.status === "taken" || i.status === "delayed").length;
   return Math.round((good / scored.length) * 100);
@@ -116,64 +116,20 @@ function statusBreakdown(items: CheckInResponse[]) {
   return counts;
 }
 
-function hashSeed(input: string) {
-  let h = 0;
-  for (let i = 0; i < input.length; i++) h = (h * 31 + input.charCodeAt(i)) >>> 0;
-  return h;
-}
-
-function synthesizeCheckIns(
-  lovedOneId: string,
-  kind: CheckInResponse["routineKind"],
-  from: Date,
-  to: Date,
-): CheckInResponse[] {
-  const days = Math.max(1, differenceInCalendarDays(to, from) + 1);
-  const seed = hashSeed(`${lovedOneId}-${kind}`);
-  const items: CheckInResponse[] = [];
-  const statuses: CheckInStatus[] = ["taken", "taken", "taken", "delayed", "missed", "taken"];
-
-  for (let d = 0; d < Math.min(days, 60); d++) {
-    const day = addDays(from, d);
-    const status = statuses[(seed + d) % statuses.length];
-    const scheduled = new Date(day);
-    scheduled.setHours(8 + (seed % 5), 0, 0, 0);
-    const responded = new Date(day);
-    responded.setHours(8 + (seed % 5), 12, 0, 0);
-    items.push({
-      id: `syn-${kind}-${lovedOneId}-${d}`,
-      lovedOneId,
-      routineId: `syn-${kind}`,
-      routineKind: kind,
-      scheduledAt: scheduled.toISOString(),
-      respondedAt: status === "pending" ? undefined : responded.toISOString(),
-      status,
-      response: status === "taken" ? "yes" : status === "missed" ? "no" : "remind_later",
-      channel: "simulated",
-    });
-  }
-  return items;
-}
-
-function filterOrSynthesize(
+/** Facts only — never invent check-ins when the DB/store is empty. */
+function filterCheckIns(
   store: ElderWiseStore,
   lovedOneId: string,
   kind: CheckInResponse["routineKind"],
   from: Date,
   to: Date,
 ) {
-  const forLovedOne = store.checkIns.filter((c) => c.lovedOneId === lovedOneId);
-  // When real Supabase check-ins exist, never synthesize demo rows (A2.3).
-  if (forLovedOne.length > 0) {
-    return forLovedOne.filter(
-      (c) => c.routineKind === kind && inRange(c.scheduledAt, from, to),
-    );
-  }
-  const real = forLovedOne.filter(
-    (c) => c.routineKind === kind && inRange(c.scheduledAt, from, to),
+  return store.checkIns.filter(
+    (c) =>
+      c.lovedOneId === lovedOneId &&
+      c.routineKind === kind &&
+      inRange(c.scheduledAt, from, to),
   );
-  if (real.length > 0) return real;
-  return synthesizeCheckIns(lovedOneId, kind, from, to);
 }
 
 export function greetingForHour(date = new Date(), viewerTimeZone = "UTC") {
@@ -231,13 +187,13 @@ export function buildDashboardModel(
           hour12: true,
         })}`;
 
-  const med = filterOrSynthesize(store, lovedOne.id, "medication", bounds.from, bounds.to);
-  const food = filterOrSynthesize(store, lovedOne.id, "food", bounds.from, bounds.to);
-  const health = filterOrSynthesize(store, lovedOne.id, "health", bounds.from, bounds.to);
+  const med = filterCheckIns(store, lovedOne.id, "medication", bounds.from, bounds.to);
+  const food = filterCheckIns(store, lovedOne.id, "food", bounds.from, bounds.to);
+  const health = filterCheckIns(store, lovedOne.id, "health", bounds.from, bounds.to);
 
-  const medPrior = filterOrSynthesize(store, lovedOne.id, "medication", bounds.priorFrom, bounds.priorTo);
-  const foodPrior = filterOrSynthesize(store, lovedOne.id, "food", bounds.priorFrom, bounds.priorTo);
-  const healthPrior = filterOrSynthesize(store, lovedOne.id, "health", bounds.priorFrom, bounds.priorTo);
+  const medPrior = filterCheckIns(store, lovedOne.id, "medication", bounds.priorFrom, bounds.priorTo);
+  const foodPrior = filterCheckIns(store, lovedOne.id, "food", bounds.priorFrom, bounds.priorTo);
+  const healthPrior = filterCheckIns(store, lovedOne.id, "health", bounds.priorFrom, bounds.priorTo);
 
   const medPct = adherence(med);
   const foodPct = adherence(food);
@@ -246,46 +202,35 @@ export function buildDashboardModel(
   const trend = (now: number | null, prior: number | null) =>
     now == null || prior == null ? undefined : now - prior;
 
-  const hasRealCheckIns = store.checkIns.some((c) => c.lovedOneId === lovedOne.id);
+  const allInRange = [...med, ...food, ...health];
   const spanDays = Math.max(1, differenceInCalendarDays(bounds.to, bounds.from) + 1);
   const dayCount = Math.min(spanDays, 14);
   const step = Math.max(1, Math.floor(spanDays / dayCount));
-  const trendSeries = Array.from({ length: dayCount }, (_, i) => {
-    const dayFrom = startOfDay(addDays(bounds.from, i * step));
-    const dayTo = endOfDay(addDays(dayFrom, Math.max(0, step - 1)));
-    const label = format(dayFrom, spanDays <= 2 ? "ha" : spanDays <= 14 ? "EEE" : "d MMM");
 
-    const dayMed = med.filter((c) => inRange(c.scheduledAt, dayFrom, dayTo));
-    const dayFood = food.filter((c) => inRange(c.scheduledAt, dayFrom, dayTo));
-    const dayHealth = health.filter((c) => inRange(c.scheduledAt, dayFrom, dayTo));
-    const medDay = hasRealCheckIns
-      ? dayMed
-      : dayMed.length
-        ? dayMed
-        : synthesizeCheckIns(lovedOne.id, "medication", dayFrom, dayTo);
-    const foodDay = hasRealCheckIns
-      ? dayFood
-      : dayFood.length
-        ? dayFood
-        : synthesizeCheckIns(lovedOne.id, "food", dayFrom, dayTo);
-    const healthDay = hasRealCheckIns
-      ? dayHealth
-      : dayHealth.length
-        ? dayHealth
-        : synthesizeCheckIns(lovedOne.id, "health", dayFrom, dayTo);
-    return {
-      label,
-      medication: adherence(medDay) ?? 0,
-      meals: adherence(foodDay) ?? 0,
-      health: adherence(healthDay) ?? 0,
-    };
-  });
+  // Empty range → empty series (do not plot a flat 0% line as if it were data).
+  const trendSeries =
+    allInRange.length === 0
+      ? []
+      : Array.from({ length: dayCount }, (_, i) => {
+          const dayFrom = startOfDay(addDays(bounds.from, i * step));
+          const dayTo = endOfDay(addDays(dayFrom, Math.max(0, step - 1)));
+          const label = format(dayFrom, spanDays <= 2 ? "ha" : spanDays <= 14 ? "EEE" : "d MMM");
+          const medDay = med.filter((c) => inRange(c.scheduledAt, dayFrom, dayTo));
+          const foodDay = food.filter((c) => inRange(c.scheduledAt, dayFrom, dayTo));
+          const healthDay = health.filter((c) => inRange(c.scheduledAt, dayFrom, dayTo));
+          return {
+            label,
+            medication: adherence(medDay) ?? 0,
+            meals: adherence(foodDay) ?? 0,
+            health: adherence(healthDay) ?? 0,
+          };
+        });
 
   const pie = [
-    { name: "Taken", value: statusBreakdown([...med, ...food, ...health]).taken, fill: "#5C8C6B" },
-    { name: "Delayed", value: statusBreakdown([...med, ...food, ...health]).delayed, fill: "#E3A23C" },
-    { name: "Missed", value: statusBreakdown([...med, ...food, ...health]).missed, fill: "#B8433A" },
-    { name: "Pending", value: statusBreakdown([...med, ...food, ...health]).pending, fill: "#4A6D7C" },
+    { name: "Taken", value: statusBreakdown(allInRange).taken, fill: "#5C8C6B" },
+    { name: "Delayed", value: statusBreakdown(allInRange).delayed, fill: "#E3A23C" },
+    { name: "Missed", value: statusBreakdown(allInRange).missed, fill: "#B8433A" },
+    { name: "Pending", value: statusBreakdown(allInRange).pending, fill: "#4A6D7C" },
   ].filter((p) => p.value > 0);
 
   const sosEvents = store.sosEvents.filter((e) => e.lovedOneId === lovedOne.id);
@@ -304,11 +249,11 @@ export function buildDashboardModel(
 
   const todayFrom = startOfDay(new Date());
   const todayTo = endOfDay(new Date());
-  const todayItems = [...med, ...food, ...health]
+  const todayItems = allInRange
     .filter((c) => inRange(c.scheduledAt, todayFrom, todayTo))
     .sort((a, b) => +parseISO(a.scheduledAt) - +parseISO(b.scheduledAt));
 
-  const timeline = (todayItems.length > 0 ? todayItems : [...med, ...food, ...health].slice(0, 6))
+  const timeline = todayItems
     .slice(0, 8)
     .map((item) => ({
       id: item.id,
@@ -323,7 +268,7 @@ export function buildDashboardModel(
         minute: "2-digit",
         hour12: true,
       }),
-      status: item.status,
+      status: item.status as CheckInStatus,
       kind: item.routineKind,
     }));
 
@@ -358,9 +303,12 @@ export function buildDashboardModel(
     .sort((a, b) => a.time.localeCompare(b.time))
     .slice(0, 6);
 
-  const wellbeingMessage =
-    activeSos
-      ? "An SOS needs your attention right now."
+  const noCheckInData = medPct == null && foodPct == null && healthPct == null;
+
+  const wellbeingMessage = activeSos
+    ? "An SOS needs your attention right now."
+    : noCheckInData
+      ? "No check-in data in this range yet."
       : (medPct ?? 0) >= 85 && (foodPct ?? 0) >= 85
         ? "Today looks steady and reassuring."
         : (medPct != null && medPct < 70) || (foodPct != null && foodPct < 70)

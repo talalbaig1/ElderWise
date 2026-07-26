@@ -4,11 +4,9 @@ import { useMemo, useState, type ReactNode } from "react";
 import { format, formatDistanceToNow, parseISO, subDays } from "date-fns";
 import { motion, useReducedMotion } from "framer-motion";
 import { AlertTriangle, ChevronDown, Mic, Sparkles } from "lucide-react";
-import { toast } from "sonner";
 import { VoiceAudioPlayer } from "@/components/voice-journal/audio-player";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,17 +19,14 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
-  applyJournalToStore,
   filterJournals,
   formatDuration,
   fullTranscript,
   journalStats,
 } from "@/lib/voice-journal";
-import { useAppData } from "@/components/data/app-data-provider";
-import { useElderWiseStore, useSelectedLovedOne } from "@/lib/store";
+import { useDomainStore } from "@/components/data/app-data-provider";
 import { formatInTimeZone, formatViewerDateTime } from "@/lib/time/display";
 import { cn } from "@/lib/utils";
-import type { VoiceJournalEntry } from "@/types";
 
 function todayStr() {
   return format(new Date(), "yyyy-MM-dd");
@@ -42,9 +37,8 @@ function monthAgoStr() {
 }
 
 export default function VoiceJournalPage() {
-  const { store, setStore, setSelectedLovedOneId, hydrated } = useElderWiseStore();
-  const { viewerTimeZone } = useAppData();
-  const selectedLovedOne = useSelectedLovedOne();
+  const { store, lovedOne: selectedLovedOne, setSelectedLovedOneId, hydrated, viewerTimeZone } =
+    useDomainStore();
   const reduceMotion = useReducedMotion();
 
   const [lovedOneFilter, setLovedOneFilter] = useState<string>("selected");
@@ -93,27 +87,21 @@ export default function VoiceJournalPage() {
     return lo ? `${lo.firstName} ${lo.surname}` : "Loved One";
   };
 
-  const toggleAttention = (entry: VoiceJournalEntry) => {
-    const next = { ...entry, attentionFlag: !entry.attentionFlag };
-    setStore((prev) => applyJournalToStore(prev, next, false));
-    toast.message(next.attentionFlag ? "Marked for attention" : "Attention flag cleared");
-  };
-
   return (
     <div className="space-y-6">
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-sm font-medium text-primary">Voice Journal</p>
-          {/* TODO(v2 / Could-have C2): live journaling is out of MVP — hard-coded demo only (FR-DB-6). */}
+          {/* TODO(v2 / Could-have C2): live journaling is out of MVP — table exists; message path does not populate it yet (FR-DB-6). */}
           <Badge variant="secondary" className="font-mono">
-            Demo preview
+            Preview
           </Badge>
         </div>
         <h1 className="font-display text-3xl tracking-tight md:text-4xl">
           Recordings & summaries
         </h1>
         <p className="mt-1 max-w-2xl text-muted-foreground">
-          Listen to recordings, read AI summaries and transcripts — from your local ElderWise data.
+          Listen to recordings, read AI summaries and transcripts when voice journals are available.
         </p>
       </div>
 
@@ -191,8 +179,8 @@ export default function VoiceJournalPage() {
       {filtered.length === 0 ? (
         <EmptyState
           icon={Mic}
-          title="No journal entries match"
-          description="Try a different Loved One or date range, or clear the attention filter."
+          title="No journal entries"
+          description="Voice journals will appear here when the message path records them. Nothing is seeded for demo."
         />
       ) : (
         <div className="space-y-4">
@@ -230,13 +218,6 @@ export default function VoiceJournalPage() {
                       {formatDistanceToNow(parseISO(selected.recordedAt), { addSuffix: true })}
                     </CardDescription>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => toggleAttention(selected)}
-                  >
-                    {selected.attentionFlag ? "Clear attention" : "Flag attention"}
-                  </Button>
                 </div>
               </CardHeader>
               <CardContent className="space-y-5">
