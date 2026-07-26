@@ -64,18 +64,21 @@ ALTER TABLE public.doctors
 
 -- ---------------------------------------------------------------------------
 -- medications: exactly one time per row (Rules.md D12)
+-- Use cardinality(), not array_length(): array_length('{}', 1) is NULL and
+-- CHECK treats NULL as pass, so '{}' (the column default) would slip through.
 -- ---------------------------------------------------------------------------
 ALTER TABLE public.medications
   ADD CONSTRAINT medications_times_exactly_one
-  CHECK (array_length(times, 1) = 1);
+  CHECK (cardinality(times) = 1);
 
 -- ---------------------------------------------------------------------------
 -- sos_notifications: skip audit + created_at; sent_at nullable (Architecture §5.2)
+-- status has no DEFAULT — callers must set it explicitly with consistent fields.
 -- ---------------------------------------------------------------------------
 CREATE TYPE public.sos_notification_status AS ENUM ('sent', 'failed', 'skipped');
 
 ALTER TABLE public.sos_notifications
-  ADD COLUMN status public.sos_notification_status NOT NULL DEFAULT 'sent',
+  ADD COLUMN status public.sos_notification_status NOT NULL,
   ADD COLUMN skip_reason text,
   ADD COLUMN created_at timestamptz NOT NULL DEFAULT now();
 
@@ -84,3 +87,24 @@ ALTER TABLE public.sos_notifications
 
 ALTER TABLE public.sos_notifications
   ALTER COLUMN sent_at DROP NOT NULL;
+
+ALTER TABLE public.sos_notifications
+  ADD CONSTRAINT sos_notifications_status_fields_consistent CHECK (
+    (
+      status = 'sent'
+      AND wa_message_id IS NOT NULL
+      AND sent_at IS NOT NULL
+      AND skip_reason IS NULL
+    )
+    OR (
+      status = 'skipped'
+      AND skip_reason IS NOT NULL
+      AND wa_message_id IS NULL
+      AND sent_at IS NULL
+    )
+    OR (
+      status = 'failed'
+      AND sent_at IS NULL
+      AND skip_reason IS NULL
+    )
+  );

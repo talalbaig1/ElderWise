@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.8 |
+| **Document** | Architecture.md — v1.9 |
 | **Date** | 26 July 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
@@ -260,7 +260,7 @@ care_partners ──┐
 | `name` | text | Include **strength** in the name (e.g. `Metformin 500mg`). |
 | `dosage` | text | **Quantity per intake** (e.g. `1`, `5`) — not strength. |
 | `dosage_unit` | text | Free text (UI dropdown: `TAB` / `ML` / `CAP` / `DROPS` / `PUFF` / `UNIT`). **No enum / CHECK** — dropdown may widen without a migration. |
-| `times` | text[] | local wall-clock, elder tz. **`CHECK (array_length(times, 1) = 1)`** — one time per row; two doses/day = two medication rows (Rules.md D12). |
+| `times` | text[] | local wall-clock, elder tz. **`CHECK (cardinality(times) = 1)`** — one time per row; two doses/day = two medication rows (Rules.md D12). Use `cardinality`, not `array_length`: `array_length('{}', 1)` is NULL and CHECK treats NULL as pass, so the column default `'{}'` would not be rejected. |
 | `days_of_week` | text[] | **Unused** — not collected (see §5.6). |
 | `start_date` | date | |
 | `end_date` | date | nullable |
@@ -350,12 +350,20 @@ Index: `(elder_id, domain, scheduled_for)` and `(status, scheduled_for)` — the
 | `recipient_role` | enum | |
 | `recipient_id` | uuid | |
 | `nudge_index` | int (0–3) | |
-| `status` | enum(`sent`,`failed`,`skipped`) | A4: distinguish delivery from intentional non-send. |
-| `skip_reason` | text | nullable; first value `no_whatsapp_number` when doctor has no channel. |
-| `wa_message_id` | text | **NULL** when `status = skipped`. Required on successful sends (W3). |
-| `sent_at` | timestamptz | **Nullable** — skipped rows must not carry a send time. |
+| `status` | enum(`sent`,`failed`,`skipped`) **NOT NULL**, **no DEFAULT** | Caller must set explicitly. Consistency enforced by `sos_notifications_status_fields_consistent` (below). |
+| `skip_reason` | text | nullable; required when `skipped`; first value `no_whatsapp_number` when doctor has no channel. |
+| `wa_message_id` | text | Required when `sent`; **NULL** when `skipped` (W3). |
+| `sent_at` | timestamptz | **Nullable**, no DEFAULT. Required when `sent`; **NULL** when `skipped` or `failed`. |
 | `delivered_at` | timestamptz | nullable |
 | `created_at` | timestamptz **NOT NULL DEFAULT now()** | Audit time for skips and sends alike. |
+
+**`sos_notifications_status_fields_consistent` CHECK:**
+
+| `status` | `wa_message_id` | `sent_at` | `skip_reason` |
+|---|---|---|---|
+| `sent` | NOT NULL | NOT NULL | NULL |
+| `skipped` | NULL | NULL | NOT NULL |
+| `failed` | *(unconstrained)* | NULL | NULL |
 
 **`ct_notifications`** — the care-partner notification trail (Sukin's must-have).
 
@@ -762,6 +770,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | Date | Version | Change |
 |---|---|---|
+| 26 Jul 2026 | 1.9 | **A4.1 Pass 1 revision.** `medications.times` CHECK uses `cardinality(times) = 1` (not `array_length` — NULL pass on `'{}'`). `sos_notifications.status` has no DEFAULT; document `sos_notifications_status_fields_consistent` CHECK (`sent` / `skipped` / `failed` field rules). |
 | 26 Jul 2026 | 1.8 | **`consent_terms_version`** documented as a dated string (e.g. `2026-07-v1`) tied to exact Privacy/Terms text at Review (`PRD.md` §12.4). |
 | 26 Jul 2026 | 1.7 | **A4 — schema alignment & Track B contract.** `first_name`/`last_name` replace `full_name`; drop `phone_number`; elders: `last_name`, `age`, `relationship_to_care_partner`, Review consent columns; doctors: nullable WA, `clinic_name`, stop collecting timezone; meds: dosage=quantity, `times` length=1, `not_required` notify mode; enum ADD VALUE ordering; §5.6 unused register; §5.7 Care Circle `SECURITY INVOKER` RPC; `sos_notifications` skip status + `created_at` / nullable `sent_at`; WF-4 doctor skip branch; WF-6 per-routine authority (`domain_configs.ct_notification` derived/deprecated — A-9 Robert); §10 share page uses elder TZ (doctor-TZ exception removed); A-7 closed → discharged by Phases A4.0 wipe. |
 | 24 Jul 2026 | 1.6 | **Docs ↔ built product (23–24 Jul).** Elders draft/`active` + hard-delete draft vs soft-delete history; derived `domain_configs.frequency`; routine column asymmetry; `ct_notifications` mark-read open decision. §7.3: SHA-256 share tokens, 30-day expiry, click-through gate, doctor allowlist, fail-open IP rate limit. §10: PDF elder-tz exception; CT/doctor timezone INSERT-only. §12.5: single admin module, fail-open limiter, PDF ownership, Auth IP-forwarding Off. Risks/open: leaked-password WARN accepted (R8); Arabic PDF limitation (R9); Dev test-account cleanup (A-7); Upstash unset so A3.5 limiter inactive in Production (A-8). |

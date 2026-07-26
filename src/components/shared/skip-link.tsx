@@ -12,16 +12,6 @@ export function SkipLink() {
   );
 }
 
-export function BrandLegalNote() {
-  return (
-    <p className="text-xs leading-relaxed text-muted-foreground">
-      ElderWise supports family communication and routine monitoring. It is not a substitute for
-      professional medical advice or emergency services. In a real emergency, call local emergency
-      services.
-    </p>
-  );
-}
-
 export function SoftPageLink({
   href,
   children,
