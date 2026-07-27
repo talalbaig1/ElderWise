@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.8 |
+| **Document** | Phases.md — v1.9 |
 | **Date** | 27 July 2026 |
 | **Demo Day** | **Saturday 29 August 2026** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Templates.md` |
@@ -141,9 +141,11 @@ Because RLS and `auth.uid()` already exist, this is **UI work, not a security re
 | A3.4 | ~~**Multi-user + multi-elder** — one CT with several EPs; elder selector~~ — **DONE.** |
 | A3.5 | ~~**Rate limiting** — share reveal (platform IP) + PDF (per user id); Auth signup/login left to Supabase quotas (Pass 3)~~ — **DONE** (code landed; Upstash unset on Vercel so limiter currently no-ops — see `Architecture.md` A-8). |
 
-**🚪 GATE A3 — the isolation test.** **PASSED 24 July 2026** (evidence: `scripts/rls-cross-tenant.mjs`, 48 checks). This is X1, and X1 is a release blocker.
+**🚪 GATE A3 — the isolation test.** **RE-EARNED 27 July 2026** (evidence below). This is X1, and X1 is a release blocker.
 
-> **⚠ GATE A3 evidence does not survive A4.0.** The 24–25 July runs authenticated as pre-existing tenants from env vars; those tenants and all public rows are deleted by the A4.0 wipe. The gate scripts **seed nothing**. After A4.0 + schema migration, GATE A3 must be **re-earned** against two fresh tenants. Do **not** leave A3 marked green as if the old evidence still holds — treat it as **requires re-verification** until the scripts pass again.
+> **Coverage note (`rls-cross-tenant.mjs`):** The script is structurally **pairwise** — `TENANT_A` ↔ `TENANT_B`, two directions. The **48 checks** (24 per direction) do **not** scale with tenant count; the July "48 across 6 care partners" was the same 48 checks. A reduced tenant count in env does not mean reduced RLS coverage.
+
+> **24 July evidence invalidated by A4.0.** Pre-wipe tenants and all public rows were deleted; gate scripts seed nothing. **Re-earned 27 July 2026:** seed applied (`create-seed-user.mjs` + `supabase/seed.sql`); `scripts/rls-cross-tenant.mjs` **48/48** pairwise A→B and B→A; plus `verify-a3-auth.mjs`, `rls-proof.mjs`, `share-link-isolation.mjs`, `verify-pass2-writes.mjs`, `verify-seed-reads.mjs`, `verify-a4-2-care-circle.mjs` — **7 scripts green**.
 
 ### A4 · Onboarding restructure & schema alignment *(after A3 — docs 26 Jul; build next)*
 
@@ -160,14 +162,14 @@ Because RLS and `auth.uid()` already exist, this is **UI work, not a security re
 | A4.6 | Privacy/Terms rewrite **content** (supplied for approval — not drafted by agents) landed on `/privacy` and `/terms` so Review consent is honest. Must follow `PRD.md` §12.4 (no registered entity; demo/capstone disclosures; dated `consent_terms_version`). |
 | A4.7 | Track B handoff — Robert implements WF-6 per-routine `notify_care_partner` (incl. `not_required`) and WF-4 doctor skip logging (`Architecture.md` A-9 / WF-4). |
 
-**🚪 GATE A4.** All of the following:
+**🚪 GATE A4 — PASSED 27 July 2026.** All of the following:
 
-- [ ] A4.0 wipe completed with backup; two fresh tenants in env; GATE A3 scripts **re-passed**
-- [ ] Schema matches `Architecture.md` §5.2 (incl. enum ordering); unused-column register respected
-- [ ] Onboarding is 4 steps; Care Circle atomic RPC; Review four consents; Not Required warning placeholder present
-- [ ] Demo seed rebuilt (A4.5)
-- [ ] Share page renders in elder timezone; no non-WhatsApp phone capture in product paths
-- [ ] RLS + verify scripts green on new schema
+- [x] A4.0 wipe completed with backup; two fresh tenants in env; GATE A3 **re-earned 27 July 2026** (7 scripts green; `rls-cross-tenant.mjs` 48/48 pairwise A→B and B→A)
+- [x] Schema matches `Architecture.md` §5.2 (incl. enum ordering); unused-column register respected
+- [x] Onboarding is 4 steps; Care Circle atomic RPC; Review four consents; Not Required warning placeholder present
+- [x] Demo seed rebuilt (A4.5) — applied and read back (`verify-seed-reads.mjs`)
+- [x] Share page renders in elder timezone; no non-WhatsApp phone capture in product paths
+- [x] RLS + verify scripts green on new schema — **7 scripts:** `verify-a3-auth.mjs`, `rls-cross-tenant.mjs` (48/48), `rls-proof.mjs`, `share-link-isolation.mjs`, `verify-pass2-writes.mjs`, `verify-seed-reads.mjs`, `verify-a4-2-care-circle.mjs`
 
 ---
 
@@ -318,6 +320,7 @@ The proposal is a **second channel (Telegram)** so the demo can run even if temp
 
 | Date | Version | Change |
 |---|---|---|
+| 27 Jul 2026 | 1.9 | **GATE A4 PASSED** (27 Jul 2026): all six checklist items ticked; evidence recorded (7 scripts, 48 pairwise RLS checks, seed applied/read back). GATE A3 **re-earned** 27 Jul (replaces invalidated 24 Jul evidence). `rls-cross-tenant` coverage clarification: 48 checks are pairwise A↔B and do not scale with tenant count. A4.5 seed backlog: `sos_notifications` row with `status = skipped`, `skip_reason = no_whatsapp_number`. |
 | 27 Jul 2026 | 1.8 | A4.3: Care Circle one-draft RPC error must surface as resume-or-discard UI (not toast). |
 | 26 Jul 2026 | 1.7 | A4.6 points at corrected `PRD.md` §12.4 legal posture (no entity; dated `consent_terms_version`). |
 | 26 Jul 2026 | 1.6 | **A4 added** — onboarding restructure & schema alignment. **A4.0** full public + Auth wipe (discharges Architecture A-7); GATE A3 evidence marked **requires re-verification** after wipe; A4.5 demo seed rebuild; GATE A4 checklist. Not Architecture A-4 (SOS webhook). |

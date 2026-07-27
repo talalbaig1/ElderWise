@@ -26,4 +26,8 @@ dashboard, check-in history, journal entries).
 - [x] `scripts/verify-pass2-writes.mjs` — **updated** (kept: soft-delete + domain_configs + consent immutability beyond A4.2 RPC smoke)
 - [x] `scripts/verify-a2-4-onboarding.mjs` — **retired** (8-step path deleted; superseded by `verify-a4-2-care-circle.mjs`)
 - [x] `scripts/verify-a3-auth.mjs` — already on `first_name`/`last_name`
-- [ ] Gate A3 re-earned against two fresh tenants (after wipe + seed + env update)
+- [x] Gate A3 re-earned against two fresh tenants (27 Jul 2026 — 7 scripts green)
+
+## Backlog (post–GATE A4)
+
+- [ ] One `sos_notifications` row with `status = 'skipped'` and `skip_reason = 'no_whatsapp_number'` — worked example for the doctor-no-channel path before Robert builds WF-4 (`Rules.md` W3 / `Architecture.md` A-9).
