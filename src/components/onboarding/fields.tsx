@@ -1,7 +1,12 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { DAYS } from "@/lib/onboarding";
+import {
+  DAYS,
+  NOT_REQUIRED_WARNING_MEDICATION,
+  NOT_REQUIRED_WARNING_ROUTINE,
+  type NotifyCarePartnerMode,
+} from "@/lib/onboarding";
 import type { DayOfWeek } from "@/types";
 
 export function DayChips({
@@ -70,21 +75,22 @@ export function ChoiceChips<T extends string>({
   );
 }
 
+const NOTIFY_OPTIONS: [NotifyCarePartnerMode, string][] = [
+  ["every_time", "Every time"],
+  ["only_missed", "Only if missed"],
+  ["not_required", "Not required"],
+];
+
 export function SegmentedNotify({
   value,
   onChange,
 }: {
-  value: "every_time" | "only_missed";
-  onChange: (value: "every_time" | "only_missed") => void;
+  value: NotifyCarePartnerMode;
+  onChange: (value: NotifyCarePartnerMode) => void;
 }) {
   return (
     <div className="flex overflow-hidden rounded-xl border">
-      {(
-        [
-          ["every_time", "Every time"],
-          ["only_missed", "Only if missed"],
-        ] as const
-      ).map(([key, label]) => (
+      {NOTIFY_OPTIONS.map(([key, label]) => (
         <button
           key={key}
           type="button"
@@ -98,6 +104,19 @@ export function SegmentedNotify({
         </button>
       ))}
     </div>
+  );
+}
+
+/** Plain copy shown only when the parent renders it (notifyCarePartner === "not_required"). */
+export function NotRequiredWarning({
+  variant,
+}: {
+  variant: "medication" | "routine";
+}) {
+  return (
+    <p className="text-sm text-muted-foreground">
+      {variant === "medication" ? NOT_REQUIRED_WARNING_MEDICATION : NOT_REQUIRED_WARNING_ROUTINE}
+    </p>
   );
 }
 

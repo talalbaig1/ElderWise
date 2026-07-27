@@ -2,8 +2,6 @@
 -- SECURITY INVOKER: RLS applies as the calling care partner.
 -- One transaction: upsert care_partners, upsert draft elder (active=false),
 -- optional local_caregivers / doctors only when payload is non-null.
--- Doctor approved_by_ct = false at draft (FR-ON-7); Review sets true with
--- consent_data_sharing_at. Unique WhatsApp via CONSTRAINT_NAME diagnostics.
 
 CREATE OR REPLACE FUNCTION public.save_care_circle_draft(
   p_care_partner jsonb,
@@ -26,7 +24,6 @@ DECLARE
   v_cp_wa text;
   v_cp_tz text;
   v_elder_existing_id uuid;
-  v_constraint text;
 BEGIN
   IF v_uid IS NULL THEN
     RAISE EXCEPTION 'Not authenticated';
@@ -190,9 +187,7 @@ BEGIN
       whatsapp_number = EXCLUDED.whatsapp_number;
   END IF;
 
-  -- Doctor: engaged → upsert with approved_by_ct = false (FR-ON-7).
-  -- Review sets approved_by_ct = true with consent_data_sharing_at.
-  -- ON CONFLICT does not touch approved_by_ct (preserves Review approval).
+  -- Doctor: engaged → upsert; skipped (null) → delete any row
   IF p_doctor IS NULL THEN
     DELETE FROM public.doctors WHERE elder_id = v_elder_id;
   ELSE
@@ -209,20 +204,20 @@ BEGIN
       trim(p_doctor->>'last_name'),
       nullif(trim(p_doctor->>'whatsapp_number'), ''),
       trim(p_doctor->>'clinic_name'),
-      false
+      true
     )
     ON CONFLICT (elder_id) DO UPDATE SET
       first_name = EXCLUDED.first_name,
       last_name = EXCLUDED.last_name,
       whatsapp_number = EXCLUDED.whatsapp_number,
-      clinic_name = EXCLUDED.clinic_name;
+      clinic_name = EXCLUDED.clinic_name,
+      approved_by_ct = true;
   END IF;
 
   RETURN v_elder_id;
 EXCEPTION
   WHEN unique_violation THEN
-    GET STACKED DIAGNOSTICS v_constraint = CONSTRAINT_NAME;
-    IF v_constraint = 'elders_whatsapp_number_unique' THEN
+    IF SQLERRM ILIKE '%whatsapp%' THEN
       RAISE EXCEPTION 'This WhatsApp number is already registered to a Loved One';
     END IF;
     RAISE;

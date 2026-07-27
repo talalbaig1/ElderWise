@@ -17,10 +17,13 @@ import {
   createEmptyFood,
   createEmptyHealth,
   createEmptyMedication,
+  emptyDoctor,
+  emptyLocalBuddy,
   loadOnboardingDraft,
-  ONBOARDING_STEPS,
+  ONBOARDING_WIZARD_STEPS,
   saveOnboardingDraft,
   type OnboardingDraft,
+  type OnboardingStepId,
 } from "@/lib/onboarding";
 import { loadOnboardingResume } from "@/lib/data/onboarding-actions";
 import { useElderWiseStore } from "@/lib/store";
@@ -28,11 +31,11 @@ import { useElderWiseStore } from "@/lib/store";
 interface OnboardingContextValue {
   draft: OnboardingDraft;
   hydrated: boolean;
-  step: number;
+  stepId: OnboardingStepId;
   totalSteps: number;
   /** True when adding another Loved One after the CT already has product elders. */
   additionalMode: boolean;
-  setStep: (step: number) => void;
+  setStepId: (id: OnboardingStepId) => void;
   updateDraft: (updater: (prev: OnboardingDraft) => OnboardingDraft) => void;
   patchDraft: (partial: Partial<OnboardingDraft>) => void;
   saveNow: () => void;
@@ -56,14 +59,16 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     if (!storeHydrated || !accountId) return;
     let cancelled = false;
 
+    const seed = {
+      firstName: store.carePartner?.firstName,
+      lastName: store.carePartner?.lastName,
+      email: store.session.email ?? store.carePartner?.email,
+    };
+
     void (async () => {
       if (forceFresh) {
         clearOnboardingDraft();
-        const next = createDefaultDraft(accountId, {
-          firstName: store.carePartner?.firstName,
-          lastName: store.carePartner?.lastName,
-          email: store.session.email ?? store.carePartner?.email,
-        });
+        const next = createDefaultDraft(accountId, seed);
         if (cancelled) return;
         saveOnboardingDraft(next);
         setDraft(next);
@@ -87,44 +92,28 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
       if (resumeRes.ok && resumeRes.resume) {
         const r = resumeRes.resume;
-        const base = createDefaultDraft(accountId, {
-          firstName: store.carePartner?.firstName,
-          lastName: store.carePartner?.lastName,
-          email: store.session.email ?? store.carePartner?.email,
-        });
-        let currentStep = r.currentStep;
-        // Additional-elder mode never shows Care Partner (step 1).
-        if (additionalMode && currentStep === 1) currentStep = 2;
+        const base = createDefaultDraft(accountId, seed);
         const next: OnboardingDraft = {
           ...base,
           elderId: r.elderId,
-          currentStep,
-          lovedOne: r.lovedOne,
-          carePartner: {
-            ...base.carePartner,
-            ...r.carePartner,
-          },
-          localBuddy: r.localBuddy,
-          doctor: r.doctor,
-          foodRoutines:
-            r.foodRoutines.length > 0 ? r.foodRoutines : [createEmptyFood()],
-          medications:
-            r.medications.length > 0 ? r.medications : [createEmptyMedication()],
-          healthRoutines:
-            r.healthRoutines.length > 0
-              ? r.healthRoutines
-              : [createEmptyHealth()],
+          currentStepId: r.currentStepId,
+          carePartner: { ...base.carePartner, ...r.carePartner },
+          lovedOne: { ...base.lovedOne, ...r.lovedOne },
+          localBuddy: r.localBuddy ?? emptyLocalBuddy(),
+          doctor: r.doctor ?? emptyDoctor(),
+          foodRoutines: r.foodRoutines?.length ? r.foodRoutines : [createEmptyFood()],
+          medications: r.medications?.length
+            ? r.medications
+            : [createEmptyMedication(r.lovedOne?.timeZone ?? base.lovedOne.timeZone)],
+          healthRoutines: r.healthRoutines?.length ? r.healthRoutines : [createEmptyHealth()],
         };
         if (existing) {
-          next.lovedOne = existing.lovedOne.firstName
-            ? existing.lovedOne
-            : next.lovedOne;
-          next.carePartner = existing.carePartner.firstName
+          next.lovedOne = existing.lovedOne.firstName ? existing.lovedOne : next.lovedOne;
+          next.carePartner = existing.carePartner.whatsappNumber
             ? existing.carePartner
             : next.carePartner;
-          if (existing.currentStep > next.currentStep) {
-            next.currentStep = existing.currentStep;
-            if (additionalMode && next.currentStep === 1) next.currentStep = 2;
+          if (wizardStepAhead(existing.currentStepId, next.currentStepId)) {
+            next.currentStepId = existing.currentStepId;
           }
         }
         saveOnboardingDraft(next);
@@ -134,13 +123,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const next =
-        existing ??
-        createDefaultDraft(accountId, {
-          firstName: store.carePartner?.firstName,
-          lastName: store.carePartner?.lastName,
-          email: store.session.email ?? store.carePartner?.email,
-        });
+      const next = existing ?? createDefaultDraft(accountId, seed);
       setDraft(next);
       setLastSavedAt(next.updatedAt);
       setHydrated(true);
@@ -155,7 +138,6 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     store.carePartner,
     store.session.email,
     forceFresh,
-    additionalMode,
   ]);
 
   const persist = useCallback((next: OnboardingDraft) => {
@@ -183,15 +165,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     [updateDraft],
   );
 
-  const setStep = useCallback(
-    (step: number) => {
-      updateDraft((prev) => {
-        let next = Math.max(0, Math.min(ONBOARDING_STEPS.length - 1, step));
-        if (additionalMode && next === 1) next = 2;
-        return { ...prev, currentStep: next };
-      });
+  const setStepId = useCallback(
+    (id: OnboardingStepId) => {
+      updateDraft((prev) => ({ ...prev, currentStepId: id }));
     },
-    [updateDraft, additionalMode],
+    [updateDraft],
   );
 
   const saveNow = useCallback(() => {
@@ -205,10 +183,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     return {
       draft,
       hydrated,
-      step: draft.currentStep,
-      totalSteps: ONBOARDING_STEPS.length,
+      stepId: draft.currentStepId,
+      totalSteps: ONBOARDING_WIZARD_STEPS.length,
       additionalMode,
-      setStep,
+      setStepId,
       updateDraft,
       patchDraft,
       saveNow,
@@ -218,7 +196,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     draft,
     hydrated,
     additionalMode,
-    setStep,
+    setStepId,
     updateDraft,
     patchDraft,
     saveNow,
@@ -242,6 +220,13 @@ export function useOnboarding() {
   const ctx = useContext(OnboardingContext);
   if (!ctx) throw new Error("useOnboarding must be used within OnboardingProvider");
   return ctx;
+}
+
+/** True when `a` is further along the 3-step wizard (or completion) than `b`. */
+function wizardStepAhead(a: OnboardingStepId, b: OnboardingStepId): boolean {
+  const rank = (id: OnboardingStepId) =>
+    id === "completion" ? ONBOARDING_WIZARD_STEPS.length : ONBOARDING_WIZARD_STEPS.findIndex((s) => s.id === id);
+  return rank(a) > rank(b);
 }
 
 /** Call after successful activation — clears local draft only. */

@@ -111,6 +111,27 @@ function SignUpForm() {
   });
 
   return (
+    <div className="relative min-h-[calc(100vh-8rem)]">
+      <div className="mx-auto max-w-md px-4 pt-8 sm:px-6">
+        <p className="font-mono text-[11px] text-muted-foreground">Step 1 of 4</p>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+          <div className="h-full w-1/4 rounded-full bg-primary" />
+        </div>
+        <div className="mt-2 flex flex-wrap gap-1">
+          {["Get Started", "Care Circle", "Wellness", "Review"].map((label, i) => (
+            <span
+              key={label}
+              className={
+                i === 0
+                  ? "rounded-full bg-primary px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-primary-foreground"
+                  : "rounded-full bg-muted px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground"
+              }
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
     <AuthShell
       title="Create your Care Partner account"
       description="Start staying close to the people who matter most. We’ll guide you through a warm onboarding next."
@@ -236,5 +257,6 @@ function SignUpForm() {
         </Button>
       </form>
     </AuthShell>
+    </div>
   );
 }

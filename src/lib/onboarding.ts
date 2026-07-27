@@ -10,7 +10,6 @@ import type {
   LocalBuddy,
   LovedOne,
   Medication,
-  MedicationTiming,
   NotificationMethod,
 } from "@/types";
 import { readStorage, removeStorage, STORAGE_KEYS, writeStorage } from "@/lib/storage";
@@ -27,78 +26,157 @@ export const DAYS: { value: DayOfWeek; label: string }[] = [
 
 export const ALL_DAYS: DayOfWeek[] = DAYS.map((d) => d.value);
 
-export const ONBOARDING_STEPS = [
-  { id: "loved-one", label: "Loved One", title: "Tell us about the person you would like to stay connected with." },
-  { id: "care-partner", label: "Care Partner", title: "Now, tell us how we should keep you updated." },
-  { id: "local-buddy", label: "Local Buddy", title: "Who is nearby if your Loved One needs help quickly?" },
-  { id: "doctor", label: "Family Doctor", title: "Add a trusted medical contact for urgent situations." },
-  { id: "food", label: "Food", title: "Set up food check-ins." },
-  { id: "medication", label: "Medication", title: "Set up medication reminders." },
-  { id: "health", label: "Health", title: "Set up health and wellness check-ins." },
-  { id: "review", label: "Review", title: "Does everything look right?" },
-  { id: "completion", label: "Done", title: "You are all set." },
+/** Post-auth counted steps (PRD §7.1). Completion is not counted. */
+export const ONBOARDING_WIZARD_STEPS = [
+  {
+    id: "care-circle",
+    label: "Care Circle",
+    title: "Who is in this Loved One’s care circle?",
+  },
+  {
+    id: "wellness-details",
+    label: "Wellness Details",
+    title: "Set up medication, food, and health check-ins.",
+  },
+  {
+    id: "review",
+    label: "Review",
+    title: "Does everything look right?",
+  },
 ] as const;
 
-export type OnboardingStepIndex = number;
+export type OnboardingWizardStepId = (typeof ONBOARDING_WIZARD_STEPS)[number]["id"];
 
-const phone = z.string().trim().min(7, "Enter a valid phone or WhatsApp number");
-const optionalEmail = z
+/** Includes completion (not in progress chrome). */
+export type OnboardingStepId = OnboardingWizardStepId | "completion";
+
+export const ONBOARDING_STEP_META: Record<
+  OnboardingStepId,
+  { label: string; title: string }
+> = {
+  "care-circle": ONBOARDING_WIZARD_STEPS[0],
+  "wellness-details": ONBOARDING_WIZARD_STEPS[1],
+  review: ONBOARDING_WIZARD_STEPS[2],
+  completion: {
+    label: "Done",
+    title: "You are all set.",
+  },
+};
+
+/** Full 4-step chrome including Get Started (sign-up). */
+export const ONBOARDING_FULL_PROGRESS = [
+  { id: "get-started", label: "Get Started" },
+  ...ONBOARDING_WIZARD_STEPS.map((s) => ({ id: s.id, label: s.label })),
+] as const;
+
+export const DOSAGE_UNITS = ["TAB", "ML", "CAP", "DROPS", "PUFF", "UNIT"] as const;
+
+export const NOTIFY_MODES = ["every_time", "only_missed", "not_required"] as const;
+export type NotifyCarePartnerMode = (typeof NOTIFY_MODES)[number];
+
+/** Approved Not Required warning copy (Pass 3) — medication. */
+export const NOT_REQUIRED_WARNING_MEDICATION =
+  "You won't receive any alerts about this medication — including when a dose is missed. Missed doses still appear on your dashboard, but no one is notified at the time.";
+
+/** Approved Not Required warning copy (Pass 3) — food and health. */
+export const NOT_REQUIRED_WARNING_ROUTINE =
+  "You won't receive any alerts about this routine — including when it's missed. Misses still appear on your dashboard, but no one is notified at the time.";
+
+const phone = z.string().trim().min(7, "Enter a valid WhatsApp number");
+const optionalPhone = z
   .string()
   .trim()
-  .refine((v) => v === "" || z.string().email().safeParse(v).success, "Enter a valid email");
+  .refine((v) => v === "" || v.length >= 7, "Enter a valid WhatsApp number");
 
-function todayDate() {
-  return new Date().toISOString().slice(0, 10);
+export function todayInTimeZone(timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: timeZone || "UTC",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
 }
 
-export const lovedOneSchema = z.object({
+export const carePartnerCircleSchema = z.object({
+  whatsappNumber: phone,
+  timeZone: z.string().trim().min(1, "Time zone is required"),
+});
+
+export const lovedOneCircleSchema = z.object({
   whatsappNumber: phone,
   firstName: z.string().trim().min(1, "First name is required"),
-  surname: z.string().trim().min(1, "Surname is required"),
-  dateOfBirth: z.string().optional(),
+  lastName: z.string().trim().min(1, "Last name is required"),
+  age: z.coerce.number().int().min(1).max(120),
   timeZone: z.string().trim().min(1, "Time zone is required"),
   relationshipToCarePartner: z.string().trim().min(1, "Relationship is required"),
   address: z
     .string()
     .trim()
     .min(1, "Address is required — the Local Buddy needs it in an emergency"),
-  consentAttestedByCarePartner: z.boolean().refine((value) => value === true, {
-    message: "Please confirm that your Loved One has agreed to receive ElderWise messages",
-  }),
 });
 
-export const carePartnerSchema = z.object({
+export const localBuddyCircleSchema = z.object({
   firstName: z.string().trim().min(1, "First name is required"),
-  phoneNumber: phone,
-  whatsappNumber: z.string().optional(),
-  email: optionalEmail,
-  relationshipToLovedOne: z.string().trim().min(1, "Relationship is required"),
-  timeZone: z.string().trim().min(1, "Time zone is required"),
+  lastName: z.string().trim().min(1, "Last name is required"),
+  whatsappNumber: phone,
 });
 
+export const doctorCircleSchema = z.object({
+  firstName: z.string().trim().min(1, "First name is required"),
+  lastName: z.string().trim().min(1, "Last name is required"),
+  clinicName: z.string().trim().min(1, "Clinic or hospital is required"),
+  whatsappNumber: optionalPhone,
+});
+
+/** Settings / Care Circle tab (pre-A4.4) — single name field until Pass 4. */
 export const localBuddySchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
   whatsappNumber: phone,
-  directContactNumber: phone,
+  directContactNumber: z.string().optional(),
 });
 
 export const doctorSchema = z.object({
   name: z.string().trim().min(1, "Doctor name is required"),
-  whatsappNumber: phone,
+  whatsappNumber: optionalPhone,
   directContactNumber: z.string().optional(),
   clinicOrHospitalName: z.string().optional(),
 });
 
-export const foodRoutineSchema = z.object({
+export const medicationDraftSchema = z.object({
+  id: z.string(),
+  enabled: z.boolean(),
+  name: z.string().trim().min(1, "Medication name is required"),
+  dosage: z.string().trim().min(1, "Dosage quantity is required"),
+  dosageUnit: z.enum(DOSAGE_UNITS),
+  time: z.string().min(1, "Time is required"),
+  startDate: z.string().min(1, "Start date is required"),
+  endDate: z.string().optional(),
+  mealTiming: z.enum(["before_food", "after_food"]),
+  notifyCarePartner: z.enum(NOTIFY_MODES),
+  escalationMinutes: z.coerce.number().min(5).max(240),
+});
+
+export const foodRoutineDraftSchema = z.object({
   id: z.string(),
   enabled: z.boolean(),
   mealName: z.string().trim().min(1, "Meal name is required"),
   checkInTime: z.string().min(1, "Time is required"),
-  startDate: z.string().min(1, "Start date is required"),
-  endDate: z.string().min(1, "End date is required"),
-  notifyCarePartner: z.enum(["every_time", "only_missed"]),
+  notifyCarePartner: z.enum(NOTIFY_MODES),
 });
 
+export const healthRoutineDraftSchema = z.object({
+  id: z.string(),
+  enabled: z.boolean(),
+  name: z.string().trim().min(1, "Routine name is required"),
+  time: z.string().min(1, "Time is required"),
+  notifyCarePartner: z.enum(NOTIFY_MODES),
+});
+
+/** Settings / routine editors until Pass 4 alignment. */
 export const medicationSchema = z.object({
   id: z.string(),
   enabled: z.boolean(),
@@ -108,8 +186,18 @@ export const medicationSchema = z.object({
   times: z.array(z.string().min(1)).min(1, "Add at least one time"),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().optional(),
-  notifyCarePartner: z.enum(["every_time", "only_missed"]),
+  notifyCarePartner: z.enum(NOTIFY_MODES),
   escalationMinutes: z.coerce.number().min(5).max(240),
+});
+
+export const foodRoutineSchema = z.object({
+  id: z.string(),
+  enabled: z.boolean(),
+  mealName: z.string().trim().min(1, "Meal name is required"),
+  checkInTime: z.string().min(1, "Time is required"),
+  startDate: z.string().min(1, "Start date is required"),
+  endDate: z.string().optional(),
+  notifyCarePartner: z.enum(NOTIFY_MODES),
 });
 
 export const healthRoutineSchema = z.object({
@@ -118,41 +206,45 @@ export const healthRoutineSchema = z.object({
   name: z.string().trim().min(1, "Routine name is required"),
   time: z.string().min(1, "Time is required"),
   startDate: z.string().min(1, "Start date is required"),
-  endDate: z.string().min(1, "End date is required"),
-  notifyCarePartner: z.enum(["every_time", "only_missed"]),
+  endDate: z.string().optional(),
+  notifyCarePartner: z.enum(NOTIFY_MODES),
 });
 
-export type LovedOneDraft = z.infer<typeof lovedOneSchema>;
-export type CarePartnerDraft = z.infer<typeof carePartnerSchema>;
-export type LocalBuddyDraft = z.infer<typeof localBuddySchema>;
-export type DoctorDraft = z.infer<typeof doctorSchema>;
-export type FoodRoutineDraft = z.infer<typeof foodRoutineSchema>;
-export type MedicationDraft = z.infer<typeof medicationSchema>;
-export type HealthRoutineDraft = z.infer<typeof healthRoutineSchema>;
+export type MedicationDraft = z.infer<typeof medicationDraftSchema>;
+export type FoodRoutineDraft = z.infer<typeof foodRoutineDraftSchema>;
+export type HealthRoutineDraft = z.infer<typeof healthRoutineDraftSchema>;
+export type CarePartnerCircleDraft = z.infer<typeof carePartnerCircleSchema>;
+export type LovedOneCircleDraft = z.infer<typeof lovedOneCircleSchema>;
+export type LocalBuddyCircleDraft = z.infer<typeof localBuddyCircleSchema>;
+export type DoctorCircleDraft = z.infer<typeof doctorCircleSchema>;
 
 export interface OnboardingDraft {
-  version: 2;
+  version: 3;
   accountId: string;
-  currentStep: number;
-  /** Supabase elders.id once Loved One step has written the draft row (active=false). */
+  currentStepId: OnboardingStepId;
   elderId: string | null;
-  lovedOne: LovedOneDraft;
-  carePartner: CarePartnerDraft;
-  localBuddy: LocalBuddyDraft;
-  doctor: DoctorDraft;
+  /** Display-only from Auth / care_partners — not re-collected on Care Circle. */
+  carePartnerProfile: {
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  carePartner: CarePartnerCircleDraft;
+  lovedOne: LovedOneCircleDraft;
+  localBuddy: LocalBuddyCircleDraft;
+  doctor: DoctorCircleDraft;
   foodRoutines: FoodRoutineDraft[];
   medications: MedicationDraft[];
   healthRoutines: HealthRoutineDraft[];
   updatedAt: string;
 }
 
-function uid(prefix: string) {
-  return `${prefix}-${crypto.randomUUID()}`;
-}
-
-/** Postgres uuid PKs — do not prefix (unlike local mock store ids). */
 function newRowId() {
   return crypto.randomUUID();
+}
+
+function uid(prefix: string) {
+  return `${prefix}-${crypto.randomUUID()}`;
 }
 
 export function createEmptyFood(): FoodRoutineDraft {
@@ -161,22 +253,21 @@ export function createEmptyFood(): FoodRoutineDraft {
     enabled: true,
     mealName: "Breakfast",
     checkInTime: "09:00",
-    startDate: todayDate(),
-    endDate: todayDate(),
     notifyCarePartner: "only_missed",
   };
 }
 
-export function createEmptyMedication(): MedicationDraft {
+export function createEmptyMedication(elderTimeZone = "Asia/Kolkata"): MedicationDraft {
   return {
     id: newRowId(),
     enabled: true,
-    name: "Metformin",
-    dosage: "500",
-    dosageUnit: "mg",
-    times: ["08:00"],
-    startDate: todayDate(),
+    name: "Metformin 500mg",
+    dosage: "1",
+    dosageUnit: "TAB",
+    time: "08:00",
+    startDate: todayInTimeZone(elderTimeZone),
     endDate: "",
+    mealTiming: "after_food",
     notifyCarePartner: "only_missed",
     escalationMinutes: 30,
   };
@@ -188,10 +279,31 @@ export function createEmptyHealth(): HealthRoutineDraft {
     enabled: true,
     name: "Morning wellness",
     time: "10:30",
-    startDate: todayDate(),
-    endDate: todayDate(),
     notifyCarePartner: "only_missed",
   };
+}
+
+export function emptyLocalBuddy(): LocalBuddyCircleDraft {
+  return { firstName: "", lastName: "", whatsappNumber: "" };
+}
+
+export function emptyDoctor(): DoctorCircleDraft {
+  return { firstName: "", lastName: "", clinicName: "", whatsappNumber: "" };
+}
+
+export function isLocalBuddyEngaged(buddy: LocalBuddyCircleDraft): boolean {
+  return Boolean(
+    buddy.firstName.trim() || buddy.lastName.trim() || buddy.whatsappNumber.trim(),
+  );
+}
+
+export function isDoctorEngaged(doctor: DoctorCircleDraft): boolean {
+  return Boolean(
+    doctor.firstName.trim() ||
+      doctor.lastName.trim() ||
+      doctor.clinicName.trim() ||
+      doctor.whatsappNumber.trim(),
+  );
 }
 
 export function createDefaultDraft(
@@ -204,41 +316,32 @@ export function createDefaultDraft(
       : "Asia/Kolkata";
 
   return {
-    version: 2,
+    version: 3,
     accountId,
-    currentStep: 0,
+    currentStepId: "care-circle",
     elderId: null,
+    carePartnerProfile: {
+      firstName: seed?.firstName ?? "",
+      lastName: seed?.lastName ?? "",
+      email: seed?.email ?? "",
+    },
+    carePartner: {
+      whatsappNumber: "",
+      timeZone,
+    },
     lovedOne: {
       whatsappNumber: "",
       firstName: "",
-      surname: "",
-      dateOfBirth: "",
+      lastName: "",
+      age: 70,
       timeZone,
       relationshipToCarePartner: "Parent",
       address: "",
-      consentAttestedByCarePartner: false,
     },
-    carePartner: {
-      firstName: seed?.firstName ?? "",
-      phoneNumber: "",
-      whatsappNumber: "",
-      email: seed?.email ?? "",
-      relationshipToLovedOne: "Daughter / Son",
-      timeZone,
-    },
-    localBuddy: {
-      name: "",
-      whatsappNumber: "",
-      directContactNumber: "",
-    },
-    doctor: {
-      name: "",
-      whatsappNumber: "",
-      directContactNumber: "",
-      clinicOrHospitalName: "",
-    },
+    localBuddy: emptyLocalBuddy(),
+    doctor: emptyDoctor(),
     foodRoutines: [createEmptyFood()],
-    medications: [createEmptyMedication()],
+    medications: [createEmptyMedication(timeZone)],
     healthRoutines: [createEmptyHealth()],
     updatedAt: new Date().toISOString(),
   };
@@ -246,42 +349,25 @@ export function createDefaultDraft(
 
 export function loadOnboardingDraft(accountId: string): OnboardingDraft | null {
   const draft = readStorage<OnboardingDraft | null>(STORAGE_KEYS.onboardingDraft, null);
-  if (!draft || draft.version !== 2 || draft.accountId !== accountId) return null;
-  // Drop legacy skip* flags from older localStorage drafts (A4.2).
-  const { skipLocalBuddy: _sb, skipDoctor: _sd, ...rest } = draft as OnboardingDraft & {
-    skipLocalBuddy?: boolean;
-    skipDoctor?: boolean;
-  };
-  void _sb;
-  void _sd;
+  if (!draft || draft.version !== 3 || draft.accountId !== accountId) return null;
   return {
-    ...rest,
-    elderId: rest.elderId ?? null,
-    foodRoutines: rest.foodRoutines.map((item) => {
-      const fallback = createEmptyFood();
-      return {
-        ...fallback,
-        ...item,
-        notifyCarePartner: item.notifyCarePartner ?? fallback.notifyCarePartner,
-      };
-    }),
-    medications: rest.medications.map((item) => {
-      const fallback = createEmptyMedication();
-      return {
-        ...fallback,
-        ...item,
-        notifyCarePartner: item.notifyCarePartner ?? fallback.notifyCarePartner,
-        escalationMinutes: item.escalationMinutes ?? fallback.escalationMinutes,
-      };
-    }),
-    healthRoutines: rest.healthRoutines.map((item) => {
-      const fallback = createEmptyHealth();
-      return {
-        ...fallback,
-        ...item,
-        notifyCarePartner: item.notifyCarePartner ?? fallback.notifyCarePartner,
-      };
-    }),
+    ...draft,
+    elderId: draft.elderId ?? null,
+    foodRoutines:
+      draft.foodRoutines?.length > 0
+        ? draft.foodRoutines.map((item) => ({ ...createEmptyFood(), ...item }))
+        : [createEmptyFood()],
+    medications:
+      draft.medications?.length > 0
+        ? draft.medications.map((item) => ({
+            ...createEmptyMedication(draft.lovedOne?.timeZone),
+            ...item,
+          }))
+        : [createEmptyMedication(draft.lovedOne?.timeZone)],
+    healthRoutines:
+      draft.healthRoutines?.length > 0
+        ? draft.healthRoutines.map((item) => ({ ...createEmptyHealth(), ...item }))
+        : [createEmptyHealth()],
   };
 }
 
@@ -296,47 +382,16 @@ export function clearOnboardingDraft() {
   removeStorage(STORAGE_KEYS.onboardingDraft);
 }
 
-/** Card engaged = any identifying field filled (Architecture §5.7 — no skip flags). */
-export function isLocalBuddyEngaged(buddy: LocalBuddyDraft): boolean {
-  return Boolean(
-    buddy.name.trim() ||
-      buddy.whatsappNumber.trim() ||
-      buddy.directContactNumber.trim(),
-  );
+export function wizardStepIndex(stepId: OnboardingStepId): number {
+  const idx = ONBOARDING_WIZARD_STEPS.findIndex((s) => s.id === stepId);
+  return idx >= 0 ? idx : ONBOARDING_WIZARD_STEPS.length;
 }
 
-export function isDoctorEngaged(doctor: DoctorDraft): boolean {
-  return Boolean(
-    doctor.name.trim() ||
-      doctor.whatsappNumber.trim() ||
-      (doctor.directContactNumber ?? "").trim() ||
-      (doctor.clinicOrHospitalName ?? "").trim(),
-  );
+export function isUnfinishedDraftError(message: string): boolean {
+  return /unfinished Loved One draft/i.test(message);
 }
 
-export function emptyLocalBuddy(): LocalBuddyDraft {
-  return { name: "", whatsappNumber: "", directContactNumber: "" };
-}
-
-export function emptyDoctor(): DoctorDraft {
-  return {
-    name: "",
-    whatsappNumber: "",
-    directContactNumber: "",
-    clinicOrHospitalName: "",
-  };
-}
-
-export function renderTemplate(
-  template: string,
-  vars: Record<string, string>,
-) {
-  return Object.entries(vars).reduce(
-    (msg, [key, value]) => msg.replaceAll(`{${key}}`, value || `{${key}}`),
-    template,
-  );
-}
-
+/** Mock-store apply path for local demo (not Supabase). */
 export function applyOnboardingDraft(
   store: ElderWiseStore,
   draft: OnboardingDraft,
@@ -351,16 +406,15 @@ export function applyOnboardingDraft(
 
   const carePartner: CarePartner = {
     id: carePartnerId,
-    firstName: draft.carePartner.firstName || "Care",
-    lastName: store.carePartner?.lastName || "",
-    email: draft.carePartner.email || "",
-    whatsappNumber:
-      draft.carePartner.whatsappNumber?.trim() || draft.carePartner.phoneNumber,
-    directContactNumber: draft.carePartner.phoneNumber,
+    firstName: draft.carePartnerProfile.firstName || "Care",
+    lastName: draft.carePartnerProfile.lastName || "",
+    email: draft.carePartnerProfile.email || "",
+    whatsappNumber: draft.carePartner.whatsappNumber,
+    directContactNumber: draft.carePartner.whatsappNumber,
     timeZone: draft.carePartner.timeZone,
     language: "en",
     preferredNotificationMethod: "whatsapp" as NotificationMethod,
-    relationshipToLovedOne: draft.carePartner.relationshipToLovedOne,
+    relationshipToLovedOne: "Family",
     createdAt: store.carePartner?.createdAt ?? now,
     updatedAt: now,
   };
@@ -368,10 +422,9 @@ export function applyOnboardingDraft(
   const lovedOne: LovedOne = {
     id: lovedOneId,
     firstName: draft.lovedOne.firstName,
-    surname: draft.lovedOne.surname,
+    surname: draft.lovedOne.lastName,
     whatsappNumber: draft.lovedOne.whatsappNumber,
     gender: "prefer_not_to_say" as Gender,
-    dateOfBirth: draft.lovedOne.dateOfBirth || undefined,
     preferredLanguage: "en",
     address: draft.lovedOne.address,
     timeZone: draft.lovedOne.timeZone,
@@ -382,60 +435,36 @@ export function applyOnboardingDraft(
     doctorId,
     consentAttestedByCarePartner: true,
     consentAttestedAt: now,
-    // TODO(backend): consentConfirmedAt is set by the n8n WhatsApp flow when the
-    // elder responds "Yes" to the welcome message. Until then it stays null and
-    // NO check-ins are scheduled. Front end only displays this status.
     consentConfirmedAt: null,
     createdAt: now,
     updatedAt: now,
   };
 
-  const localBuddy: LocalBuddy | null =
-    !buddyId
-      ? null
-      : {
-          id: buddyId,
-          lovedOneId,
-          name: draft.localBuddy.name,
-          relationship: "Local Buddy",
-          whatsappNumber: draft.localBuddy.whatsappNumber,
-          directContactNumber: draft.localBuddy.directContactNumber,
-          preferredContactMethod: "whatsapp" as NotificationMethod,
-          createdAt: now,
-          updatedAt: now,
-        };
+  const localBuddy: LocalBuddy | null = !buddyId
+    ? null
+    : {
+        id: buddyId,
+        lovedOneId,
+        name: `${draft.localBuddy.firstName} ${draft.localBuddy.lastName}`.trim(),
+        relationship: "Local Buddy",
+        whatsappNumber: draft.localBuddy.whatsappNumber,
+        directContactNumber: draft.localBuddy.whatsappNumber,
+        preferredContactMethod: "whatsapp" as NotificationMethod,
+        createdAt: now,
+        updatedAt: now,
+      };
 
-  const doctor: FamilyDoctor | null =
-    !doctorId
-      ? null
-      : {
-          id: doctorId,
-          lovedOneId,
-          name: draft.doctor.name,
-          whatsappNumber: draft.doctor.whatsappNumber,
-          directContactNumber: draft.doctor.directContactNumber || undefined,
-          clinicOrHospitalName: draft.doctor.clinicOrHospitalName || undefined,
-          createdAt: now,
-          updatedAt: now,
-        };
-
-  const foodRoutines: FoodRoutine[] = draft.foodRoutines.map((item) => ({
-    id: item.id,
-    lovedOneId,
-    enabled: item.enabled,
-    mealName: item.mealName,
-    mealType: "custom",
-    checkInTime: item.checkInTime,
-    startDate: item.startDate,
-    endDate: item.endDate || undefined,
-    daysOfWeek: [...ALL_DAYS],
-    frequency: "custom",
-    whatsappMessageTemplate: `Hi {name}, have you had ${item.mealName.toLowerCase()} today?`,
-    notifyCarePartner: item.notifyCarePartner,
-    escalationMinutes: 45,
-    createdAt: now,
-    updatedAt: now,
-  }));
+  const doctor: FamilyDoctor | null = !doctorId
+    ? null
+    : {
+        id: doctorId,
+        lovedOneId,
+        name: `${draft.doctor.firstName} ${draft.doctor.lastName}`.trim(),
+        whatsappNumber: draft.doctor.whatsappNumber,
+        clinicOrHospitalName: draft.doctor.clinicName,
+        createdAt: now,
+        updatedAt: now,
+      };
 
   const medications: Medication[] = draft.medications.map((item) => ({
     id: item.id,
@@ -444,18 +473,33 @@ export function applyOnboardingDraft(
     name: item.name,
     dosage: item.dosage,
     dosageUnit: item.dosageUnit,
-    times: item.times,
-    daysOfWeek: [...ALL_DAYS],
+    times: [item.time],
     startDate: item.startDate,
     endDate: item.endDate || undefined,
-    timingPreference: "no_preference" as MedicationTiming,
-    notifyCarePartner: item.notifyCarePartner,
+    daysOfWeek: [...ALL_DAYS],
+    timingPreference: item.mealTiming,
+    notifyCarePartner:
+      item.notifyCarePartner === "not_required" ? "only_missed" : item.notifyCarePartner,
     escalationMinutes: item.escalationMinutes,
-    // TODO(backend/n8n): "Yes, all" records all; "Some of them" opens the 24h window
-    // and sends a free-form interactive list of this elder's medicines; "Not yet" arms
-    // the reminder. Templates cannot carry a dropdown — see Templates.md §1.1.
-    whatsappMessageTemplate:
-      "Good morning {name} — it's {time}, time for your medicines: {medicineList}. Did you take them? [Yes, all] [Some of them] [Not yet]",
+    whatsappMessageTemplate: `Hi {name}, time for ${item.name}.`,
+    createdAt: now,
+    updatedAt: now,
+  }));
+
+  const foodRoutines: FoodRoutine[] = draft.foodRoutines.map((item) => ({
+    id: item.id,
+    lovedOneId,
+    enabled: item.enabled,
+    mealName: item.mealName,
+    mealType: "custom",
+    checkInTime: item.checkInTime,
+    startDate: todayInTimeZone(draft.lovedOne.timeZone),
+    daysOfWeek: [...ALL_DAYS],
+    frequency: "custom",
+    whatsappMessageTemplate: `Hi {name}, have you had ${item.mealName.toLowerCase()} today?`,
+    notifyCarePartner:
+      item.notifyCarePartner === "not_required" ? "only_missed" : item.notifyCarePartner,
+    escalationMinutes: 45,
     createdAt: now,
     updatedAt: now,
   }));
@@ -468,12 +512,12 @@ export function applyOnboardingDraft(
     type: "general_wellness",
     frequency: "custom",
     time: item.time,
-    startDate: item.startDate,
-    endDate: item.endDate || undefined,
+    startDate: todayInTimeZone(draft.lovedOne.timeZone),
     daysOfWeek: [...ALL_DAYS],
     question: "How are you feeling today?",
     answerType: "yes_no",
-    notifyCarePartner: item.notifyCarePartner,
+    notifyCarePartner:
+      item.notifyCarePartner === "not_required" ? "only_missed" : item.notifyCarePartner,
     escalationMinutes: 60,
     createdAt: now,
     updatedAt: now,
@@ -482,25 +526,24 @@ export function applyOnboardingDraft(
   return {
     ...store,
     carePartner,
-    lovedOnes: [lovedOne, ...store.lovedOnes.filter((lo) => lo.id !== lovedOneId)],
+    lovedOnes: [...store.lovedOnes.filter((l) => l.id !== lovedOneId), lovedOne],
     localBuddies: localBuddy
-      ? [localBuddy, ...store.localBuddies.filter((b) => b.lovedOneId !== lovedOneId)]
+      ? [...store.localBuddies.filter((b) => b.lovedOneId !== lovedOneId), localBuddy]
       : store.localBuddies.filter((b) => b.lovedOneId !== lovedOneId),
     doctors: doctor
-      ? [doctor, ...store.doctors.filter((d) => d.lovedOneId !== lovedOneId)]
+      ? [...store.doctors.filter((d) => d.lovedOneId !== lovedOneId), doctor]
       : store.doctors.filter((d) => d.lovedOneId !== lovedOneId),
     foodRoutines: [
-      ...foodRoutines,
       ...store.foodRoutines.filter((f) => f.lovedOneId !== lovedOneId),
+      ...foodRoutines,
     ],
     medications: [
-      ...medications,
       ...store.medications.filter((m) => m.lovedOneId !== lovedOneId),
+      ...medications,
     ],
     healthRoutines: [
-      ...healthRoutines,
       ...store.healthRoutines.filter((h) => h.lovedOneId !== lovedOneId),
+      ...healthRoutines,
     ],
-    selectedLovedOneId: lovedOneId,
   };
 }

@@ -205,7 +205,7 @@ export interface Medication {
   endDate?: string;
   timingPreference: MedicationTiming;
   instructions?: string;
-  notifyCarePartner: "every_time" | "only_missed";
+  notifyCarePartner: "every_time" | "only_missed" | "not_required";
   escalationMinutes: number;
   whatsappMessageTemplate: string;
   createdAt: string;
@@ -224,7 +224,7 @@ export interface FoodRoutine {
   daysOfWeek: DayOfWeek[];
   frequency: "daily" | "weekly" | "custom";
   whatsappMessageTemplate: string;
-  notifyCarePartner: "every_time" | "only_missed";
+  notifyCarePartner: "every_time" | "only_missed" | "not_required";
   escalationMinutes: number;
   notes?: string;
   createdAt: string;
@@ -244,7 +244,7 @@ export interface HealthRoutine {
   daysOfWeek: DayOfWeek[];
   question: string;
   answerType: AnswerType;
-  notifyCarePartner: "every_time" | "only_missed";
+  notifyCarePartner: "every_time" | "only_missed" | "not_required";
   escalationMinutes: number;
   typicalBedtime?: string;
   typicalWakeTime?: string;

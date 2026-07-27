@@ -16,7 +16,7 @@ import { useElderWiseStore } from "@/lib/store";
 
 export function CompletionStep() {
   const router = useRouter();
-  const { draft, setStep } = useOnboarding();
+  const { draft, setStepId } = useOnboarding();
   const { setSelectedLovedOneId } = useElderWiseStore();
   const [busy, setBusy] = useState(false);
   const reduce = useReducedMotion();
@@ -24,8 +24,8 @@ export function CompletionStep() {
 
   const goToDashboard = async () => {
     if (!draft.elderId) {
-      toast.error("Save Loved One details first");
-      setStep(0);
+      toast.error("Save Care Circle first");
+      setStepId("care-circle");
       return;
     }
     setBusy(true);
@@ -57,14 +57,19 @@ export function CompletionStep() {
           wellbeing.
         </h2>
         <p className="mt-4 max-w-md text-muted-foreground">
-          Your care circle, meals, medications, and wellness check-ins are ready. Head to the
-          dashboard to follow along.
+          Your care circle and wellness check-ins are ready. Head to the dashboard to
+          follow along. Check-ins start only after {name} confirms on WhatsApp.
         </p>
         <div className="mt-8 flex w-full max-w-sm flex-col gap-3">
           <Button size="lg" className="w-full" disabled={busy} onClick={() => void goToDashboard()}>
             {busy ? "Activating…" : "Go to Dashboard"}
           </Button>
-          <Button type="button" variant="outline" disabled={busy} onClick={() => setStep(7)}>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={() => setStepId("review")}
+          >
             Back to review
           </Button>
         </div>

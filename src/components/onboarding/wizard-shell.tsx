@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useOnboarding } from "@/components/onboarding/onboarding-context";
-import { ONBOARDING_STEPS } from "@/lib/onboarding";
+import { ONBOARDING_STEP_META, ONBOARDING_WIZARD_STEPS, wizardStepIndex } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
 
 interface WizardShellProps {
@@ -33,18 +33,15 @@ export function WizardShell({
   secondaryAction,
   busy,
 }: WizardShellProps) {
-  const { step, lastSavedAt, saveNow, additionalMode } = useOnboarding();
+  const { stepId, lastSavedAt, saveNow } = useOnboarding();
   const reduce = useReducedMotion();
-  const meta = ONBOARDING_STEPS[step];
-  // Additional-elder mode skips Care Partner — progress excludes that step.
-  const visibleSteps = additionalMode
-    ? ONBOARDING_STEPS.filter((s) => s.id !== "care-partner")
-    : ONBOARDING_STEPS;
-  const visibleIndex = Math.max(
-    0,
-    visibleSteps.findIndex((s) => s.id === ONBOARDING_STEPS[step]?.id),
-  );
-  const progress = ((visibleIndex + 1) / visibleSteps.length) * 100;
+  const meta = ONBOARDING_STEP_META[stepId];
+  const isCompletion = stepId === "completion";
+  const totalSteps = ONBOARDING_WIZARD_STEPS.length;
+  const stepIndex = wizardStepIndex(stepId);
+  const progress = isCompletion ? 100 : ((stepIndex + 1) / totalSteps) * 100;
+  const stepLabel = isCompletion ? "Done" : `Step ${stepIndex + 1} of ${totalSteps}`;
+  const backDisabled = Boolean(busy) || stepId === "care-circle";
 
   return (
     <div className="min-h-screen bg-background">
@@ -63,9 +60,7 @@ export function WizardShell({
             </div>
           </div>
           <div className="text-right">
-            <p className="font-mono text-[11px] text-muted-foreground">
-              Step {visibleIndex + 1} of {visibleSteps.length}
-            </p>
+            <p className="font-mono text-[11px] text-muted-foreground">{stepLabel}</p>
             {lastSavedAt ? (
               <p className="flex items-center justify-end gap-1 text-[11px] text-success">
                 <Check className="h-3 w-3" />
@@ -78,14 +73,14 @@ export function WizardShell({
         <div className="mb-6 space-y-3">
           <Progress value={progress} className="h-2" />
           <div className="hidden gap-1 overflow-x-auto pb-1 sm:flex">
-            {visibleSteps.map((item, index) => (
+            {ONBOARDING_WIZARD_STEPS.map((item, index) => (
               <span
                 key={item.id}
                 className={cn(
                   "rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em]",
-                  index === visibleIndex
+                  !isCompletion && index === stepIndex
                     ? "bg-primary text-primary-foreground"
-                    : index < visibleIndex
+                    : isCompletion || index < stepIndex
                       ? "bg-secondary text-secondary-foreground"
                       : "bg-muted text-muted-foreground",
                 )}
@@ -104,7 +99,7 @@ export function WizardShell({
 
           <AnimatePresence mode="wait">
             <motion.div
-              key={step}
+              key={stepId}
               initial={reduce ? false : { opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={reduce ? undefined : { opacity: 0, y: -8 }}
@@ -118,7 +113,7 @@ export function WizardShell({
           <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap gap-2">
               {!hideBack ? (
-                <Button type="button" variant="outline" onClick={onBack} disabled={busy || step === 0}>
+                <Button type="button" variant="outline" onClick={onBack} disabled={backDisabled}>
                   <ArrowLeft className="h-4 w-4" />
                   {backLabel}
                 </Button>
