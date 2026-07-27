@@ -355,7 +355,7 @@ export async function saveOnboardingDoctor(input: {
     last_name: names.lastName,
     whatsapp_number: parsed.data.whatsappNumber.trim() || null,
     clinic_name: clinic,
-    approved_by_ct: true,
+    approved_by_ct: false,
   };
 
   const { data, error } = await supabase
@@ -581,6 +581,99 @@ export async function activateOnboardingElder(
   revalidatePath("/loved-ones");
   revalidatePath("/onboarding");
   return { ok: true, elderId: data.id };
+}
+
+/**
+ * Review consents (M16a / FR-ON-7).
+ * When data-sharing consent is given and a Doctor row exists, sets
+ * doctors.approved_by_ct = true in the same logical step as
+ * elders.consent_data_sharing_at (Architecture §5.7).
+ */
+export async function saveReviewConsents(input: {
+  elderId: string;
+  consentMedAccuracy: boolean;
+  /** Required true when Local Buddy or Doctor was added; omit/false if both skipped. */
+  consentDataSharing: boolean;
+  consentTerms: boolean;
+  consentTermsVersion: string;
+}): Promise<OnboardingActionResult> {
+  const { supabase, user, error: authErr } = await requireUser();
+  if (authErr || !user) return fail(authErr ?? "Not signed in");
+
+  const ownErr = await assertOwnsDraftElder(supabase, input.elderId, user.id);
+  if (ownErr) return fail(ownErr);
+
+  if (!input.consentMedAccuracy) {
+    return fail("Medication-details acknowledgement is required");
+  }
+  if (!input.consentTerms) {
+    return fail("Terms & Privacy confirmation is required");
+  }
+  const termsVersion = input.consentTermsVersion.trim();
+  if (!termsVersion) {
+    return fail("consent_terms_version is required");
+  }
+
+  const [{ data: buddy }, { data: doctor }] = await Promise.all([
+    supabase
+      .from("local_caregivers")
+      .select("id")
+      .eq("elder_id", input.elderId)
+      .maybeSingle(),
+    supabase
+      .from("doctors")
+      .select("id")
+      .eq("elder_id", input.elderId)
+      .maybeSingle(),
+  ]);
+
+  const hasShareTarget = Boolean(buddy || doctor);
+  if (hasShareTarget && !input.consentDataSharing) {
+    return fail("Data-sharing consent is required when a Local Buddy or Doctor was added");
+  }
+  if (!hasShareTarget && input.consentDataSharing) {
+    return fail("Data-sharing consent applies only when a Local Buddy or Doctor was added");
+  }
+
+  const now = new Date().toISOString();
+  const elderPatch: Record<string, string | boolean> = {
+    consent_med_accuracy_at: now,
+    consent_terms_at: now,
+    consent_terms_version: termsVersion,
+    consent_attested_by_ct: true,
+    consent_attested_at: now,
+  };
+  if (input.consentDataSharing) {
+    elderPatch.consent_data_sharing_at = now;
+  }
+
+  const { data: elderRow, error: elderErr } = await supabase
+    .from("elders")
+    .update(elderPatch)
+    .eq("id", input.elderId)
+    .eq("care_partner_id", user.id)
+    .select("id")
+    .maybeSingle();
+
+  if (elderErr) return fail(elderErr.message);
+  if (!elderRow) return fail("Review consent save failed — no elder row returned (check RLS)");
+
+  if (input.consentDataSharing && doctor) {
+    const { data: docRow, error: docErr } = await supabase
+      .from("doctors")
+      .update({ approved_by_ct: true })
+      .eq("elder_id", input.elderId)
+      .select("id, approved_by_ct")
+      .maybeSingle();
+    if (docErr) return fail(docErr.message);
+    if (!docRow || docRow.approved_by_ct !== true) {
+      return fail("Doctor approval failed — approved_by_ct did not persist");
+    }
+  }
+
+  revalidatePath("/onboarding");
+  revalidatePath("/loved-ones");
+  return { ok: true };
 }
 
 /** At most one draft per CT — for the Add Loved One dialog. */

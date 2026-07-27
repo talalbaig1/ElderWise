@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.7 |
-| **Date** | 26 July 2026 |
+| **Document** | Phases.md — v1.8 |
+| **Date** | 27 July 2026 |
 | **Demo Day** | **Saturday 29 August 2026** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Templates.md` |
 
@@ -154,7 +154,7 @@ Because RLS and `auth.uid()` already exist, this is **UI work, not a security re
 | **A4.0** | **Full data reset** — execute **at the start of the migration window**, not before (otherwise the team refills with test data). Sequence: (1) full backup (dashboard backup or `pg_dump`) — irreversible otherwise; (2) delete all rows in public tables; (3) delete **all** Supabase Auth users (`care_partners.id` FK → `auth.users`; truncating public alone leaves accounts and `ensureCarePartner` silently recreates rows); (4) re-onboard two fresh tenants and update `.env.local` (`TENANT_A_*` / `TENANT_B_*` including elder IDs); (5) re-run `scripts/rls-cross-tenant.mjs`, `rls-proof.mjs`, `share-link-isolation.mjs`, and the `verify-*` scripts against the new schema. No Storage buckets in use; Redis holds only self-expiring rate-limit keys. **Discharges Architecture open item A-7.** |
 | A4.1 | Schema migrations per `Architecture.md` v1.7: enum `not_required` **in its own migration first**; then column add/rename/drop, `times` CHECK length 1, doctor WA nullable, `clinic_name`, Review consent columns, `sos_notifications` skip fields. RLS re-verified (new columns inherit policies). |
 | A4.2 | Care Circle write path — `SECURITY INVOKER` RPC (`Architecture.md` §5.7); remove `skipLocalBuddy` / `skipDoctor` draft flags and the KNOWN LIMITATION in `onboarding-actions.ts`. |
-| A4.3 | UI — 4-step flow (Get Started progress chrome on `/sign-up` · Care Circle · Wellness Details · Review). Named step IDs. Add-another progress = **Step N of 3**. Field lists per `PRD.md` §7.1. |
+| A4.3 | UI — 4-step flow (Get Started progress chrome on `/sign-up` · Care Circle · Wellness Details · Review). Named step IDs. Add-another progress = **Step N of 3**. Field lists per `PRD.md` §7.1. Care Circle must surface the RPC one-draft error (`You have an unfinished Loved One draft — resume or discard it first`) as a **resume-or-discard choice**, not a raw error toast. |
 | A4.4 | Post-login alignment — Settings, Care Circle tab, Loved One detail, `routine-tabs`, reports loader, doctor share page (`load-share-data.ts` → elder timezone), mappers, seed. |
 | A4.5 | **Rebuild demo seed data** against the new schema (`supabase/seed.sql` + any demo fixtures) so Demo Day tenants match A4 columns and enums. Explicit deliverable — not optional cleanup. |
 | A4.6 | Privacy/Terms rewrite **content** (supplied for approval — not drafted by agents) landed on `/privacy` and `/terms` so Review consent is honest. Must follow `PRD.md` §12.4 (no registered entity; demo/capstone disclosures; dated `consent_terms_version`). |
@@ -318,6 +318,7 @@ The proposal is a **second channel (Telegram)** so the demo can run even if temp
 
 | Date | Version | Change |
 |---|---|---|
+| 27 Jul 2026 | 1.8 | A4.3: Care Circle one-draft RPC error must surface as resume-or-discard UI (not toast). |
 | 26 Jul 2026 | 1.7 | A4.6 points at corrected `PRD.md` §12.4 legal posture (no entity; dated `consent_terms_version`). |
 | 26 Jul 2026 | 1.6 | **A4 added** — onboarding restructure & schema alignment. **A4.0** full public + Auth wipe (discharges Architecture A-7); GATE A3 evidence marked **requires re-verification** after wipe; A4.5 demo seed rebuild; GATE A4 checklist. Not Architecture A-4 (SOS webhook). |
 | 24 Jul 2026 | 1.5 | **Track A status sync.** A2.1–A2.6, A2.8 complete; A2.7 deferred (needs Robert's SOS webhook). A3.1–A3.5 complete; GATE A3 PASSED 24 Jul (48 checks, `scripts/rls-cross-tenant.mjs`). Recorded sequence change: A3 before A2.4 after the A2.3 auth gate left no dashboard path under localStorage identity. GATE A2 met except A2.7. |

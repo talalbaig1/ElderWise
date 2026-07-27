@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.10 |
+| **Document** | Architecture.md — v1.11 |
 | **Date** | 27 July 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
@@ -475,7 +475,7 @@ Care Circle is **one screen** that writes `care_partners`, draft `elders` (`acti
 
 1. Upsert `care_partners` (WhatsApp + timezone; names from Auth / existing row — not re-collected on this screen).
 2. Insert/update draft `elders` with required Loved One fields (`active = false`).
-3. Insert `local_caregivers` / `doctors` only when that card was engaged; skipped cards write **no row**.
+3. Insert `local_caregivers` / `doctors` only when that card was engaged; skipped cards write **no row**. Doctor rows insert with **`approved_by_ct = false`** (FR-ON-7 — explicit CT approval). Review sets `approved_by_ct = true` in the **same write** that sets `consent_data_sharing_at` (when Doctor was added).
 4. Any error → full rollback (no orphan elder, no permanent `whatsapp_number` UNIQUE lock).
 
 Draft discard remains **hard DELETE** (D11). Product activation (`active = true`) and Review consents remain later in the wizard. New columns inherit existing table RLS; re-verify policies after migration (`Phases.md` GATE A4).
@@ -770,6 +770,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | Date | Version | Change |
 |---|---|---|
+| 27 Jul 2026 | 1.11 | **§5.7 FR-ON-7.** Care Circle draft inserts Doctor with `approved_by_ct = false`; Review sets `true` with `consent_data_sharing_at`. |
 | 27 Jul 2026 | 1.10 | **Corrected `voice_journal_entries`.** Table is **not** created in the MVP — journal screen renders empty state (`load-app-data.ts`). Prior wording caused A4.0 wipe to abort treating a non-existent table as present. |
 | 26 Jul 2026 | 1.9 | **A4.1 Pass 1 revision.** `medications.times` CHECK uses `cardinality(times) = 1` (not `array_length` — NULL pass on `'{}'`). `sos_notifications.status` has no DEFAULT; document `sos_notifications_status_fields_consistent` CHECK (`sent` / `skipped` / `failed` field rules). |
 | 26 Jul 2026 | 1.8 | **`consent_terms_version`** documented as a dated string (e.g. `2026-07-v1`) tied to exact Privacy/Terms text at Review (`PRD.md` §12.4). |

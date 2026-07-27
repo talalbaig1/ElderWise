@@ -1,9 +1,6 @@
--- A4.2 — Care Circle atomic draft write (Architecture.md §5.7).
--- SECURITY INVOKER: RLS applies as the calling care partner.
--- One transaction: upsert care_partners, upsert draft elder (active=false),
--- optional local_caregivers / doctors only when payload is non-null.
--- Doctor approved_by_ct = false at draft (FR-ON-7); Review sets true with
--- consent_data_sharing_at. Unique WhatsApp via CONSTRAINT_NAME diagnostics.
+-- A4.2 fix — FR-ON-7 + unique_violation diagnostics (Architecture.md §5.7).
+-- approved_by_ct stays false at Care Circle draft; Review sets true with
+-- consent_data_sharing_at. Unique WhatsApp errors match CONSTRAINT_NAME exactly.
 
 CREATE OR REPLACE FUNCTION public.save_care_circle_draft(
   p_care_partner jsonb,
