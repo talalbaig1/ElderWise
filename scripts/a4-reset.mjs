@@ -6,6 +6,10 @@
  * on that project. Irreversible. Team lead runs it manually after a backup —
  * never auto-run.
  *
+ * Safely re-runnable against a partial wipe: remaining elders / care_partners /
+ * Auth users are deleted; tables already empty stay empty; tables missing from
+ * the schema are SKIPPED (not a hard failure).
+ *
  * Required env (never logged):
  *   NEXT_PUBLIC_SUPABASE_URL
  *   SUPABASE_SERVICE_ROLE_KEY
@@ -29,7 +33,9 @@ const TARGET_HOST = `${TARGET_PROJECT_REF}.supabase.co`;
 
 /**
  * Child → parent order so FK deletes succeed without CASCADE assumptions.
- * Keep in sync with supabase/migrations public tables.
+ * Keep in sync with Architecture.md / migrations. Tables listed here that are
+ * not present in the live schema are SKIPPED (e.g. voice_journal_entries —
+ * not created in the MVP).
  */
 const PUBLIC_TABLES = [
   "checkin_medication_items",
@@ -60,6 +66,14 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 function fail(msg) {
   console.error(msg);
   process.exit(1);
+}
+
+/** PostgREST / schema-cache errors for tables that do not exist. */
+function isMissingTableError(message) {
+  if (!message) return false;
+  return /could not find the table|schema cache|relation .* does not exist|PGRST205/i.test(
+    message,
+  );
 }
 
 if (!args.has(CONFIRM_FLAG)) {
@@ -99,15 +113,20 @@ const admin = createClient(url, serviceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+/**
+ * @returns {{ table: string, count: number | null, present: boolean, error: string | null }}
+ */
 async function countRows(table) {
   const { count, error } = await admin
     .from(table)
     .select("*", { count: "exact", head: true });
   if (error) {
-    // Missing optional table (e.g. voice_journal_entries not migrated) — report, don't invent.
-    return { table, count: null, error: error.message };
+    if (isMissingTableError(error.message)) {
+      return { table, count: null, present: false, error: null };
+    }
+    return { table, count: null, present: true, error: error.message };
   }
-  return { table, count: count ?? 0, error: null };
+  return { table, count: count ?? 0, present: true, error: null };
 }
 
 async function listAllAuthUsers() {
@@ -125,26 +144,37 @@ async function listAllAuthUsers() {
   return users;
 }
 
+function printTableCount(row) {
+  if (!row.present) {
+    console.log(`  public.${row.table.padEnd(28)} not present`);
+    return;
+  }
+  if (row.error) {
+    console.log(`  public.${row.table.padEnd(28)} ERROR — ${row.error}`);
+    return;
+  }
+  console.log(
+    `  public.${row.table.padEnd(28)} ${String(row.count).padStart(6)} rows`,
+  );
+}
+
 console.log("A4.0 reset — ElderWise MVP (LIVE project)");
 console.log(`  project: ${TARGET_PROJECT_REF} ("ElderWise MVP")`);
 console.log(`  host:    ${host}`);
 console.log("  WARNING: This is the only Supabase project and it serves the live site.");
 console.log("");
 console.log("Will delete (after backup by team lead):");
-console.log("  1. ALL rows in public tables (order below)");
+console.log("  1. ALL rows in public tables that exist (order below)");
 console.log("  2. ALL Supabase Auth users");
 console.log("  3. Does NOT touch Storage buckets or Upstash Redis");
+console.log("  4. Tables missing from the schema are SKIPPED (not a failure)");
 console.log("");
 
 const tableCounts = [];
 for (const table of PUBLIC_TABLES) {
   const row = await countRows(table);
   tableCounts.push(row);
-  if (row.error) {
-    console.log(`  public.${table.padEnd(28)} ERROR — ${row.error}`);
-  } else {
-    console.log(`  public.${table.padEnd(28)} ${String(row.count).padStart(6)} rows`);
-  }
+  printTableCount(row);
 }
 
 const authUsers = await listAllAuthUsers();
@@ -170,10 +200,14 @@ if (typed !== TARGET_PROJECT_REF) {
 console.log("");
 console.log("EXECUTE: deleting public rows, then Auth users…");
 
+/** @type {string[]} */
+const skippedTables = [];
+
 for (const table of PUBLIC_TABLES) {
   const prior = tableCounts.find((t) => t.table === table);
-  if (prior?.error) {
-    console.log(`  skip public.${table} (unavailable: ${prior.error})`);
+  if (prior && !prior.present) {
+    console.log(`  SKIPPED — not present in schema: public.${table}`);
+    skippedTables.push(table);
     continue;
   }
   // delete with a filter that matches all rows (PostgREST requires a filter)
@@ -182,6 +216,11 @@ for (const table of PUBLIC_TABLES) {
     "00000000-0000-0000-0000-000000000000",
   );
   if (error) {
+    if (isMissingTableError(error.message)) {
+      console.log(`  SKIPPED — not present in schema: public.${table}`);
+      skippedTables.push(table);
+      continue;
+    }
     fail(`Failed deleting public.${table}: ${error.message}`);
   }
   console.log(`  deleted public.${table}`);
@@ -196,7 +235,50 @@ for (const u of authUsers) {
 }
 
 console.log("");
-console.log("A4.0 reset complete.");
+console.log("VERIFY: re-counting public tables and Auth users…");
+let verifyFailed = false;
+const verifyRows = [];
+for (const table of PUBLIC_TABLES) {
+  const row = await countRows(table);
+  verifyRows.push(row);
+  printTableCount(row);
+  if (!row.present) continue;
+  if (row.error) {
+    console.error(`  VERIFY ERROR public.${table}: ${row.error}`);
+    verifyFailed = true;
+    continue;
+  }
+  if ((row.count ?? 0) > 0) {
+    console.error(`  VERIFY FAIL public.${table}: still has ${row.count} rows`);
+    verifyFailed = true;
+  }
+}
+
+const authRemaining = await listAllAuthUsers();
+console.log(
+  `  auth.users                         ${String(authRemaining.length).padStart(6)} users`,
+);
+if (authRemaining.length > 0) {
+  console.error(`  VERIFY FAIL auth.users: still has ${authRemaining.length} users`);
+  verifyFailed = true;
+}
+
+console.log("");
+if (skippedTables.length > 0) {
+  console.log("SKIPPED — not present in schema:");
+  for (const t of skippedTables) {
+    console.log(`  - public.${t}`);
+  }
+  console.log("");
+}
+
+if (verifyFailed) {
+  fail(
+    "A4.0 reset INCOMPLETE: verification found remaining rows or Auth users. Re-run after investigating.",
+  );
+}
+
+console.log("A4.0 reset complete — verification passed (all present tables empty; Auth empty).");
 console.log("Next (manual):");
 console.log("  1. Apply A4.1 migrations (empty DB required for new NOT NULL columns).");
 console.log("  2. Re-onboard two tenants; update TENANT_A_* / TENANT_B_* in .env.local.");
