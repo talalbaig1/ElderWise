@@ -32,495 +32,395 @@ import {
   localBuddyCircleSchema,
   lovedOneCircleSchema,
 } from "@/lib/onboarding";
-import { clearOnboardingLocalDraft } from "@/components/onboarding/onboarding-context";
+
+function issuesToErrors(prefix: string, issues: { path: PropertyKey[]; message: string }[]) {
+  const next: Record<string, string> = {};
+  for (const issue of issues) {
+    const key = `${prefix}.${String(issue.path[0] ?? "form")}`;
+    if (!next[key]) next[key] = issue.message;
+  }
+  return next;
+}
 
 export function CareCircleStep() {
-  const { draft, patchDraft, setStepId, updateDraft } = useOnboarding();
+  const { draft, patchDraft, setStepId } = useOnboarding();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const [draftDialog, setDraftDialog] = useState<{
-    id: string;
-    firstName: string;
-  } | null>(null);
+  const [conflictOpen, setConflictOpen] = useState(false);
 
-  const submitCareCircle = async () => {
-    const cpParsed = carePartnerCircleSchema.safeParse(draft.carePartner);
-    const loParsed = lovedOneCircleSchema.safeParse(draft.lovedOne);
-    const nextErrors: Record<string, string> = {};
-    if (!cpParsed.success) {
-      cpParsed.error.issues.forEach((i) => {
-        const k = `cp.${String(i.path[0] ?? "form")}`;
-        if (!nextErrors[k]) nextErrors[k] = i.message;
-      });
-    }
-    if (!loParsed.success) {
-      loParsed.error.issues.forEach((i) => {
-        const k = `lo.${String(i.path[0] ?? "form")}`;
-        if (!nextErrors[k]) nextErrors[k] = i.message;
-      });
-    }
+  const carePartner = draft.carePartner;
+  const lovedOne = draft.lovedOne;
+  const localBuddy = draft.localBuddy;
+  const doctor = draft.doctor;
+  const buddyEngaged = isLocalBuddyEngaged(localBuddy);
+  const doctorEngaged = isDoctorEngaged(doctor);
 
-    let buddyPayload: {
-      firstName: string;
-      lastName: string;
-      whatsappNumber: string;
-    } | null = null;
-    if (isLocalBuddyEngaged(draft.localBuddy)) {
-      const b = localBuddyCircleSchema.safeParse(draft.localBuddy);
-      if (!b.success) {
-        b.error.issues.forEach((i) => {
-          const k = `buddy.${String(i.path[0] ?? "form")}`;
-          if (!nextErrors[k]) nextErrors[k] = i.message;
-        });
-      } else {
-        buddyPayload = b.data;
-      }
-    }
+  const runSave = async (): Promise<boolean> => {
+    const cpParsed = carePartnerCircleSchema.safeParse(carePartner);
+    const loParsed = lovedOneCircleSchema.safeParse(lovedOne);
+    const buddyParsed = buddyEngaged ? localBuddyCircleSchema.safeParse(localBuddy) : null;
+    const doctorParsed = doctorEngaged ? doctorCircleSchema.safeParse(doctor) : null;
 
-    let doctorPayload: {
-      firstName: string;
-      lastName: string;
-      clinicName: string;
-      whatsappNumber?: string;
-    } | null = null;
-    if (isDoctorEngaged(draft.doctor)) {
-      const d = doctorCircleSchema.safeParse(draft.doctor);
-      if (!d.success) {
-        d.error.issues.forEach((i) => {
-          const k = `doc.${String(i.path[0] ?? "form")}`;
-          if (!nextErrors[k]) nextErrors[k] = i.message;
-        });
-      } else {
-        doctorPayload = {
-          firstName: d.data.firstName,
-          lastName: d.data.lastName,
-          clinicName: d.data.clinicName,
-          whatsappNumber: d.data.whatsappNumber || undefined,
-        };
-      }
-    }
+    const nextErrors: Record<string, string> = {
+      ...(!cpParsed.success ? issuesToErrors("carePartner", cpParsed.error.issues) : {}),
+      ...(!loParsed.success ? issuesToErrors("lovedOne", loParsed.error.issues) : {}),
+      ...(buddyParsed && !buddyParsed.success
+        ? issuesToErrors("localBuddy", buddyParsed.error.issues)
+        : {}),
+      ...(doctorParsed && !doctorParsed.success
+        ? issuesToErrors("doctor", doctorParsed.error.issues)
+        : {}),
+    };
 
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
-      toast.error("Complete required Care Circle fields");
-      return;
+      toast.error("Please complete the required fields");
+      return false;
     }
     setErrors({});
-    if (!cpParsed.success || !loParsed.success) return;
 
     setBusy(true);
     const result = await saveCareCircleDraft({
       carePartner: {
-        whatsappNumber: cpParsed.data.whatsappNumber,
-        timezone: cpParsed.data.timeZone,
-        firstName: draft.carePartnerProfile.firstName || undefined,
-        lastName: draft.carePartnerProfile.lastName || undefined,
-        email: draft.carePartnerProfile.email || undefined,
+        whatsappNumber: carePartner.whatsappNumber,
+        timezone: carePartner.timeZone,
+        firstName: draft.carePartnerProfile.firstName,
+        lastName: draft.carePartnerProfile.lastName,
+        email: draft.carePartnerProfile.email,
       },
       elder: {
         id: draft.elderId,
-        firstName: loParsed.data.firstName,
-        lastName: loParsed.data.lastName,
-        age: loParsed.data.age,
-        relationshipToCarePartner: loParsed.data.relationshipToCarePartner,
-        whatsappNumber: loParsed.data.whatsappNumber,
-        timezone: loParsed.data.timeZone,
-        address: loParsed.data.address,
+        firstName: lovedOne.firstName,
+        lastName: lovedOne.lastName,
+        age: lovedOne.age,
+        relationshipToCarePartner: lovedOne.relationshipToCarePartner,
+        whatsappNumber: lovedOne.whatsappNumber,
+        timezone: lovedOne.timeZone,
+        address: lovedOne.address,
       },
-      localBuddy: buddyPayload,
-      doctor: doctorPayload,
+      localBuddy: buddyEngaged ? localBuddy : null,
+      doctor: doctorEngaged ? doctor : null,
     });
     setBusy(false);
 
     if (!result.ok) {
       if (isUnfinishedDraftError(result.error)) {
-        const own = await getOwnDraftElder();
-        if (own.ok && own.draft) {
-          setDraftDialog(own.draft);
-          return;
-        }
+        setConflictOpen(true);
+        return false;
       }
       toast.error(result.error);
-      return;
+      return false;
     }
 
-    patchDraft({
-      elderId: result.elderId,
-      currentStepId: "wellness-details",
-    });
+    patchDraft({ elderId: result.elderId });
+    setStepId("wellness-details");
+    return true;
   };
 
-  const onResumeDraft = () => {
-    if (!draftDialog) return;
-    patchDraft({ elderId: draftDialog.id });
-    setDraftDialog(null);
-    toast.message("Resumed unfinished Loved One — review Care Circle and continue");
+  const onNext = async () => {
+    await runSave();
   };
 
-  const onDiscardDraft = async () => {
-    if (!draftDialog) return;
+  const onResumeOtherDraft = async () => {
     setBusy(true);
-    clearOnboardingLocalDraft();
-    const result = await discardDraftElder(draftDialog.id);
+    const res = await getOwnDraftElder();
     setBusy(false);
-    if (!result.ok) {
-      toast.error(result.error);
+    if (!res.ok) {
+      toast.error(res.error);
       return;
     }
-    setDraftDialog(null);
-    patchDraft({ elderId: null });
-    toast.message("Unfinished draft discarded — you can save this Care Circle now");
+    if (!res.draft) {
+      toast.error("No unfinished draft found");
+      setConflictOpen(false);
+      return;
+    }
+    patchDraft({ elderId: res.draft.id });
+    setConflictOpen(false);
+    toast.message(`Resuming ${res.draft.firstName}'s setup — press Next to save these details.`);
+  };
+
+  const onDiscardOtherDraft = async () => {
+    setBusy(true);
+    const res = await getOwnDraftElder();
+    if (!res.ok || !res.draft) {
+      setBusy(false);
+      toast.error(res.ok ? "No unfinished draft found" : res.error);
+      setConflictOpen(false);
+      return;
+    }
+    const discardRes = await discardDraftElder(res.draft.id);
+    setBusy(false);
+    if (!discardRes.ok) {
+      toast.error(discardRes.error);
+      return;
+    }
+    setConflictOpen(false);
+    toast.message("Discarded the previous unfinished setup");
+    await runSave();
   };
 
   return (
-    <>
-      <WizardShell onNext={() => void submitCareCircle()} busy={busy} hideBack>
-        <div className="space-y-5">
-          <section className="space-y-4 rounded-2xl border bg-background/70 p-4">
-            <h3 className="font-display text-xl">Care Partner</h3>
-            <p className="text-sm text-muted-foreground">
+    <WizardShell onNext={onNext} busy={busy}>
+      <div className="space-y-6">
+        <section className="space-y-4 rounded-2xl border bg-background/70 p-4">
+          <h3 className="font-display text-xl">Care Partner (you)</h3>
+          <div className="space-y-1 text-sm text-muted-foreground">
+            <p className="font-medium text-foreground">
               {draft.carePartnerProfile.firstName} {draft.carePartnerProfile.lastName}
-              {draft.carePartnerProfile.email
-                ? ` · ${draft.carePartnerProfile.email}`
-                : ""}
             </p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="cp-wa">WhatsApp number</Label>
-                <Input
-                  id="cp-wa"
-                  value={draft.carePartner.whatsappNumber}
-                  onChange={(e) =>
-                    patchDraft({
-                      carePartner: {
-                        ...draft.carePartner,
-                        whatsappNumber: e.target.value,
-                      },
-                    })
-                  }
-                />
-                <FieldError message={errors["cp.whatsappNumber"]} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cp-tz">Timezone</Label>
-                <Input
-                  id="cp-tz"
-                  placeholder="Asia/Kolkata"
-                  value={draft.carePartner.timeZone}
-                  onChange={(e) =>
-                    patchDraft({
-                      carePartner: { ...draft.carePartner, timeZone: e.target.value },
-                    })
-                  }
-                />
-                <FieldError message={errors["cp.timeZone"]} />
-              </div>
-            </div>
-          </section>
-
-          <section className="space-y-4 rounded-2xl border bg-background/70 p-4">
-            <h3 className="font-display text-xl">Loved One</h3>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="lo-first">First name</Label>
-                <Input
-                  id="lo-first"
-                  value={draft.lovedOne.firstName}
-                  onChange={(e) =>
-                    patchDraft({
-                      lovedOne: { ...draft.lovedOne, firstName: e.target.value },
-                    })
-                  }
-                />
-                <FieldError message={errors["lo.firstName"]} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lo-last">Last name</Label>
-                <Input
-                  id="lo-last"
-                  value={draft.lovedOne.lastName}
-                  onChange={(e) =>
-                    patchDraft({
-                      lovedOne: { ...draft.lovedOne, lastName: e.target.value },
-                    })
-                  }
-                />
-                <FieldError message={errors["lo.lastName"]} />
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="lo-age">Age</Label>
-                <Input
-                  id="lo-age"
-                  type="number"
-                  min={1}
-                  max={120}
-                  value={draft.lovedOne.age}
-                  onChange={(e) =>
-                    patchDraft({
-                      lovedOne: {
-                        ...draft.lovedOne,
-                        age: Number(e.target.value) || 0,
-                      },
-                    })
-                  }
-                />
-                <FieldError message={errors["lo.age"]} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lo-rel">Relationship to you</Label>
-                <Input
-                  id="lo-rel"
-                  value={draft.lovedOne.relationshipToCarePartner}
-                  onChange={(e) =>
-                    patchDraft({
-                      lovedOne: {
-                        ...draft.lovedOne,
-                        relationshipToCarePartner: e.target.value,
-                      },
-                    })
-                  }
-                />
-                <FieldError message={errors["lo.relationshipToCarePartner"]} />
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="lo-wa">WhatsApp number</Label>
-                <Input
-                  id="lo-wa"
-                  value={draft.lovedOne.whatsappNumber}
-                  onChange={(e) =>
-                    patchDraft({
-                      lovedOne: {
-                        ...draft.lovedOne,
-                        whatsappNumber: e.target.value,
-                      },
-                    })
-                  }
-                />
-                <FieldError message={errors["lo.whatsappNumber"]} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lo-tz">Timezone</Label>
-                <Input
-                  id="lo-tz"
-                  placeholder="Asia/Kolkata"
-                  value={draft.lovedOne.timeZone}
-                  onChange={(e) =>
-                    patchDraft({
-                      lovedOne: { ...draft.lovedOne, timeZone: e.target.value },
-                    })
-                  }
-                />
-                <FieldError message={errors["lo.timeZone"]} />
-              </div>
-            </div>
+            {draft.carePartnerProfile.email ? <p>{draft.carePartnerProfile.email}</p> : null}
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="lo-addr">Address</Label>
+              <Label htmlFor="cp-wa">WhatsApp number</Label>
               <Input
-                id="lo-addr"
-                value={draft.lovedOne.address}
+                id="cp-wa"
+                value={carePartner.whatsappNumber}
                 onChange={(e) =>
-                  patchDraft({
-                    lovedOne: { ...draft.lovedOne, address: e.target.value },
-                  })
+                  patchDraft({ carePartner: { ...carePartner, whatsappNumber: e.target.value } })
                 }
               />
-              <FieldError message={errors["lo.address"]} />
+              <FieldError message={errors["carePartner.whatsappNumber"]} />
             </div>
-          </section>
+            <div className="space-y-2">
+              <Label htmlFor="cp-tz">Time zone</Label>
+              <Input
+                id="cp-tz"
+                placeholder="Asia/Kolkata"
+                value={carePartner.timeZone}
+                onChange={(e) =>
+                  patchDraft({ carePartner: { ...carePartner, timeZone: e.target.value } })
+                }
+              />
+              <FieldError message={errors["carePartner.timeZone"]} />
+            </div>
+          </div>
+        </section>
 
-          <section className="space-y-4 rounded-2xl border bg-background/70 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-display text-xl">Local Buddy</h3>
+        <section className="space-y-4 rounded-2xl border bg-background/70 p-4">
+          <h3 className="font-display text-xl">Loved One</h3>
+          <div className="space-y-2">
+            <Label htmlFor="lo-wa">WhatsApp number</Label>
+            <Input
+              id="lo-wa"
+              placeholder="We'll send check-ins here"
+              value={lovedOne.whatsappNumber}
+              onChange={(e) => patchDraft({ lovedOne: { ...lovedOne, whatsappNumber: e.target.value } })}
+            />
+            <FieldError message={errors["lovedOne.whatsappNumber"]} />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="lo-first">First name</Label>
+              <Input
+                id="lo-first"
+                value={lovedOne.firstName}
+                onChange={(e) => patchDraft({ lovedOne: { ...lovedOne, firstName: e.target.value } })}
+              />
+              <FieldError message={errors["lovedOne.firstName"]} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lo-last">Last name</Label>
+              <Input
+                id="lo-last"
+                value={lovedOne.lastName}
+                onChange={(e) => patchDraft({ lovedOne: { ...lovedOne, lastName: e.target.value } })}
+              />
+              <FieldError message={errors["lovedOne.lastName"]} />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="lo-age">Age</Label>
+              <Input
+                id="lo-age"
+                type="number"
+                min={1}
+                max={120}
+                value={lovedOne.age}
+                onChange={(e) =>
+                  patchDraft({ lovedOne: { ...lovedOne, age: Number(e.target.value) || 0 } })
+                }
+              />
+              <FieldError message={errors["lovedOne.age"]} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lo-tz">Time zone</Label>
+              <Input
+                id="lo-tz"
+                placeholder="Asia/Kolkata"
+                value={lovedOne.timeZone}
+                onChange={(e) => patchDraft({ lovedOne: { ...lovedOne, timeZone: e.target.value } })}
+              />
+              <FieldError message={errors["lovedOne.timeZone"]} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="lo-rel">Relationship to Care Partner</Label>
+            <Input
+              id="lo-rel"
+              placeholder="Father, Mother, Grandmother…"
+              value={lovedOne.relationshipToCarePartner}
+              onChange={(e) =>
+                patchDraft({
+                  lovedOne: { ...lovedOne, relationshipToCarePartner: e.target.value },
+                })
+              }
+            />
+            <FieldError message={errors["lovedOne.relationshipToCarePartner"]} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="lo-address">Address</Label>
+            <Input
+              id="lo-address"
+              placeholder="Street, apartment, city"
+              value={lovedOne.address}
+              onChange={(e) => patchDraft({ lovedOne: { ...lovedOne, address: e.target.value } })}
+            />
+            <p className="text-xs text-muted-foreground">
+              We only share this with your Local Buddy during an emergency.
+            </p>
+            <FieldError message={errors["lovedOne.address"]} />
+          </div>
+        </section>
+
+        <section className="space-y-4 rounded-2xl border bg-background/70 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-display text-xl">Local Buddy</h3>
+            {buddyEngaged ? (
               <Button
                 type="button"
-                variant="soft"
+                variant="ghost"
                 size="sm"
-                disabled={busy}
-                onClick={() => {
-                  updateDraft((prev) => ({
-                    ...prev,
-                    localBuddy: emptyLocalBuddy(),
-                  }));
-                  toast.message("You can add a Local Buddy later in Care Circle");
-                }}
+                onClick={() => patchDraft({ localBuddy: emptyLocalBuddy() })}
               >
                 Skip for now
               </Button>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Someone nearby who can respond in person during an SOS. Optional.
-            </p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="buddy-first">First name</Label>
-                <Input
-                  id="buddy-first"
-                  value={draft.localBuddy.firstName}
-                  onChange={(e) =>
-                    patchDraft({
-                      localBuddy: {
-                        ...draft.localBuddy,
-                        firstName: e.target.value,
-                      },
-                    })
-                  }
-                />
-                <FieldError message={errors["buddy.firstName"]} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="buddy-last">Last name</Label>
-                <Input
-                  id="buddy-last"
-                  value={draft.localBuddy.lastName}
-                  onChange={(e) =>
-                    patchDraft({
-                      localBuddy: {
-                        ...draft.localBuddy,
-                        lastName: e.target.value,
-                      },
-                    })
-                  }
-                />
-                <FieldError message={errors["buddy.lastName"]} />
-              </div>
+            ) : null}
+          </div>
+          <p className="rounded-2xl bg-sage/60 px-4 py-3 text-sm text-primary">
+            Someone nearby who can respond in person during an SOS. Highly recommended, but you
+            can add them later.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="buddy-first">First name</Label>
+              <Input
+                id="buddy-first"
+                value={localBuddy.firstName}
+                onChange={(e) => patchDraft({ localBuddy: { ...localBuddy, firstName: e.target.value } })}
+              />
+              <FieldError message={errors["localBuddy.firstName"]} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="buddy-wa">WhatsApp number</Label>
+              <Label htmlFor="buddy-last">Last name</Label>
               <Input
-                id="buddy-wa"
-                value={draft.localBuddy.whatsappNumber}
-                onChange={(e) =>
-                  patchDraft({
-                    localBuddy: {
-                      ...draft.localBuddy,
-                      whatsappNumber: e.target.value,
-                    },
-                  })
-                }
+                id="buddy-last"
+                value={localBuddy.lastName}
+                onChange={(e) => patchDraft({ localBuddy: { ...localBuddy, lastName: e.target.value } })}
               />
-              <FieldError message={errors["buddy.whatsappNumber"]} />
+              <FieldError message={errors["localBuddy.lastName"]} />
             </div>
-          </section>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="buddy-wa">WhatsApp number</Label>
+            <Input
+              id="buddy-wa"
+              value={localBuddy.whatsappNumber}
+              onChange={(e) =>
+                patchDraft({ localBuddy: { ...localBuddy, whatsappNumber: e.target.value } })
+              }
+            />
+            <FieldError message={errors["localBuddy.whatsappNumber"]} />
+          </div>
+        </section>
 
-          <section className="space-y-4 rounded-2xl border bg-background/70 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-display text-xl">Family Doctor</h3>
+        <section className="space-y-4 rounded-2xl border bg-background/70 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-display text-xl">Family Doctor</h3>
+            {doctorEngaged ? (
               <Button
                 type="button"
-                variant="soft"
+                variant="ghost"
                 size="sm"
-                disabled={busy}
-                onClick={() => {
-                  updateDraft((prev) => ({ ...prev, doctor: emptyDoctor() }));
-                  toast.message("You can add a Family Doctor later");
-                }}
+                onClick={() => patchDraft({ doctor: emptyDoctor() })}
               >
                 Skip for now
               </Button>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Optional. WhatsApp may be left blank — SOS then skips the doctor nudge.
-            </p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="doc-first">First name</Label>
-                <Input
-                  id="doc-first"
-                  value={draft.doctor.firstName}
-                  onChange={(e) =>
-                    patchDraft({
-                      doctor: { ...draft.doctor, firstName: e.target.value },
-                    })
-                  }
-                />
-                <FieldError message={errors["doc.firstName"]} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="doc-last">Last name</Label>
-                <Input
-                  id="doc-last"
-                  value={draft.doctor.lastName}
-                  onChange={(e) =>
-                    patchDraft({
-                      doctor: { ...draft.doctor, lastName: e.target.value },
-                    })
-                  }
-                />
-                <FieldError message={errors["doc.lastName"]} />
-              </div>
+            ) : null}
+          </div>
+          <p className="rounded-2xl bg-sage/60 px-4 py-3 text-sm text-primary">
+            Family Doctors are notified for urgent situations — not day-to-day check-ins.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="doc-first">First name</Label>
+              <Input
+                id="doc-first"
+                value={doctor.firstName}
+                onChange={(e) => patchDraft({ doctor: { ...doctor, firstName: e.target.value } })}
+              />
+              <FieldError message={errors["doctor.firstName"]} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="doc-clinic">Clinic or hospital</Label>
+              <Label htmlFor="doc-last">Last name</Label>
               <Input
-                id="doc-clinic"
-                value={draft.doctor.clinicName}
-                onChange={(e) =>
-                  patchDraft({
-                    doctor: { ...draft.doctor, clinicName: e.target.value },
-                  })
-                }
+                id="doc-last"
+                value={doctor.lastName}
+                onChange={(e) => patchDraft({ doctor: { ...doctor, lastName: e.target.value } })}
               />
-              <FieldError message={errors["doc.clinicName"]} />
+              <FieldError message={errors["doctor.lastName"]} />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="doc-wa">WhatsApp number (optional)</Label>
-              <Input
-                id="doc-wa"
-                value={draft.doctor.whatsappNumber}
-                onChange={(e) =>
-                  patchDraft({
-                    doctor: { ...draft.doctor, whatsappNumber: e.target.value },
-                  })
-                }
-              />
-              <FieldError message={errors["doc.whatsappNumber"]} />
-            </div>
-          </section>
-        </div>
-      </WizardShell>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="doc-clinic">Clinic or hospital</Label>
+            <Input
+              id="doc-clinic"
+              value={doctor.clinicName}
+              onChange={(e) => patchDraft({ doctor: { ...doctor, clinicName: e.target.value } })}
+            />
+            <FieldError message={errors["doctor.clinicName"]} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="doc-wa">WhatsApp number (optional)</Label>
+            <Input
+              id="doc-wa"
+              value={doctor.whatsappNumber}
+              onChange={(e) => patchDraft({ doctor: { ...doctor, whatsappNumber: e.target.value } })}
+            />
+            <FieldError message={errors["doctor.whatsappNumber"]} />
+          </div>
+        </section>
+      </div>
 
       <Dialog
-        open={!!draftDialog}
+        open={conflictOpen}
         onOpenChange={(open) => {
-          if (!open && !busy) setDraftDialog(null);
+          if (!open && !busy) setConflictOpen(false);
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              Resume unfinished setup for {draftDialog?.firstName ?? "your Loved One"}?
-            </DialogTitle>
+            <DialogTitle>You have an unfinished Loved One setup</DialogTitle>
             <DialogDescription>
-              You already started adding {draftDialog?.firstName ?? "this Loved One"}.
-              Resume to continue that draft, or discard it to save this Care Circle.
-              Discard permanently deletes the unfinished draft (D11).
+              Resume to continue that setup where you left off, or discard it permanently
+              (including its WhatsApp number) to save the details you just entered. Cancel makes
+              no changes.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
-            <Button disabled={busy} onClick={onResumeDraft}>
+            <Button disabled={busy} onClick={() => void onResumeOtherDraft()}>
               Resume unfinished setup
             </Button>
-            <Button
-              variant="outline"
-              disabled={busy}
-              onClick={() => void onDiscardDraft()}
-            >
-              {busy ? "Discarding…" : "Discard and continue"}
+            <Button variant="outline" disabled={busy} onClick={() => void onDiscardOtherDraft()}>
+              {busy ? "Discarding…" : "Discard and use these details"}
             </Button>
-            <Button
-              variant="ghost"
-              disabled={busy}
-              onClick={() => setDraftDialog(null)}
-            >
+            <Button variant="ghost" disabled={busy} onClick={() => setConflictOpen(false)}>
               Cancel
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </WizardShell>
   );
 }

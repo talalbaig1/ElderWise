@@ -14,9 +14,11 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { ensureCarePartnerProfile } from "@/lib/data/ensure-care-partner";
 import { clientTimeZone, hasOwnProductElder, postAuthPath } from "@/lib/auth-routing";
 import { signUpSchema, type SignUpValues } from "@/lib/auth-schema";
+import { ONBOARDING_FULL_PROGRESS } from "@/lib/onboarding";
 import { createClient } from "@/lib/supabase/client";
 import { useElderWiseStore } from "@/lib/store";
 
@@ -110,24 +112,26 @@ function SignUpForm() {
     router.refresh();
   });
 
+  const totalSteps = ONBOARDING_FULL_PROGRESS.length;
+
   return (
     <div className="relative min-h-[calc(100vh-8rem)]">
       <div className="mx-auto max-w-md px-4 pt-8 sm:px-6">
-        <p className="font-mono text-[11px] text-muted-foreground">Step 1 of 4</p>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-          <div className="h-full w-1/4 rounded-full bg-primary" />
-        </div>
+        <p className="font-mono text-[11px] text-muted-foreground">
+          Step 1 of {totalSteps}
+        </p>
+        <Progress value={(1 / totalSteps) * 100} className="mt-2 h-2" />
         <div className="mt-2 flex flex-wrap gap-1">
-          {["Get Started", "Care Circle", "Wellness", "Review"].map((label, i) => (
+          {ONBOARDING_FULL_PROGRESS.map((step, i) => (
             <span
-              key={label}
+              key={step.id}
               className={
                 i === 0
                   ? "rounded-full bg-primary px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-primary-foreground"
                   : "rounded-full bg-muted px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground"
               }
             >
-              {label}
+              {step.label}
             </span>
           ))}
         </div>

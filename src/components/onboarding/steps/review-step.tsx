@@ -8,11 +8,10 @@ import { useOnboarding } from "@/components/onboarding/onboarding-context";
 import { WizardShell } from "@/components/onboarding/wizard-shell";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { CONSENT_TERMS_VERSION } from "@/lib/consent-terms-version";
 import { saveReviewConsents } from "@/lib/data/onboarding-actions";
-import { isDoctorEngaged, isLocalBuddyEngaged } from "@/lib/onboarding";
+import { CONSENT_TERMS_VERSION } from "@/lib/consent-terms-version";
+import { isDoctorEngaged, isLocalBuddyEngaged, type OnboardingStepId } from "@/lib/onboarding";
 
 function Section({
   title,
@@ -40,44 +39,38 @@ function Section({
 export function ReviewStep() {
   const { draft, setStepId } = useOnboarding();
   const [busy, setBusy] = useState(false);
-  const [consentWhatsApp, setConsentWhatsApp] = useState(false);
-  const [consentMed, setConsentMed] = useState(false);
-  const [consentShare, setConsentShare] = useState(false);
+  const [consentWhatsapp, setConsentWhatsapp] = useState(false);
+  const [consentMedAccuracy, setConsentMedAccuracy] = useState(false);
+  const [consentDataSharing, setConsentDataSharing] = useState(false);
   const [consentTerms, setConsentTerms] = useState(false);
 
-  const hasShareTarget =
-    isLocalBuddyEngaged(draft.localBuddy) || isDoctorEngaged(draft.doctor);
   const lo = draft.lovedOne;
+  const buddyEngaged = isLocalBuddyEngaged(draft.localBuddy);
+  const doctorEngaged = isDoctorEngaged(draft.doctor);
+  const hasShareTarget = buddyEngaged || doctorEngaged;
+  const elderName = lo.firstName || "your Loved One";
+
+  const editStep = (id: OnboardingStepId) => () => setStepId(id);
+
+  const canSubmit =
+    consentWhatsapp && consentMedAccuracy && consentTerms && (!hasShareTarget || consentDataSharing);
 
   const onNext = async () => {
     if (!draft.elderId) {
-      toast.error("Save Care Circle first");
+      toast.error("Save the Care Circle first");
       setStepId("care-circle");
       return;
     }
-    if (!consentWhatsApp) {
-      toast.error("Confirm that your Loved One agreed to ElderWise WhatsApp messages");
+    if (!canSubmit) {
+      toast.error("Please confirm all required consents");
       return;
     }
-    if (!consentMed) {
-      toast.error("Confirm medication details accuracy and the no-medical-advice notice");
-      return;
-    }
-    if (hasShareTarget && !consentShare) {
-      toast.error("Confirm data-sharing with the Local Buddy and/or Doctor you added");
-      return;
-    }
-    if (!consentTerms) {
-      toast.error("Confirm Terms & Privacy");
-      return;
-    }
-
     setBusy(true);
     const result = await saveReviewConsents({
       elderId: draft.elderId,
-      consentMedAccuracy: true,
-      consentDataSharing: hasShareTarget,
-      consentTerms: true,
+      consentMedAccuracy,
+      consentDataSharing: hasShareTarget ? consentDataSharing : false,
+      consentTerms,
       consentTermsVersion: CONSENT_TERMS_VERSION,
     });
     setBusy(false);
@@ -91,34 +84,38 @@ export function ReviewStep() {
   return (
     <WizardShell
       onBack={() => setStepId("wellness-details")}
-      onNext={() => void onNext()}
+      onNext={onNext}
       nextLabel="Finish setup"
       busy={busy}
     >
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Review everything below, then confirm the consents to continue.
+          Review everything below. You can edit any section before finishing.
         </p>
 
-        <Section title="Loved One" onEdit={() => setStepId("care-circle")}>
-          <p className="font-medium text-foreground">
-            {lo.firstName} {lo.lastName} · age {lo.age}
-          </p>
-          <p>{lo.relationshipToCarePartner}</p>
-          <p>WhatsApp · {lo.whatsappNumber}</p>
-          <p>{lo.timeZone}</p>
-        </Section>
-
-        <Section title="Care Partner" onEdit={() => setStepId("care-circle")}>
+        <Section title="Care Partner" onEdit={editStep("care-circle")}>
           <p className="font-medium text-foreground">
             {draft.carePartnerProfile.firstName} {draft.carePartnerProfile.lastName}
           </p>
+          {draft.carePartnerProfile.email ? <p>{draft.carePartnerProfile.email}</p> : null}
           <p>WhatsApp · {draft.carePartner.whatsappNumber}</p>
           <p>{draft.carePartner.timeZone}</p>
         </Section>
 
-        <Section title="Local Buddy" onEdit={() => setStepId("care-circle")}>
-          {!isLocalBuddyEngaged(draft.localBuddy) ? (
+        <Section title="Loved One" onEdit={editStep("care-circle")}>
+          <p className="font-medium text-foreground">
+            {lo.firstName} {lo.lastName}
+          </p>
+          <p>
+            {lo.relationshipToCarePartner} · Age {lo.age}
+          </p>
+          <p>WhatsApp · {lo.whatsappNumber}</p>
+          <p>{lo.timeZone}</p>
+          <p>{lo.address}</p>
+        </Section>
+
+        <Section title="Local Buddy" onEdit={editStep("care-circle")}>
+          {!buddyEngaged ? (
             <p>Skipped — can add later</p>
           ) : (
             <>
@@ -130,8 +127,8 @@ export function ReviewStep() {
           )}
         </Section>
 
-        <Section title="Family Doctor" onEdit={() => setStepId("care-circle")}>
-          {!isDoctorEngaged(draft.doctor) ? (
+        <Section title="Family Doctor" onEdit={editStep("care-circle")}>
+          {!doctorEngaged ? (
             <p>Skipped — can add later</p>
           ) : (
             <>
@@ -139,64 +136,104 @@ export function ReviewStep() {
                 {draft.doctor.firstName} {draft.doctor.lastName}
               </p>
               <p>{draft.doctor.clinicName}</p>
-              <p>
-                WhatsApp · {draft.doctor.whatsappNumber.trim() || "Not provided"}
-              </p>
+              {draft.doctor.whatsappNumber ? <p>WhatsApp · {draft.doctor.whatsappNumber}</p> : null}
             </>
           )}
         </Section>
 
-        <Section title="Wellness Details" onEdit={() => setStepId("wellness-details")}>
-          <p>
-            {draft.medications.length} medication
-            {draft.medications.length === 1 ? "" : "s"} · {draft.foodRoutines.length}{" "}
-            meal
-            {draft.foodRoutines.length === 1 ? "" : "s"} · {draft.healthRoutines.length}{" "}
-            health routine
-            {draft.healthRoutines.length === 1 ? "" : "s"}
-          </p>
+        <Section title="Medication" onEdit={editStep("wellness-details")}>
+          {draft.medications.map((item) => (
+            <p key={item.id}>
+              <span className="font-medium text-foreground">{item.name}</span>
+              {" · "}
+              {item.dosage} {item.dosageUnit}
+              {" · "}
+              {item.time}
+              {" · "}
+              {item.enabled ? "On" : "Off"}
+            </p>
+          ))}
+        </Section>
+
+        <Section title="Food routines" onEdit={editStep("wellness-details")}>
+          {draft.foodRoutines.map((item) => (
+            <p key={item.id}>
+              <span className="font-medium text-foreground">{item.mealName}</span>
+              {" · "}
+              {item.checkInTime}
+              {" · "}
+              {item.enabled ? "On" : "Off"}
+            </p>
+          ))}
+        </Section>
+
+        <Section title="Health routines" onEdit={editStep("wellness-details")}>
+          {draft.healthRoutines.length === 0 ? (
+            <p>None added</p>
+          ) : (
+            draft.healthRoutines.map((item) => (
+              <p key={item.id}>
+                <span className="font-medium text-foreground">{item.name}</span>
+                {" · "}
+                {item.time}
+                {" · "}
+                {item.enabled ? "On" : "Off"}
+              </p>
+            ))
+          )}
         </Section>
 
         <Separator />
 
         <div className="space-y-4 rounded-2xl border bg-background/70 p-4">
-          <h3 className="font-display text-xl">Consents</h3>
+          <h3 className="font-display text-xl">Confirm before finishing</h3>
 
           <label className="flex items-start gap-3 text-sm">
             <Checkbox
-              checked={consentWhatsApp}
-              onCheckedChange={(v) => setConsentWhatsApp(v === true)}
+              checked={consentWhatsapp}
+              onCheckedChange={(checked) => setConsentWhatsapp(checked === true)}
               className="mt-0.5"
             />
-            <span>
-              I confirm that {lo.firstName || "my Loved One"} has agreed to receive
-              ElderWise WhatsApp messages. Silence is not consent (N5).
+            <span className="leading-relaxed text-muted-foreground">
+              <span className="font-medium text-foreground">
+                I confirm {elderName} has agreed to receive ElderWise check-in messages on
+                WhatsApp.
+              </span>
+              <span className="mt-1 block text-xs">
+                Silence is not consent — {elderName} must actively agree, and can stop at any time
+                by replying STOP.
+              </span>
             </span>
           </label>
 
           <label className="flex items-start gap-3 text-sm">
             <Checkbox
-              checked={consentMed}
-              onCheckedChange={(v) => setConsentMed(v === true)}
+              checked={consentMedAccuracy}
+              onCheckedChange={(checked) => setConsentMedAccuracy(checked === true)}
               className="mt-0.5"
             />
-            <span>
-              I confirm the medication details are accurate, and I understand ElderWise
-              does not give medical advice.
+            <span className="leading-relaxed text-muted-foreground">
+              <span className="font-medium text-foreground">
+                The medication details above are accurate to the best of my knowledge.
+              </span>
+              <span className="mt-1 block text-xs">
+                ElderWise does not provide medical advice or diagnosis — always consult a doctor.
+              </span>
             </span>
           </label>
 
           {hasShareTarget ? (
             <label className="flex items-start gap-3 text-sm">
               <Checkbox
-                checked={consentShare}
-                onCheckedChange={(v) => setConsentShare(v === true)}
+                checked={consentDataSharing}
+                onCheckedChange={(checked) => setConsentDataSharing(checked === true)}
                 className="mt-0.5"
               />
-              <span>
-                I consent to sharing health summaries with the Local Buddy and/or Family
-                Doctor named above. This also records my explicit approval of the Doctor
-                contact when one was added.
+              <span className="leading-relaxed text-muted-foreground">
+                <span className="font-medium text-foreground">
+                  I agree to share {elderName}&apos;s check-in and wellbeing information with the
+                  Local Buddy and/or Family Doctor named above.
+                </span>
               </span>
             </label>
           ) : null}
@@ -204,27 +241,29 @@ export function ReviewStep() {
           <label className="flex items-start gap-3 text-sm">
             <Checkbox
               checked={consentTerms}
-              onCheckedChange={(v) => setConsentTerms(v === true)}
+              onCheckedChange={(checked) => setConsentTerms(checked === true)}
               className="mt-0.5"
             />
-            <span>
-              I re-confirm the{" "}
-              <Link href="/terms" className="font-semibold text-primary underline" target="_blank">
-                Terms
-              </Link>{" "}
-              and{" "}
-              <Link
-                href="/privacy"
-                className="font-semibold text-primary underline"
-                target="_blank"
-              >
-                Privacy Policy
-              </Link>{" "}
-              (version {CONSENT_TERMS_VERSION}).
+            <span className="leading-relaxed text-muted-foreground">
+              <span className="font-medium text-foreground">
+                I accept the{" "}
+                <Link href="/terms" className="font-semibold text-primary hover:underline">
+                  Terms
+                </Link>{" "}
+                and{" "}
+                <Link href="/privacy" className="font-semibold text-primary hover:underline">
+                  Privacy
+                </Link>{" "}
+                policy (version {CONSENT_TERMS_VERSION}).
+              </span>
             </span>
           </label>
-          <Label className="sr-only">Consent checklist</Label>
         </div>
+
+        <p className="text-xs text-muted-foreground">
+          ElderWise supports family communication and routine monitoring. It is not a substitute
+          for professional medical advice or emergency services.
+        </p>
       </div>
     </WizardShell>
   );

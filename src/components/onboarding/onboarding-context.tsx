@@ -97,6 +97,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
           ...base,
           elderId: r.elderId,
           currentStepId: r.currentStepId,
+          carePartnerProfile: { ...base.carePartnerProfile, ...r.carePartnerProfile },
           carePartner: { ...base.carePartner, ...r.carePartner },
           lovedOne: { ...base.lovedOne, ...r.lovedOne },
           localBuddy: r.localBuddy ?? emptyLocalBuddy(),

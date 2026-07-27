@@ -3,19 +3,21 @@
 import { useState } from "react";
 import { Copy, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  ChoiceChips,
-  FieldError,
-  NotRequiredWarning,
-  SegmentedNotify,
-} from "@/components/onboarding/fields";
+import { ChoiceChips, NotRequiredWarning, SegmentedNotify } from "@/components/onboarding/fields";
 import { useOnboarding } from "@/components/onboarding/onboarding-context";
 import { WizardShell } from "@/components/onboarding/wizard-shell";
-import { TimePicker } from "@/components/shared/time-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { TimePicker } from "@/components/shared/time-picker";
 import {
   saveOnboardingFoodRoutines,
   saveOnboardingHealthRoutines,
@@ -37,9 +39,10 @@ import {
 export function WellnessDetailsStep() {
   const { draft, updateDraft, setStepId } = useOnboarding();
   const [busy, setBusy] = useState(false);
-  const tz = draft.lovedOne.timeZone;
+  const elderName = draft.lovedOne.firstName || "your Loved One";
+  const elderTimeZone = draft.lovedOne.timeZone;
 
-  const updateMed = (id: string, partial: Partial<MedicationDraft>) => {
+  const updateMedication = (id: string, partial: Partial<MedicationDraft>) => {
     updateDraft((prev) => ({
       ...prev,
       medications: prev.medications.map((item) =>
@@ -66,80 +69,95 @@ export function WellnessDetailsStep() {
     }));
   };
 
+  const onBack = () => setStepId("care-circle");
+
   const onNext = async () => {
     if (!draft.elderId) {
-      toast.error("Save Care Circle first");
+      toast.error("Save the Care Circle first");
       setStepId("care-circle");
       return;
     }
+    if (draft.medications.length === 0) {
+      toast.error("Add at least one medication");
+      return;
+    }
     for (const item of draft.medications) {
-      if (!medicationDraftSchema.safeParse(item).success) {
+      const parsed = medicationDraftSchema.safeParse(item);
+      if (!parsed.success) {
         toast.error(`Check medication “${item.name || "Untitled"}”`);
         return;
       }
     }
+    if (draft.foodRoutines.length === 0) {
+      toast.error("Add at least one meal check-in");
+      return;
+    }
     for (const item of draft.foodRoutines) {
-      if (!foodRoutineDraftSchema.safeParse(item).success) {
+      const parsed = foodRoutineDraftSchema.safeParse(item);
+      if (!parsed.success) {
         toast.error(`Check meal “${item.mealName || "Untitled"}”`);
         return;
       }
     }
     for (const item of draft.healthRoutines) {
-      if (!healthRoutineDraftSchema.safeParse(item).success) {
+      const parsed = healthRoutineDraftSchema.safeParse(item);
+      if (!parsed.success) {
         toast.error(`Check health routine “${item.name || "Untitled"}”`);
         return;
       }
     }
 
     setBusy(true);
-    const med = await saveOnboardingMedications({
+    const medRes = await saveOnboardingMedications({
       elderId: draft.elderId,
       items: draft.medications,
     });
-    if (!med.ok) {
+    if (!medRes.ok) {
       setBusy(false);
-      toast.error(med.error);
+      toast.error(medRes.error);
       return;
     }
-    const food = await saveOnboardingFoodRoutines({
+    const foodRes = await saveOnboardingFoodRoutines({
       elderId: draft.elderId,
-      elderTimeZone: tz,
+      elderTimeZone,
       items: draft.foodRoutines,
     });
-    if (!food.ok) {
+    if (!foodRes.ok) {
       setBusy(false);
-      toast.error(food.error);
+      toast.error(foodRes.error);
       return;
     }
-    const health = await saveOnboardingHealthRoutines({
+    const healthRes = await saveOnboardingHealthRoutines({
       elderId: draft.elderId,
-      elderTimeZone: tz,
+      elderTimeZone,
       items: draft.healthRoutines,
     });
     setBusy(false);
-    if (!health.ok) {
-      toast.error(health.error);
+    if (!healthRes.ok) {
+      toast.error(healthRes.error);
       return;
     }
     setStepId("review");
   };
 
   return (
-    <WizardShell
-      onBack={() => setStepId("care-circle")}
-      onNext={() => void onNext()}
-      busy={busy}
-    >
+    <WizardShell onBack={onBack} onNext={onNext} busy={busy}>
       <div className="space-y-6">
-        <section className="space-y-4">
-          <h3 className="font-display text-xl">Medication</h3>
+        <section className="space-y-4 rounded-2xl border bg-background/70 p-4">
+          <div>
+            <h3 className="font-display text-xl">Medication</h3>
+            <p className="text-sm text-muted-foreground">
+              Add each medicine {elderName} needs, including strength (e.g. “Metformin 500mg”).
+            </p>
+          </div>
+
           {draft.medications.map((item, index) => (
-            <div key={item.id} className="space-y-4 rounded-2xl border bg-background/70 p-4">
+            <div key={item.id} className="space-y-4 rounded-2xl border bg-card p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <Switch
                     checked={item.enabled}
-                    onCheckedChange={(enabled) => updateMed(item.id, { enabled })}
+                    onCheckedChange={(enabled) => updateMedication(item.id, { enabled })}
                   />
                   <p className="font-semibold">Medication {index + 1}</p>
                 </div>
@@ -155,7 +173,7 @@ export function WellnessDetailsStep() {
                           ...prev.medications,
                           {
                             ...item,
-                            id: createEmptyMedication(tz).id,
+                            id: createEmptyMedication(elderTimeZone).id,
                             name: `${item.name} (copy)`,
                           },
                         ],
@@ -170,71 +188,75 @@ export function WellnessDetailsStep() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() =>
+                      className="text-sos"
+                      onClick={() => {
+                        if (!window.confirm(`Remove ${item.name || "this medication"}?`)) return;
                         updateDraft((prev) => ({
                           ...prev,
                           medications: prev.medications.filter((m) => m.id !== item.id),
-                        }))
-                      }
+                        }));
+                      }}
                     >
                       <Trash2 className="h-4 w-4" />
+                      Remove
                     </Button>
                   ) : null}
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Medication name</Label>
-                <Input
-                  value={item.name}
-                  placeholder='Include strength, e.g. "Metformin 500mg"'
-                  onChange={(e) => updateMed(item.id, { name: e.target.value })}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Include strength in the name (e.g. Metformin 500mg).
-                </p>
-              </div>
+
               <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2 sm:col-span-1">
+                  <Label>Medication name</Label>
+                  <Input
+                    value={item.name}
+                    placeholder="Metformin 500mg"
+                    onChange={(e) => updateMedication(item.id, { name: e.target.value })}
+                  />
+                </div>
                 <div className="space-y-2">
-                  <Label>Dosage (quantity)</Label>
+                  <Label>Dosage quantity</Label>
                   <Input
                     value={item.dosage}
                     placeholder="1"
-                    onChange={(e) => updateMed(item.id, { dosage: e.target.value })}
+                    onChange={(e) => updateMedication(item.id, { dosage: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Unit</Label>
-                  <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  <Select
                     value={item.dosageUnit}
-                    onChange={(e) =>
-                      updateMed(item.id, {
-                        dosageUnit: e.target.value as MedicationDraft["dosageUnit"],
+                    onValueChange={(value) =>
+                      updateMedication(item.id, {
+                        dosageUnit: value as MedicationDraft["dosageUnit"],
                       })
                     }
                   >
-                    {DOSAGE_UNITS.map((u) => (
-                      <option key={u} value={u}>
-                        {u}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Time</Label>
-                  <TimePicker
-                    value={item.time}
-                    onChange={(time) => updateMed(item.id, { time })}
-                  />
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DOSAGE_UNITS.map((unit) => (
+                        <SelectItem key={unit} value={unit}>
+                          {unit}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <TimePicker
+                  label="Time"
+                  value={item.time}
+                  onChange={(time) => updateMedication(item.id, { time })}
+                />
                 <div className="space-y-2">
                   <Label>Start date</Label>
                   <Input
                     type="date"
                     value={item.startDate}
-                    onChange={(e) => updateMed(item.id, { startDate: e.target.value })}
+                    onChange={(e) => updateMedication(item.id, { startDate: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -242,56 +264,56 @@ export function WellnessDetailsStep() {
                   <Input
                     type="date"
                     value={item.endDate || ""}
-                    onChange={(e) => updateMed(item.id, { endDate: e.target.value })}
+                    onChange={(e) => updateMedication(item.id, { endDate: e.target.value })}
                   />
                 </div>
               </div>
+
               <div className="space-y-2">
-                <Label>Meal selection</Label>
+                <Label>Timing with meal</Label>
                 <ChoiceChips
-                  value={item.mealTiming}
-                  onChange={(mealTiming) => updateMed(item.id, { mealTiming })}
                   options={[
                     { value: "before_food", label: "Before meal" },
                     { value: "after_food", label: "After meal" },
                   ]}
+                  value={item.mealTiming}
+                  onChange={(mealTiming) => updateMedication(item.id, { mealTiming })}
                 />
               </div>
+
               <div className="space-y-2">
                 <Label>Notify Care Partner</Label>
                 <SegmentedNotify
                   value={item.notifyCarePartner}
-                  onChange={(notifyCarePartner) =>
-                    updateMed(item.id, { notifyCarePartner })
-                  }
+                  onChange={(notifyCarePartner) => updateMedication(item.id, { notifyCarePartner })}
                 />
                 {item.notifyCarePartner === "not_required" ? (
                   <NotRequiredWarning variant="medication" />
                 ) : null}
               </div>
+
               <div className="space-y-2">
-                <Label>Alert Care Partner if not taken within (minutes)</Label>
+                <Label>Missed-dose escalation (minutes)</Label>
                 <Input
                   type="number"
                   min={5}
                   max={240}
                   value={item.escalationMinutes}
                   onChange={(e) =>
-                    updateMed(item.id, {
-                      escalationMinutes: Number(e.target.value) || 30,
-                    })
+                    updateMedication(item.id, { escalationMinutes: Number(e.target.value) || 30 })
                   }
                 />
               </div>
             </div>
           ))}
+
           <Button
             type="button"
             variant="outline"
             onClick={() =>
               updateDraft((prev) => ({
                 ...prev,
-                medications: [...prev.medications, createEmptyMedication(tz)],
+                medications: [...prev.medications, createEmptyMedication(elderTimeZone)],
               }))
             }
           >
@@ -300,11 +322,17 @@ export function WellnessDetailsStep() {
           </Button>
         </section>
 
-        <section className="space-y-4">
-          <h3 className="font-display text-xl">Food</h3>
+        <section className="space-y-4 rounded-2xl border bg-background/70 p-4">
+          <div>
+            <h3 className="font-display text-xl">Food</h3>
+            <p className="text-sm text-muted-foreground">
+              Choose the meal and check-in time for {elderName}.
+            </p>
+          </div>
+
           {draft.foodRoutines.map((item, index) => (
-            <div key={item.id} className="space-y-4 rounded-2xl border bg-background/70 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+            <div key={item.id} className="space-y-4 rounded-2xl border bg-card p-4">
+              <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <Switch
                     checked={item.enabled}
@@ -317,6 +345,7 @@ export function WellnessDetailsStep() {
                     type="button"
                     variant="ghost"
                     size="sm"
+                    className="text-sos"
                     onClick={() =>
                       updateDraft((prev) => ({
                         ...prev,
@@ -325,32 +354,30 @@ export function WellnessDetailsStep() {
                     }
                   >
                     <Trash2 className="h-4 w-4" />
+                    Remove
                   </Button>
                 ) : null}
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Meal name</Label>
-                  <Input
-                    value={item.mealName}
-                    onChange={(e) => updateFood(item.id, { mealName: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Check-in time</Label>
-                  <TimePicker
-                    value={item.checkInTime}
-                    onChange={(checkInTime) => updateFood(item.id, { checkInTime })}
-                  />
-                </div>
+
+              <div className="space-y-2">
+                <Label>Meal name</Label>
+                <Input
+                  value={item.mealName}
+                  onChange={(e) => updateFood(item.id, { mealName: e.target.value })}
+                />
               </div>
+
+              <TimePicker
+                label="Check-in time"
+                value={item.checkInTime}
+                onChange={(checkInTime) => updateFood(item.id, { checkInTime })}
+              />
+
               <div className="space-y-2">
                 <Label>Notify Care Partner</Label>
                 <SegmentedNotify
                   value={item.notifyCarePartner}
-                  onChange={(notifyCarePartner) =>
-                    updateFood(item.id, { notifyCarePartner })
-                  }
+                  onChange={(notifyCarePartner) => updateFood(item.id, { notifyCarePartner })}
                 />
                 {item.notifyCarePartner === "not_required" ? (
                   <NotRequiredWarning variant="routine" />
@@ -358,6 +385,7 @@ export function WellnessDetailsStep() {
               </div>
             </div>
           ))}
+
           <Button
             type="button"
             variant="outline"
@@ -373,11 +401,17 @@ export function WellnessDetailsStep() {
           </Button>
         </section>
 
-        <section className="space-y-4">
-          <h3 className="font-display text-xl">Health</h3>
+        <section className="space-y-4 rounded-2xl border bg-background/70 p-4">
+          <div>
+            <h3 className="font-display text-xl">Health</h3>
+            <p className="text-sm text-muted-foreground">
+              Simple wellness questions to help you notice patterns that matter.
+            </p>
+          </div>
+
           {draft.healthRoutines.map((item, index) => (
-            <div key={item.id} className="space-y-4 rounded-2xl border bg-background/70 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+            <div key={item.id} className="space-y-4 rounded-2xl border bg-card p-4">
+              <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <Switch
                     checked={item.enabled}
@@ -390,42 +424,39 @@ export function WellnessDetailsStep() {
                     type="button"
                     variant="ghost"
                     size="sm"
+                    className="text-sos"
                     onClick={() =>
                       updateDraft((prev) => ({
                         ...prev,
-                        healthRoutines: prev.healthRoutines.filter(
-                          (h) => h.id !== item.id,
-                        ),
+                        healthRoutines: prev.healthRoutines.filter((h) => h.id !== item.id),
                       }))
                     }
                   >
                     <Trash2 className="h-4 w-4" />
+                    Remove
                   </Button>
                 ) : null}
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Routine name</Label>
-                  <Input
-                    value={item.name}
-                    onChange={(e) => updateHealth(item.id, { name: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Check-in time</Label>
-                  <TimePicker
-                    value={item.time}
-                    onChange={(time) => updateHealth(item.id, { time })}
-                  />
-                </div>
+
+              <div className="space-y-2">
+                <Label>Routine name</Label>
+                <Input
+                  value={item.name}
+                  onChange={(e) => updateHealth(item.id, { name: e.target.value })}
+                />
               </div>
+
+              <TimePicker
+                label="Check-in time"
+                value={item.time}
+                onChange={(time) => updateHealth(item.id, { time })}
+              />
+
               <div className="space-y-2">
                 <Label>Notify Care Partner</Label>
                 <SegmentedNotify
                   value={item.notifyCarePartner}
-                  onChange={(notifyCarePartner) =>
-                    updateHealth(item.id, { notifyCarePartner })
-                  }
+                  onChange={(notifyCarePartner) => updateHealth(item.id, { notifyCarePartner })}
                 />
                 {item.notifyCarePartner === "not_required" ? (
                   <NotRequiredWarning variant="routine" />
@@ -433,6 +464,7 @@ export function WellnessDetailsStep() {
               </div>
             </div>
           ))}
+
           <Button
             type="button"
             variant="outline"
@@ -447,7 +479,6 @@ export function WellnessDetailsStep() {
             Add health routine
           </Button>
         </section>
-        <FieldError message={undefined} />
       </div>
     </WizardShell>
   );
