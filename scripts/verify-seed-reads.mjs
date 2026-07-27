@@ -51,7 +51,7 @@ for (const table of tables) {
 
 const { data: elders, error: eErr } = await client
   .from("elders")
-  .select("id, first_name, surname, consent_confirmed_at");
+  .select("id, first_name, last_name, age, relationship_to_care_partner, consent_confirmed_at");
 if (eErr) {
   console.error(eErr.message);
   process.exit(1);
@@ -59,7 +59,7 @@ if (eErr) {
 
 for (const e of elders ?? []) {
   console.log(
-    `elder ${e.first_name} ${e.surname}: consent_confirmed_at=${e.consent_confirmed_at ?? "NULL"}`,
+    `elder ${e.first_name} ${e.last_name} (age ${e.age}, ${e.relationship_to_care_partner}): consent_confirmed_at=${e.consent_confirmed_at ?? "NULL"}`,
   );
 }
 

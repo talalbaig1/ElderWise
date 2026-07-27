@@ -90,11 +90,6 @@ async function loadSummary(rawToken) {
     .from("checkins")
     .select("id, elder_id")
     .eq("elder_id", elderId);
-  const { data: doctor } = await admin
-    .from("doctors")
-    .select("timezone")
-    .eq("elder_id", elderId)
-    .maybeSingle();
   const { data: elder } = await admin
     .from("elders")
     .select("timezone")
@@ -105,7 +100,8 @@ async function loadSummary(rawToken) {
     elderId,
     sos: sos ?? [],
     checkins: checkins ?? [],
-    viewerTimeZone: doctor?.timezone || elder?.timezone || "UTC",
+    // Architecture §10 — share page uses elder TZ (never doctors.timezone).
+    viewerTimeZone: elder?.timezone || "UTC",
   };
 }
 
@@ -128,7 +124,7 @@ async function main() {
     const summaryA = await loadSummary(rawA);
     record("valid token loads", !!summaryA, summaryA ? `elder=${summaryA.elderId.slice(0, 8)}` : "null");
     record(
-      "viewer TZ is doctor/elder IANA",
+      "viewer TZ is elder IANA (Architecture §10)",
       summaryA?.viewerTimeZone === "Asia/Kolkata",
       `got ${summaryA?.viewerTimeZone}`,
     );
@@ -146,7 +142,9 @@ async function main() {
       id: fixtureElderId,
       care_partner_id: SEED_CT,
       first_name: "Isolation",
-      surname: "Fixture",
+      last_name: "Fixture",
+      age: 72,
+      relationship_to_care_partner: "Test fixture",
       gender: "prefer_not_to_say",
       whatsapp_number: `+9199${String(Date.now()).slice(-8)}`,
       timezone: "UTC",

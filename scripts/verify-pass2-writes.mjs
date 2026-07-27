@@ -1,6 +1,11 @@
 /**
  * A2.3 Pass 2 — REQUIRED write verification via seed CT session + read-back.
  * Mirrors server-action payloads (anon key + auth.uid RLS). Never service-role.
+ *
+ * Kept (A4 triage): covers consent-column immutability, medication soft-delete,
+ * domain_configs frequency sync, and food/health soft-disable — none of which
+ * verify-a4-2-care-circle.mjs exercises (that script only smokes the Care Circle RPC).
+ *
  * Usage: node --env-file=.env.local scripts/verify-pass2-writes.mjs
  * Never log key values.
  */
@@ -38,18 +43,18 @@ const signed = await client.auth.signInWithPassword({ email, password });
 assert(!signed.error, signed.error?.message ?? "signed in");
 
 // --- care_partners ---
-const marker = `Pass2-Verify ${Date.now()}`;
+const marker = `Pass2-${Date.now()}`;
 {
   const { data, error } = await client
     .from("care_partners")
-    .update({ full_name: marker })
+    .update({ first_name: marker })
     .eq("id", CT)
-    .select("id, full_name")
+    .select("id, first_name, last_name")
     .maybeSingle();
-  assert(!error && data?.full_name === marker, `care_partners write+read (${data?.full_name})`);
+  assert(!error && data?.first_name === marker, `care_partners write+read (${data?.first_name})`);
   await client
     .from("care_partners")
-    .update({ full_name: "Talal Seed" })
+    .update({ first_name: "Talal", last_name: "Seed" })
     .eq("id", CT);
 }
 
@@ -87,14 +92,14 @@ const marker = `Pass2-Verify ${Date.now()}`;
   await client.from("elders").update({ address: before.data.address }).eq("id", EP);
 }
 
-// --- local_caregivers ---
+// --- local_caregivers (action_plan is unused in product but still writable) ---
 {
   const plan = `Pass2 plan ${Date.now()}`;
   const { data, error } = await client
     .from("local_caregivers")
     .update({ action_plan: plan })
     .eq("id", BUDDY)
-    .select("id, action_plan")
+    .select("id, action_plan, first_name, last_name")
     .maybeSingle();
   assert(!error && data?.action_plan === plan, "local_caregivers write+read");
   await client
@@ -105,17 +110,17 @@ const marker = `Pass2-Verify ${Date.now()}`;
 
 // --- doctors ---
 {
-  const addr = `Pass2 clinic ${Date.now()}`;
+  const clinic = `Pass2 clinic ${Date.now()}`;
   const { data, error } = await client
     .from("doctors")
-    .update({ address: addr })
+    .update({ clinic_name: clinic })
     .eq("id", DOC)
-    .select("id, address")
+    .select("id, clinic_name")
     .maybeSingle();
-  assert(!error && data?.address === addr, "doctors write+read");
+  assert(!error && data?.clinic_name === clinic, "doctors clinic_name write+read");
   await client
     .from("doctors")
-    .update({ address: "Apollo Clinic, Bengaluru" })
+    .update({ clinic_name: "Apollo Clinic, Bengaluru" })
     .eq("id", DOC);
 }
 
@@ -128,9 +133,9 @@ const medId = randomUUID();
       id: medId,
       elder_id: EP,
       enabled: true,
-      name: "Pass2 Test Med",
+      name: "Pass2 Test Med 10mg",
       dosage: "1",
-      dosage_unit: "tab",
+      dosage_unit: "TAB",
       times: ["09:00"],
       days_of_week: [
         "monday",
@@ -142,7 +147,7 @@ const medId = randomUUID();
         "sunday",
       ],
       start_date: "2026-07-01",
-      timing_preference: "no_preference",
+      timing_preference: "before_food",
       notify_care_partner: "only_missed",
       escalation_minutes: 30,
       active: true,
