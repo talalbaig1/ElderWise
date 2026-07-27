@@ -105,9 +105,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
             ...r.carePartner,
           },
           localBuddy: r.localBuddy,
-          skipLocalBuddy: r.skipLocalBuddy,
           doctor: r.doctor,
-          skipDoctor: r.skipDoctor,
           foodRoutines:
             r.foodRoutines.length > 0 ? r.foodRoutines : [createEmptyFood()],
           medications:

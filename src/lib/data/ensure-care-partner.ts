@@ -28,6 +28,9 @@ export async function ensureCarePartnerProfile(input: {
   const fullName = input.fullName.trim();
   const email = (input.email || user.email || "").trim().toLowerCase();
   const timeZone = input.timeZone.trim() || "UTC";
+  const parts = fullName.split(/\s+/).filter(Boolean);
+  const firstName = parts[0] ?? "";
+  const lastName = parts.slice(1).join(" ") || firstName;
 
   if (!fullName) {
     return { ok: false, error: "Full name is required for your Care Partner profile." };
@@ -53,7 +56,8 @@ export async function ensureCarePartnerProfile(input: {
     const { data, error } = await supabase
       .from("care_partners")
       .update({
-        full_name: fullName,
+        first_name: firstName,
+        last_name: lastName,
         email,
       })
       .eq("id", user.id)
@@ -76,7 +80,8 @@ export async function ensureCarePartnerProfile(input: {
     .from("care_partners")
     .insert({
       id: user.id,
-      full_name: fullName,
+      first_name: firstName,
+      last_name: lastName,
       email,
       timezone: timeZone,
     })

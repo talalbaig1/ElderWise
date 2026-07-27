@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { saveOnboardingDoctor } from "@/lib/data/onboarding-actions";
-import { doctorSchema } from "@/lib/onboarding";
+import { doctorSchema, emptyDoctor } from "@/lib/onboarding";
 
 export function DoctorStep() {
   const { draft, patchDraft, setStep } = useOnboarding();
@@ -29,18 +29,6 @@ export function DoctorStep() {
   const onNext = async () => {
     const elderId = requireElderId();
     if (!elderId) return;
-
-    if (draft.skipDoctor) {
-      setBusy(true);
-      const result = await saveOnboardingDoctor({ elderId, skip: true });
-      setBusy(false);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      patchDraft({ currentStep: 4 });
-      return;
-    }
 
     const parsed = doctorSchema.safeParse(value);
     if (!parsed.success) {
@@ -65,7 +53,7 @@ export function DoctorStep() {
       toast.error(result.error);
       return;
     }
-    patchDraft({ doctor: parsed.data, skipDoctor: false, currentStep: 4 });
+    patchDraft({ doctor: parsed.data, currentStep: 4 });
   };
 
   return (
@@ -88,7 +76,7 @@ export function DoctorStep() {
               toast.error(result.error);
               return;
             }
-            patchDraft({ skipDoctor: true, currentStep: 4 });
+            patchDraft({ doctor: emptyDoctor(), currentStep: 4 });
             toast.message("You can add a Family Doctor later");
           }}
         >

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { saveOnboardingLocalBuddy } from "@/lib/data/onboarding-actions";
-import { localBuddySchema } from "@/lib/onboarding";
+import { emptyLocalBuddy, localBuddySchema } from "@/lib/onboarding";
 
 export function LocalBuddyStep() {
   const { draft, patchDraft, setStep, additionalMode } = useOnboarding();
@@ -29,18 +29,6 @@ export function LocalBuddyStep() {
   const onNext = async () => {
     const elderId = requireElderId();
     if (!elderId) return;
-
-    if (draft.skipLocalBuddy) {
-      setBusy(true);
-      const result = await saveOnboardingLocalBuddy({ elderId, skip: true });
-      setBusy(false);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      patchDraft({ currentStep: 3 });
-      return;
-    }
 
     const parsed = localBuddySchema.safeParse(value);
     if (!parsed.success) {
@@ -65,7 +53,7 @@ export function LocalBuddyStep() {
       toast.error(result.error);
       return;
     }
-    patchDraft({ localBuddy: parsed.data, skipLocalBuddy: false, currentStep: 3 });
+    patchDraft({ localBuddy: parsed.data, currentStep: 3 });
   };
 
   return (
@@ -88,7 +76,7 @@ export function LocalBuddyStep() {
               toast.error(result.error);
               return;
             }
-            patchDraft({ skipLocalBuddy: true, currentStep: 3 });
+            patchDraft({ localBuddy: emptyLocalBuddy(), currentStep: 3 });
             toast.message("You can add a Local Buddy later in Care Circle");
           }}
         >

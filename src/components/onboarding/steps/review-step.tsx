@@ -66,7 +66,7 @@ export function ReviewStep() {
         ) : null}
 
         <Section title="Local Buddy" onEdit={() => setStep(2)}>
-          {draft.skipLocalBuddy ? (
+          {!draft.localBuddy.name.trim() && !draft.localBuddy.whatsappNumber.trim() ? (
             <p>Skipped — can add later</p>
           ) : (
             <>
@@ -78,7 +78,7 @@ export function ReviewStep() {
         </Section>
 
         <Section title="Family Doctor" onEdit={() => setStep(3)}>
-          {draft.skipDoctor ? (
+          {!draft.doctor.name.trim() && !draft.doctor.whatsappNumber.trim() ? (
             <p>Skipped — can add later</p>
           ) : (
             <>

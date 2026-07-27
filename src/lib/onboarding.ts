@@ -139,9 +139,7 @@ export interface OnboardingDraft {
   lovedOne: LovedOneDraft;
   carePartner: CarePartnerDraft;
   localBuddy: LocalBuddyDraft;
-  skipLocalBuddy: boolean;
   doctor: DoctorDraft;
-  skipDoctor: boolean;
   foodRoutines: FoodRoutineDraft[];
   medications: MedicationDraft[];
   healthRoutines: HealthRoutineDraft[];
@@ -233,14 +231,12 @@ export function createDefaultDraft(
       whatsappNumber: "",
       directContactNumber: "",
     },
-    skipLocalBuddy: false,
     doctor: {
       name: "",
       whatsappNumber: "",
       directContactNumber: "",
       clinicOrHospitalName: "",
     },
-    skipDoctor: false,
     foodRoutines: [createEmptyFood()],
     medications: [createEmptyMedication()],
     healthRoutines: [createEmptyHealth()],
@@ -251,10 +247,17 @@ export function createDefaultDraft(
 export function loadOnboardingDraft(accountId: string): OnboardingDraft | null {
   const draft = readStorage<OnboardingDraft | null>(STORAGE_KEYS.onboardingDraft, null);
   if (!draft || draft.version !== 2 || draft.accountId !== accountId) return null;
+  // Drop legacy skip* flags from older localStorage drafts (A4.2).
+  const { skipLocalBuddy: _sb, skipDoctor: _sd, ...rest } = draft as OnboardingDraft & {
+    skipLocalBuddy?: boolean;
+    skipDoctor?: boolean;
+  };
+  void _sb;
+  void _sd;
   return {
-    ...draft,
-    elderId: draft.elderId ?? null,
-    foodRoutines: draft.foodRoutines.map((item) => {
+    ...rest,
+    elderId: rest.elderId ?? null,
+    foodRoutines: rest.foodRoutines.map((item) => {
       const fallback = createEmptyFood();
       return {
         ...fallback,
@@ -262,7 +265,7 @@ export function loadOnboardingDraft(accountId: string): OnboardingDraft | null {
         notifyCarePartner: item.notifyCarePartner ?? fallback.notifyCarePartner,
       };
     }),
-    medications: draft.medications.map((item) => {
+    medications: rest.medications.map((item) => {
       const fallback = createEmptyMedication();
       return {
         ...fallback,
@@ -271,7 +274,7 @@ export function loadOnboardingDraft(accountId: string): OnboardingDraft | null {
         escalationMinutes: item.escalationMinutes ?? fallback.escalationMinutes,
       };
     }),
-    healthRoutines: draft.healthRoutines.map((item) => {
+    healthRoutines: rest.healthRoutines.map((item) => {
       const fallback = createEmptyHealth();
       return {
         ...fallback,
@@ -293,6 +296,37 @@ export function clearOnboardingDraft() {
   removeStorage(STORAGE_KEYS.onboardingDraft);
 }
 
+/** Card engaged = any identifying field filled (Architecture §5.7 — no skip flags). */
+export function isLocalBuddyEngaged(buddy: LocalBuddyDraft): boolean {
+  return Boolean(
+    buddy.name.trim() ||
+      buddy.whatsappNumber.trim() ||
+      buddy.directContactNumber.trim(),
+  );
+}
+
+export function isDoctorEngaged(doctor: DoctorDraft): boolean {
+  return Boolean(
+    doctor.name.trim() ||
+      doctor.whatsappNumber.trim() ||
+      (doctor.directContactNumber ?? "").trim() ||
+      (doctor.clinicOrHospitalName ?? "").trim(),
+  );
+}
+
+export function emptyLocalBuddy(): LocalBuddyDraft {
+  return { name: "", whatsappNumber: "", directContactNumber: "" };
+}
+
+export function emptyDoctor(): DoctorDraft {
+  return {
+    name: "",
+    whatsappNumber: "",
+    directContactNumber: "",
+    clinicOrHospitalName: "",
+  };
+}
+
 export function renderTemplate(
   template: string,
   vars: Record<string, string>,
@@ -310,8 +344,10 @@ export function applyOnboardingDraft(
   const now = new Date().toISOString();
   const carePartnerId = store.session.carePartnerId ?? uid("cp");
   const lovedOneId = uid("lo");
-  const buddyId = draft.skipLocalBuddy ? undefined : uid("buddy");
-  const doctorId = draft.skipDoctor ? undefined : uid("doc");
+  const buddyEngaged = isLocalBuddyEngaged(draft.localBuddy);
+  const doctorEngaged = isDoctorEngaged(draft.doctor);
+  const buddyId = buddyEngaged ? uid("buddy") : undefined;
+  const doctorId = doctorEngaged ? uid("doc") : undefined;
 
   const carePartner: CarePartner = {
     id: carePartnerId,
@@ -355,7 +391,7 @@ export function applyOnboardingDraft(
   };
 
   const localBuddy: LocalBuddy | null =
-    draft.skipLocalBuddy || !buddyId
+    !buddyId
       ? null
       : {
           id: buddyId,
@@ -370,7 +406,7 @@ export function applyOnboardingDraft(
         };
 
   const doctor: FamilyDoctor | null =
-    draft.skipDoctor || !doctorId
+    !doctorId
       ? null
       : {
           id: doctorId,

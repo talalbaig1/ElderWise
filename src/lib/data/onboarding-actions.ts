@@ -58,6 +58,27 @@ function failElder(error: string): ElderWriteResult {
   return { ok: false, error };
 }
 
+function splitPersonName(name: string): { firstName: string; lastName: string } {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: "", lastName: "" };
+  if (parts.length === 1) return { firstName: parts[0], lastName: parts[0] };
+  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+}
+
+function ageFromDateOfBirth(dob: string | undefined): number | null {
+  if (!dob?.trim()) return null;
+  const born = new Date(dob);
+  if (Number.isNaN(born.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - born.getFullYear();
+  const monthDelta = today.getMonth() - born.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < born.getDate())) {
+    age -= 1;
+  }
+  if (age < 1 || age > 120) return null;
+  return age;
+}
+
 async function requireUser() {
   const supabase = await createClient();
   const {
@@ -104,11 +125,16 @@ export async function saveOnboardingLovedOne(input: {
   }
 
   const attestedAt = new Date().toISOString();
+  const age = ageFromDateOfBirth(parsed.data.dateOfBirth);
+  if (age == null) {
+    return failElder("Age is required (enter a valid date of birth for now)");
+  }
   const payload = {
     care_partner_id: user.id,
     first_name: parsed.data.firstName,
-    surname: parsed.data.surname,
-    gender: "prefer_not_to_say",
+    last_name: parsed.data.surname,
+    age,
+    relationship_to_care_partner: parsed.data.relationshipToCarePartner,
     whatsapp_number: parsed.data.whatsappNumber,
     timezone: parsed.data.timeZone,
     address: parsed.data.address,
@@ -164,7 +190,9 @@ export async function saveOnboardingLovedOne(input: {
       .from("elders")
       .update({
         first_name: payload.first_name,
-        surname: payload.surname,
+        last_name: payload.last_name,
+        age: payload.age,
+        relationship_to_care_partner: payload.relationship_to_care_partner,
         whatsapp_number: payload.whatsapp_number,
         timezone: payload.timezone,
         address: payload.address,
@@ -229,9 +257,8 @@ export async function saveOnboardingCarePartner(
   const { data, error } = await supabase
     .from("care_partners")
     .update({
-      full_name: parsed.data.firstName.trim(),
-      phone_number: parsed.data.phoneNumber,
-      whatsapp_number: parsed.data.whatsappNumber?.trim() || null,
+      whatsapp_number:
+        parsed.data.whatsappNumber?.trim() || parsed.data.phoneNumber,
       timezone: parsed.data.timeZone,
       ...(parsed.data.email?.trim()
         ? { email: parsed.data.email.trim().toLowerCase() }
@@ -258,7 +285,12 @@ export async function saveOnboardingLocalBuddy(input: {
   if (ownErr) return fail(ownErr);
 
   if (input.skip) {
-    // Skip = no write. Existing buddy row (if any) is left alone for MVP.
+    // Skipped card = no row (Architecture §5.7).
+    const { error } = await supabase
+      .from("local_caregivers")
+      .delete()
+      .eq("elder_id", input.elderId);
+    if (error) return fail(error.message);
     return { ok: true };
   }
 
@@ -267,18 +299,12 @@ export async function saveOnboardingLocalBuddy(input: {
     return fail(parsed.error.issues[0]?.message ?? "Invalid Local Buddy");
   }
 
-  const { data: existing } = await supabase
-    .from("local_caregivers")
-    .select("id")
-    .eq("elder_id", input.elderId)
-    .maybeSingle();
-
+  const names = splitPersonName(parsed.data.name);
   const row = {
-    id: existing?.id ?? crypto.randomUUID(),
     elder_id: input.elderId,
-    full_name: parsed.data.name,
+    first_name: names.firstName,
+    last_name: names.lastName,
     whatsapp_number: parsed.data.whatsappNumber,
-    phone_number: parsed.data.directContactNumber,
   };
 
   const { data, error } = await supabase
@@ -303,56 +329,38 @@ export async function saveOnboardingDoctor(input: {
   const ownErr = await assertOwnsDraftElder(supabase, input.elderId, user.id);
   if (ownErr) return fail(ownErr);
 
-  if (input.skip) return { ok: true };
+  if (input.skip) {
+    const { error } = await supabase
+      .from("doctors")
+      .delete()
+      .eq("elder_id", input.elderId);
+    if (error) return fail(error.message);
+    return { ok: true };
+  }
 
   const parsed = doctorSchema.safeParse(input.doctor);
   if (!parsed.success) {
     return fail(parsed.error.issues[0]?.message ?? "Invalid doctor");
   }
 
-  const { data: existing } = await supabase
-    .from("doctors")
-    .select("id")
-    .eq("elder_id", input.elderId)
-    .maybeSingle();
+  const names = splitPersonName(parsed.data.name);
+  const clinic = parsed.data.clinicOrHospitalName?.trim();
+  if (!clinic) {
+    return fail("Clinic or hospital name is required");
+  }
 
-  const base = {
-    full_name: parsed.data.name,
-    whatsapp_number: parsed.data.whatsappNumber,
-    phone_number: parsed.data.directContactNumber || null,
-    address: parsed.data.clinicOrHospitalName || null,
+  const row = {
+    elder_id: input.elderId,
+    first_name: names.firstName,
+    last_name: names.lastName,
+    whatsapp_number: parsed.data.whatsappNumber.trim() || null,
+    clinic_name: clinic,
     approved_by_ct: true,
   };
 
-  if (existing) {
-    // Never overwrite doctors.timezone — no doctor settings UI to recover.
-    const { data, error } = await supabase
-      .from("doctors")
-      .update(base)
-      .eq("id", existing.id)
-      .select("id")
-      .maybeSingle();
-
-    if (error) return fail(error.message);
-    if (!data) return fail("Doctor save failed — no row returned (check RLS)");
-    return { ok: true };
-  }
-
-  const { data: elder, error: elderErr } = await supabase
-    .from("elders")
-    .select("timezone")
-    .eq("id", input.elderId)
-    .maybeSingle();
-  if (elderErr) return fail(elderErr.message);
-
   const { data, error } = await supabase
     .from("doctors")
-    .insert({
-      id: crypto.randomUUID(),
-      elder_id: input.elderId,
-      ...base,
-      timezone: elder?.timezone ?? "UTC",
-    })
+    .upsert(row, { onConflict: "elder_id" })
     .select("id")
     .maybeSingle();
 
@@ -604,6 +612,124 @@ export async function getOwnDraftElder(): Promise<
 }
 
 /**
+ * Care Circle — atomic draft write via SECURITY INVOKER RPC (Architecture §5.7).
+ * Buddy / doctor payloads are null when that card was not engaged (no row written).
+ * Any error rolls back the whole transaction.
+ */
+export async function saveCareCircleDraft(input: {
+  carePartner: {
+    whatsappNumber: string;
+    timezone: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  };
+  elder: {
+    id?: string | null;
+    firstName: string;
+    lastName: string;
+    age: number;
+    relationshipToCarePartner: string;
+    whatsappNumber: string;
+    timezone: string;
+    address: string;
+  };
+  /** null = card not engaged → no local_caregivers row */
+  localBuddy: {
+    firstName: string;
+    lastName: string;
+    whatsappNumber: string;
+  } | null;
+  /** null = card not engaged → no doctors row */
+  doctor: {
+    firstName: string;
+    lastName: string;
+    whatsappNumber?: string;
+    clinicName: string;
+  } | null;
+}): Promise<ElderWriteResult> {
+  const { supabase, user, error: authErr } = await requireUser();
+  if (authErr || !user) return failElder(authErr ?? "Not signed in");
+
+  const wa = input.carePartner.whatsappNumber.trim();
+  const tz = input.carePartner.timezone.trim();
+  if (!wa) return failElder("Care partner WhatsApp number is required");
+  if (!tz) return failElder("Care partner timezone is required");
+
+  if (
+    !Number.isInteger(input.elder.age) ||
+    input.elder.age < 1 ||
+    input.elder.age > 120
+  ) {
+    return failElder("Loved One age must be between 1 and 120");
+  }
+
+  const p_care_partner = {
+    whatsapp_number: wa,
+    timezone: tz,
+    ...(input.carePartner.firstName?.trim()
+      ? { first_name: input.carePartner.firstName.trim() }
+      : {}),
+    ...(input.carePartner.lastName?.trim()
+      ? { last_name: input.carePartner.lastName.trim() }
+      : {}),
+    ...(input.carePartner.email?.trim()
+      ? { email: input.carePartner.email.trim().toLowerCase() }
+      : {}),
+  };
+
+  const p_elder = {
+    ...(input.elder.id?.trim() ? { id: input.elder.id.trim() } : {}),
+    first_name: input.elder.firstName.trim(),
+    last_name: input.elder.lastName.trim(),
+    age: input.elder.age,
+    relationship_to_care_partner: input.elder.relationshipToCarePartner.trim(),
+    whatsapp_number: input.elder.whatsappNumber.trim(),
+    timezone: input.elder.timezone.trim(),
+    address: input.elder.address.trim(),
+  };
+
+  const p_local_buddy = input.localBuddy
+    ? {
+        first_name: input.localBuddy.firstName.trim(),
+        last_name: input.localBuddy.lastName.trim(),
+        whatsapp_number: input.localBuddy.whatsappNumber.trim(),
+      }
+    : null;
+
+  const p_doctor = input.doctor
+    ? {
+        first_name: input.doctor.firstName.trim(),
+        last_name: input.doctor.lastName.trim(),
+        whatsapp_number: input.doctor.whatsappNumber?.trim() ?? "",
+        clinic_name: input.doctor.clinicName.trim(),
+      }
+    : null;
+
+  const { data, error } = await supabase.rpc("save_care_circle_draft", {
+    p_care_partner,
+    p_elder,
+    p_local_buddy,
+    p_doctor,
+  });
+
+  if (error) {
+    if (isWhatsappUniqueViolation(error)) return failElder(WHATSAPP_TAKEN);
+    return failElder(error.message);
+  }
+
+  const elderId = typeof data === "string" ? data : String(data ?? "");
+  if (!elderId) {
+    return failElder("Care Circle save failed — no elder id returned");
+  }
+
+  revalidatePath("/loved-ones");
+  revalidatePath("/onboarding");
+  revalidatePath("/dashboard");
+  return { ok: true, elderId };
+}
+
+/**
  * Hard-delete an unfinished draft elder.
  *
  * Unlike medication/food/health soft-delete, drafts use DELETE (not active=false).
@@ -660,9 +786,7 @@ export type OnboardingResumePayload = {
   lovedOne: LovedOneDraft;
   carePartner: CarePartnerDraft;
   localBuddy: LocalBuddyDraft;
-  skipLocalBuddy: boolean;
   doctor: DoctorDraft;
-  skipDoctor: boolean;
   foodRoutines: FoodRoutineDraft[];
   medications: MedicationDraft[];
   healthRoutines: HealthRoutineDraft[];
@@ -670,11 +794,7 @@ export type OnboardingResumePayload = {
 
 /**
  * Resume from an inactive elder when localStorage draft is gone.
- *
- * KNOWN LIMITATION (MVP): after localStorage is cleared, "skipped Local Buddy"
- * and "hasn't reached Local Buddy" are indistinguishable — both have no
- * local_caregivers row. Resume returns the CT to the Local Buddy step in that
- * case. Acceptable for MVP; do not invent skip-state columns for this.
+ * Buddy / doctor presence is row presence only — no skip flags (Architecture §5.7).
  */
 export async function loadOnboardingResume(): Promise<
   | { ok: true; resume: OnboardingResumePayload | null }
@@ -726,15 +846,14 @@ export async function loadOnboardingResume(): Promise<
   const meds = medRes.data ?? [];
   const healths = healthRes.data ?? [];
 
-  let currentStep = 2; // Local Buddy — see KNOWN LIMITATION above
+  // After Care Circle draft exists, resume at Local Buddy if neither optional
+  // contact is present; otherwise advance past written sections.
+  let currentStep = 2;
   if (healths.length > 0) currentStep = 7;
   else if (meds.length > 0) currentStep = 6;
   else if (foods.length > 0) currentStep = 5;
   else if (doctor) currentStep = 4;
   else if (buddy) currentStep = 3;
-
-  const cpName = (cp?.full_name ?? "").trim();
-  const firstName = cpName.split(/\s+/)[0] ?? "";
 
   return {
     ok: true,
@@ -744,16 +863,17 @@ export async function loadOnboardingResume(): Promise<
       lovedOne: {
         whatsappNumber: elder.whatsapp_number,
         firstName: elder.first_name,
-        surname: elder.surname,
+        surname: elder.last_name,
         dateOfBirth: "",
         timeZone: elder.timezone,
-        relationshipToCarePartner: "Parent",
+        relationshipToCarePartner:
+          elder.relationship_to_care_partner || "Parent",
         address: elder.address,
         consentAttestedByCarePartner: Boolean(elder.consent_attested_by_ct),
       },
       carePartner: {
-        firstName,
-        phoneNumber: cp?.phone_number ?? "",
+        firstName: cp?.first_name ?? "",
+        phoneNumber: cp?.whatsapp_number ?? "",
         whatsappNumber: cp?.whatsapp_number ?? "",
         email: cp?.email ?? "",
         relationshipToLovedOne: "Daughter / Son",
@@ -761,22 +881,21 @@ export async function loadOnboardingResume(): Promise<
       },
       localBuddy: buddy
         ? {
-            name: buddy.full_name,
+            name: `${buddy.first_name} ${buddy.last_name}`.trim(),
             whatsappNumber: buddy.whatsapp_number,
-            directContactNumber: buddy.phone_number ?? "",
+            directContactNumber: "",
           }
         : {
             name: "",
             whatsappNumber: "",
             directContactNumber: "",
           },
-      skipLocalBuddy: !buddy && currentStep > 2,
       doctor: doctor
         ? {
-            name: doctor.full_name,
-            whatsappNumber: doctor.whatsapp_number,
-            directContactNumber: doctor.phone_number ?? "",
-            clinicOrHospitalName: doctor.address ?? "",
+            name: `${doctor.first_name} ${doctor.last_name}`.trim(),
+            whatsappNumber: doctor.whatsapp_number ?? "",
+            directContactNumber: "",
+            clinicOrHospitalName: doctor.clinic_name ?? "",
           }
         : {
             name: "",
@@ -784,7 +903,6 @@ export async function loadOnboardingResume(): Promise<
             directContactNumber: "",
             clinicOrHospitalName: "",
           },
-      skipDoctor: !doctor && currentStep > 3,
       foodRoutines: foods.map((f) => ({
         id: f.id,
         enabled: f.enabled,

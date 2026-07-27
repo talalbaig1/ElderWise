@@ -1,5 +1,5 @@
 -- A4.1 migration 2 of 2 — schema alignment (Architecture.md §5).
--- Requires: 20260726190000_a4_enum_not_required.sql already applied.
+-- Requires: 20260727073850_a4_enum_not_required.sql already applied.
 -- Apply only after A4.0 wipe — new NOT NULL columns assume empty tables.
 -- Do not apply via the dashboard (Rules.md D1). New columns inherit existing RLS.
 
