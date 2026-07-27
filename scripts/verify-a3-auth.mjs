@@ -37,7 +37,8 @@ const upsert1 = await client
   .upsert(
     {
       id: CT,
-      full_name: "Talal Seed",
+      first_name: "Talal",
+      last_name: "Seed",
       email,
       timezone: tz,
     },
@@ -52,7 +53,8 @@ const upsert2 = await client
   .upsert(
     {
       id: CT,
-      full_name: "Talal Seed",
+      first_name: "Talal",
+      last_name: "Seed",
       email,
       timezone: tz,
     },
