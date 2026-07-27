@@ -23,8 +23,8 @@ export default function GlobalError({
       </span>
       <h1 className="font-display text-3xl">Something went wrong</h1>
       <p className="mt-2 max-w-md text-muted-foreground">
-        ElderWise hit an unexpected error. Your local data is usually safe — try again or return
-        home.
+        ElderWise hit an unexpected error. Your care data is stored in ElderWise&apos;s cloud
+        database — try again or return home. If it keeps happening, sign out and back in.
       </p>
       <div className="mt-6 flex flex-wrap justify-center gap-2">
         <Button onClick={reset}>Try again</Button>

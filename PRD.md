@@ -5,8 +5,8 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | PRD.md — v1.10 |
-| **Date** | 26 July 2026 |
+| **Document** | PRD.md — v1.11 |
+| **Date** | 27 July 2026 |
 | **Format** | AIGF Framework 9 (F9) PRD structure + technical build sections |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Demo Day** | 29 August 2026 |
@@ -122,7 +122,7 @@ This split is the central design constraint: **the person who uses the product i
 | M4 | **Response capture — text (Yes/No button) and voice reply** → written to the database. |
 | M4a | **Voice-reply transcription (STT)** — voice replies are transcribed so the system can determine the answer accurately (Yes / No, or which medicine was taken) and act on it exactly as it would on a button tap. A voice reply is a **first-class response**, not a second-class one. Audio is retained alongside the transcript. |
 | M5 | **Missed-response rule** — default: **one reminder after 30 minutes**; if still no reply → mark the check-in *missed* and **escalate to the Care Partner (CT)**. The escalation policy is **an editable configuration**, held **per EP, per domain**, set at onboarding and changeable in Settings. Escalation never reaches the LCT or Doctor — they remain **SOS-only**. |
-| M6 | **Care-partner notifications** — configurable **per routine item**: Every Time · Only If Missed · **Not Required**. **WhatsApp only.** `Not Required` means **total silence** — no confirmation and no missed-routine push; the miss is still recorded and visible on the dashboard. Inline warning required when selected (copy TBD — see §7.1). |
+| M6 | **Care-partner notifications** — configurable **per routine item**: Every Time · Only If Missed · **Not Required**. **WhatsApp only.** `Not Required` means **total silence** — no confirmation and no missed-routine push; the miss is still recorded and visible on the dashboard. Inline warning required when selected (three card-specific variants — see §7.1). |
 | M7 | **SOS flow** — EP triggers → **immediately** notify CT + LCT (if present) + Doctor (if present) via WhatsApp + update dashboard. **WhatsApp-first: 4 nudges, 2 minutes apart**, stopping early if the SOS is resolved. |
 | M8 | **Care-partner web dashboard** — daily adherence %, health, food, SOS panel, care-circle profile, daily summary, PDF report. |
 | M9 | **Database** — per-domain schemas (Medication / Health / Food) + a separate SOS schema. |
@@ -211,20 +211,24 @@ Each card keeps its enable/disable toggle at the top.
 **Medication** (per entry):
 - Row 1: Medication Name (helper: include strength, e.g. "Metformin 500mg") · Dosage = **quantity per intake** (e.g. "1", "5") · Unit dropdown: `TAB` / `ML` / `CAP` / `DROPS` / `PUFF` / `UNIT`
 - Row 2: Time (**one** time) · Start date · End date (optional)
-- Row 3: Meal Selection (Before Meal / After Meal) · Notify Care Partner (Every Time / Only If Missed / Not Required) · Alert Care Partner if not taken within (minutes)
+- Row 3: Timing with meal (dropdown: Before meal / After meal) · Notify Care Partner (dropdown: Every time / Only if missed / Not required) · **Missed-dose escalation (minutes)** (number). When Notify is **Not required**, the escalation field stays visible but is **disabled** (value retained and persisted; Track B ignores it).
 - **Removed:** "Add time". Two doses/day = duplicate the medication. **Kept:** enable toggle, Duplicate per entry, "Add medication"
 
-**Food** (per meal, one row): Meal Name · Check-in Time · Notify Care Partner (same three modes). No start/end dates collected. Toggle + "Add another meal" kept.
+**Food** (per meal, one row of three): Meal Name · Check-in Time · Notify Care Partner (dropdown, same three modes). No start/end dates collected. Toggle + "Add another meal" kept.
 
-**Health** (per routine, one row): Routine Name · Check-in Time · Notify Care Partner (same three modes). No start/end dates collected. Toggle + "Add health routine" kept.
+**Health** (per routine, one row of three): Routine Name · Check-in Time · Notify Care Partner (dropdown, same three modes). No start/end dates collected. Toggle + "Add health routine" kept.
 
 #### `Not Required` (safety-relevant)
 
 `Not Required` means **total silence**. The CT receives **no** confirmation notification and **no** missed-routine notification for that item. The miss is still recorded and still visible on the dashboard. `escalate_target` has exactly one value (`care_partner`) — silence means silence entirely.
 
-> **WARNING COPY PLACEHOLDER — DO NOT SHIP WITHOUT APPROVED TEXT.**  
-> When the CT selects **Not Required**, show an inline warning beneath the control.  
-> `[PLACEHOLDER: Not Required warning copy — awaiting team-lead approval. Must state that the care partner will receive no WhatsApp alerts for this item, including misses.]`
+When the CT selects **Not Required**, show an inline warning **beneath the notify row**, only while that mode is selected (no icon, no error styling). **Three distinct approved variants** — one per card; a card must never render another card's copy:
+
+> **Medication:** You won't receive any alerts about this medication — including when a dose is missed. Missed doses still appear on your dashboard, but no one is notified at the time.
+
+> **Food:** You won't receive any alerts about this meal — including when it's missed. Missed meals still appear on your dashboard, but no one is notified at the time.
+
+> **Health:** You won't receive any alerts about this health routine — including when it's missed. Missed check-ins still appear on your dashboard, but no one is notified at the time.
 
 #### Step 4 — Review (four consents)
 
@@ -530,6 +534,7 @@ Demo Day ships the **MVP**. Should- and Could-have items are not permitted to en
 
 | Date | Version | Change |
 |---|---|---|
+| 27 Jul 2026 | 1.11 | **§7.1 Not Required warning copy — three card-specific variants** (medication / food / health). Medication row 3 uses Timing + Notify dropdowns + Missed-dose escalation (minutes); escalation disabled (not hidden) when `not_required`. Food/Health are one row of three with Notify dropdowns. |
 | 26 Jul 2026 | 1.10 | **§9 / §12.4 correction.** Remove "ElderWise Corp" — no registered entity; name ElderWise as AIGF Cohort 7 Group 7 non-commercial capstone; no governing-law / no service contract. Rewrite must disclose demo-only PHI warning, A4.0-style deletion without notice, not HIPAA CE/BA, N1/SEC7, data residency. `consent_terms_version` = dated string (e.g. `2026-07-v1`). |
 | 26 Jul 2026 | 1.9 | **A4 — Onboarding restructure.** 8-step wizard → **4 steps** (Get Started pre-auth + Care Circle + Wellness Details + Review). First/Last name everywhere; non-WhatsApp phones removed. Care Circle skip semantics; Wellness field lists; dosage = quantity; one time per medication. M6 gains **Not Required** (total silence) + warning-copy placeholder. Four Review consents (M16a). Privacy/Terms flagged factually false and blocking (§12.4 / M18). Doctor share TZ → elder zone (M14/M15). Add-another progress = Step N of 3. |
 | 23 Jul 2026 | 1.8 | **Companion-doc references no longer pin version numbers.** `main` is the single source of truth; pinned cross-references forced edits to every other doc on each version bump and went stale silently. Refs now name the file only. Each document's own version remains in its header. |

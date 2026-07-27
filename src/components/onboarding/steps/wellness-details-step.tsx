@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Copy, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { ChoiceChips, NotRequiredWarning, SegmentedNotify } from "@/components/onboarding/fields";
+import { NotRequiredWarning, NOTIFY_SELECT_OPTIONS } from "@/components/onboarding/fields";
 import { useOnboarding } from "@/components/onboarding/onboarding-context";
 import { WizardShell } from "@/components/onboarding/wizard-shell";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,37 @@ import {
   type FoodRoutineDraft,
   type HealthRoutineDraft,
   type MedicationDraft,
+  type NotifyCarePartnerMode,
 } from "@/lib/onboarding";
+import { cn } from "@/lib/utils";
+
+/** Stack below md (768px); three columns from md up so the tight medication row does not compress. */
+const THREE_COL = "grid grid-cols-1 gap-4 md:grid-cols-3";
+
+function NotifySelect({
+  value,
+  onChange,
+  id,
+}: {
+  value: NotifyCarePartnerMode;
+  onChange: (value: NotifyCarePartnerMode) => void;
+  id?: string;
+}) {
+  return (
+    <Select value={value} onValueChange={(v) => onChange(v as NotifyCarePartnerMode)}>
+      <SelectTrigger id={id}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {NOTIFY_SELECT_OPTIONS.map((opt) => (
+          <SelectItem key={opt.value} value={opt.value}>
+            {opt.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 export function WellnessDetailsStep() {
   const { draft, updateDraft, setStepId } = useOnboarding();
@@ -151,161 +181,184 @@ export function WellnessDetailsStep() {
             </p>
           </div>
 
-          {draft.medications.map((item, index) => (
-            <div key={item.id} className="space-y-4 rounded-2xl border bg-card p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <Switch
-                    checked={item.enabled}
-                    onCheckedChange={(enabled) => updateMedication(item.id, { enabled })}
-                  />
-                  <p className="font-semibold">Medication {index + 1}</p>
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      updateDraft((prev) => ({
-                        ...prev,
-                        medications: [
-                          ...prev.medications,
-                          {
-                            ...item,
-                            id: createEmptyMedication(elderTimeZone).id,
-                            name: `${item.name} (copy)`,
-                          },
-                        ],
-                      }))
-                    }
-                  >
-                    <Copy className="h-4 w-4" />
-                    Duplicate
-                  </Button>
-                  {draft.medications.length > 1 ? (
+          {draft.medications.map((item, index) => {
+            const muteEscalation = item.notifyCarePartner === "not_required";
+            return (
+              <div key={item.id} className="space-y-4 rounded-2xl border bg-card p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={item.enabled}
+                      onCheckedChange={(enabled) => updateMedication(item.id, { enabled })}
+                    />
+                    <p className="font-semibold">Medication {index + 1}</p>
+                  </div>
+                  <div className="flex gap-1">
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="text-sos"
-                      onClick={() => {
-                        if (!window.confirm(`Remove ${item.name || "this medication"}?`)) return;
+                      onClick={() =>
                         updateDraft((prev) => ({
                           ...prev,
-                          medications: prev.medications.filter((m) => m.id !== item.id),
-                        }));
-                      }}
+                          medications: [
+                            ...prev.medications,
+                            {
+                              ...item,
+                              id: createEmptyMedication(elderTimeZone).id,
+                              name: `${item.name} (copy)`,
+                            },
+                          ],
+                        }))
+                      }
                     >
-                      <Trash2 className="h-4 w-4" />
-                      Remove
+                      <Copy className="h-4 w-4" />
+                      Duplicate
                     </Button>
-                  ) : null}
+                    {draft.medications.length > 1 ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-sos"
+                        onClick={() => {
+                          if (!window.confirm(`Remove ${item.name || "this medication"}?`)) return;
+                          updateDraft((prev) => ({
+                            ...prev,
+                            medications: prev.medications.filter((m) => m.id !== item.id),
+                          }));
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Remove
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
 
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2 sm:col-span-1">
-                  <Label>Medication name</Label>
-                  <Input
-                    value={item.name}
-                    placeholder="Metformin 500mg"
-                    onChange={(e) => updateMedication(item.id, { name: e.target.value })}
+                <div className={THREE_COL}>
+                  <div className="space-y-2">
+                    <Label>Medication name</Label>
+                    <Input
+                      value={item.name}
+                      placeholder="Metformin 500mg"
+                      onChange={(e) => updateMedication(item.id, { name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Dosage quantity</Label>
+                    <Input
+                      value={item.dosage}
+                      placeholder="1"
+                      onChange={(e) => updateMedication(item.id, { dosage: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Unit</Label>
+                    <Select
+                      value={item.dosageUnit}
+                      onValueChange={(value) =>
+                        updateMedication(item.id, {
+                          dosageUnit: value as MedicationDraft["dosageUnit"],
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DOSAGE_UNITS.map((unit) => (
+                          <SelectItem key={unit} value={unit}>
+                            {unit}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className={THREE_COL}>
+                  <TimePicker
+                    label="Time"
+                    value={item.time}
+                    onChange={(time) => updateMedication(item.id, { time })}
                   />
+                  <div className="space-y-2">
+                    <Label>Start date</Label>
+                    <Input
+                      type="date"
+                      value={item.startDate}
+                      onChange={(e) => updateMedication(item.id, { startDate: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>End date (optional)</Label>
+                    <Input
+                      type="date"
+                      value={item.endDate || ""}
+                      onChange={(e) => updateMedication(item.id, { endDate: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Dosage quantity</Label>
-                  <Input
-                    value={item.dosage}
-                    placeholder="1"
-                    onChange={(e) => updateMedication(item.id, { dosage: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Unit</Label>
-                  <Select
-                    value={item.dosageUnit}
-                    onValueChange={(value) =>
-                      updateMedication(item.id, {
-                        dosageUnit: value as MedicationDraft["dosageUnit"],
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DOSAGE_UNITS.map((unit) => (
-                        <SelectItem key={unit} value={unit}>
-                          {unit}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
 
-              <div className="grid gap-4 sm:grid-cols-3">
-                <TimePicker
-                  label="Time"
-                  value={item.time}
-                  onChange={(time) => updateMedication(item.id, { time })}
-                />
                 <div className="space-y-2">
-                  <Label>Start date</Label>
-                  <Input
-                    type="date"
-                    value={item.startDate}
-                    onChange={(e) => updateMedication(item.id, { startDate: e.target.value })}
-                  />
+                  <div className={THREE_COL}>
+                    <div className="space-y-2">
+                      <Label>Timing with meal</Label>
+                      <Select
+                        value={item.mealTiming}
+                        onValueChange={(value) =>
+                          updateMedication(item.id, {
+                            mealTiming: value as MedicationDraft["mealTiming"],
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="before_food">Before meal</SelectItem>
+                          <SelectItem value="after_food">After meal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Notify Care Partner</Label>
+                      <NotifySelect
+                        value={item.notifyCarePartner}
+                        onChange={(notifyCarePartner) =>
+                          updateMedication(item.id, { notifyCarePartner })
+                        }
+                      />
+                    </div>
+                    <div
+                      className={cn(
+                        "space-y-2 transition-opacity",
+                        muteEscalation && "opacity-50",
+                      )}
+                    >
+                      <Label htmlFor={`esc-${item.id}`}>Missed-dose escalation (minutes)</Label>
+                      <Input
+                        id={`esc-${item.id}`}
+                        type="number"
+                        min={5}
+                        max={240}
+                        value={item.escalationMinutes}
+                        disabled={muteEscalation}
+                        aria-disabled={muteEscalation}
+                        onChange={(e) =>
+                          updateMedication(item.id, {
+                            escalationMinutes: Number(e.target.value) || 30,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                  {muteEscalation ? <NotRequiredWarning variant="medication" /> : null}
                 </div>
-                <div className="space-y-2">
-                  <Label>End date (optional)</Label>
-                  <Input
-                    type="date"
-                    value={item.endDate || ""}
-                    onChange={(e) => updateMedication(item.id, { endDate: e.target.value })}
-                  />
-                </div>
               </div>
-
-              <div className="space-y-2">
-                <Label>Timing with meal</Label>
-                <ChoiceChips
-                  options={[
-                    { value: "before_food", label: "Before meal" },
-                    { value: "after_food", label: "After meal" },
-                  ]}
-                  value={item.mealTiming}
-                  onChange={(mealTiming) => updateMedication(item.id, { mealTiming })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Notify Care Partner</Label>
-                <SegmentedNotify
-                  value={item.notifyCarePartner}
-                  onChange={(notifyCarePartner) => updateMedication(item.id, { notifyCarePartner })}
-                />
-                {item.notifyCarePartner === "not_required" ? (
-                  <NotRequiredWarning variant="medication" />
-                ) : null}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Missed-dose escalation (minutes)</Label>
-                <Input
-                  type="number"
-                  min={5}
-                  max={240}
-                  value={item.escalationMinutes}
-                  onChange={(e) =>
-                    updateMedication(item.id, { escalationMinutes: Number(e.target.value) || 30 })
-                  }
-                />
-              </div>
-            </div>
-          ))}
+            );
+          })}
 
           <Button
             type="button"
@@ -360,27 +413,31 @@ export function WellnessDetailsStep() {
               </div>
 
               <div className="space-y-2">
-                <Label>Meal name</Label>
-                <Input
-                  value={item.mealName}
-                  onChange={(e) => updateFood(item.id, { mealName: e.target.value })}
-                />
-              </div>
-
-              <TimePicker
-                label="Check-in time"
-                value={item.checkInTime}
-                onChange={(checkInTime) => updateFood(item.id, { checkInTime })}
-              />
-
-              <div className="space-y-2">
-                <Label>Notify Care Partner</Label>
-                <SegmentedNotify
-                  value={item.notifyCarePartner}
-                  onChange={(notifyCarePartner) => updateFood(item.id, { notifyCarePartner })}
-                />
+                <div className={THREE_COL}>
+                  <div className="space-y-2">
+                    <Label>Meal name</Label>
+                    <Input
+                      value={item.mealName}
+                      onChange={(e) => updateFood(item.id, { mealName: e.target.value })}
+                    />
+                  </div>
+                  <TimePicker
+                    label="Check-in time"
+                    value={item.checkInTime}
+                    onChange={(checkInTime) => updateFood(item.id, { checkInTime })}
+                  />
+                  <div className="space-y-2">
+                    <Label>Notify Care Partner</Label>
+                    <NotifySelect
+                      value={item.notifyCarePartner}
+                      onChange={(notifyCarePartner) =>
+                        updateFood(item.id, { notifyCarePartner })
+                      }
+                    />
+                  </div>
+                </div>
                 {item.notifyCarePartner === "not_required" ? (
-                  <NotRequiredWarning variant="routine" />
+                  <NotRequiredWarning variant="food" />
                 ) : null}
               </div>
             </div>
@@ -439,27 +496,31 @@ export function WellnessDetailsStep() {
               </div>
 
               <div className="space-y-2">
-                <Label>Routine name</Label>
-                <Input
-                  value={item.name}
-                  onChange={(e) => updateHealth(item.id, { name: e.target.value })}
-                />
-              </div>
-
-              <TimePicker
-                label="Check-in time"
-                value={item.time}
-                onChange={(time) => updateHealth(item.id, { time })}
-              />
-
-              <div className="space-y-2">
-                <Label>Notify Care Partner</Label>
-                <SegmentedNotify
-                  value={item.notifyCarePartner}
-                  onChange={(notifyCarePartner) => updateHealth(item.id, { notifyCarePartner })}
-                />
+                <div className={THREE_COL}>
+                  <div className="space-y-2">
+                    <Label>Routine name</Label>
+                    <Input
+                      value={item.name}
+                      onChange={(e) => updateHealth(item.id, { name: e.target.value })}
+                    />
+                  </div>
+                  <TimePicker
+                    label="Check-in time"
+                    value={item.time}
+                    onChange={(time) => updateHealth(item.id, { time })}
+                  />
+                  <div className="space-y-2">
+                    <Label>Notify Care Partner</Label>
+                    <NotifySelect
+                      value={item.notifyCarePartner}
+                      onChange={(notifyCarePartner) =>
+                        updateHealth(item.id, { notifyCarePartner })
+                      }
+                    />
+                  </div>
+                </div>
                 {item.notifyCarePartner === "not_required" ? (
-                  <NotRequiredWarning variant="routine" />
+                  <NotRequiredWarning variant="health" />
                 ) : null}
               </div>
             </div>

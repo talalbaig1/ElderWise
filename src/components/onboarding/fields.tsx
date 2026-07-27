@@ -3,8 +3,9 @@
 import { cn } from "@/lib/utils";
 import {
   DAYS,
+  NOT_REQUIRED_WARNING_FOOD,
+  NOT_REQUIRED_WARNING_HEALTH,
   NOT_REQUIRED_WARNING_MEDICATION,
-  NOT_REQUIRED_WARNING_ROUTINE,
   type NotifyCarePartnerMode,
 } from "@/lib/onboarding";
 import type { DayOfWeek } from "@/types";
@@ -75,12 +76,13 @@ export function ChoiceChips<T extends string>({
   );
 }
 
-const NOTIFY_OPTIONS: [NotifyCarePartnerMode, string][] = [
-  ["every_time", "Every time"],
-  ["only_missed", "Only if missed"],
-  ["not_required", "Not required"],
+export const NOTIFY_SELECT_OPTIONS: { value: NotifyCarePartnerMode; label: string }[] = [
+  { value: "every_time", label: "Every time" },
+  { value: "only_missed", label: "Only if missed" },
+  { value: "not_required", label: "Not required" },
 ];
 
+/** Settings / legacy segmented control — three notify modes. */
 export function SegmentedNotify({
   value,
   onChange,
@@ -90,13 +92,13 @@ export function SegmentedNotify({
 }) {
   return (
     <div className="flex overflow-hidden rounded-xl border">
-      {NOTIFY_OPTIONS.map(([key, label]) => (
+      {NOTIFY_SELECT_OPTIONS.map(({ value: key, label }) => (
         <button
           key={key}
           type="button"
           onClick={() => onChange(key)}
           className={cn(
-            "flex-1 px-3 py-2.5 text-sm font-semibold transition-colors",
+            "flex-1 px-2 py-2.5 text-xs font-semibold transition-colors sm:px-3 sm:text-sm",
             value === key ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground",
           )}
         >
@@ -107,17 +109,23 @@ export function SegmentedNotify({
   );
 }
 
-/** Plain copy shown only when the parent renders it (notifyCarePartner === "not_required"). */
+/**
+ * Inline Not Required warning. Each variant reads only its own constant —
+ * medication / food / health never share or fall back to another card's copy.
+ */
 export function NotRequiredWarning({
   variant,
 }: {
-  variant: "medication" | "routine";
+  variant: "medication" | "food" | "health";
 }) {
-  return (
-    <p className="text-sm text-muted-foreground">
-      {variant === "medication" ? NOT_REQUIRED_WARNING_MEDICATION : NOT_REQUIRED_WARNING_ROUTINE}
-    </p>
-  );
+  switch (variant) {
+    case "medication":
+      return <p className="text-sm text-muted-foreground">{NOT_REQUIRED_WARNING_MEDICATION}</p>;
+    case "food":
+      return <p className="text-sm text-muted-foreground">{NOT_REQUIRED_WARNING_FOOD}</p>;
+    case "health":
+      return <p className="text-sm text-muted-foreground">{NOT_REQUIRED_WARNING_HEALTH}</p>;
+  }
 }
 
 export function WhatsAppPreview({

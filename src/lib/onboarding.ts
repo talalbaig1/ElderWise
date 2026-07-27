@@ -74,13 +74,17 @@ export const DOSAGE_UNITS = ["TAB", "ML", "CAP", "DROPS", "PUFF", "UNIT"] as con
 export const NOTIFY_MODES = ["every_time", "only_missed", "not_required"] as const;
 export type NotifyCarePartnerMode = (typeof NOTIFY_MODES)[number];
 
-/** Approved Not Required warning copy (Pass 3) — medication. */
+/** Approved Not Required warning — Medication card only. */
 export const NOT_REQUIRED_WARNING_MEDICATION =
   "You won't receive any alerts about this medication — including when a dose is missed. Missed doses still appear on your dashboard, but no one is notified at the time.";
 
-/** Approved Not Required warning copy (Pass 3) — food and health. */
-export const NOT_REQUIRED_WARNING_ROUTINE =
-  "You won't receive any alerts about this routine — including when it's missed. Misses still appear on your dashboard, but no one is notified at the time.";
+/** Approved Not Required warning — Food card only. */
+export const NOT_REQUIRED_WARNING_FOOD =
+  "You won't receive any alerts about this meal — including when it's missed. Missed meals still appear on your dashboard, but no one is notified at the time.";
+
+/** Approved Not Required warning — Health card only. */
+export const NOT_REQUIRED_WARNING_HEALTH =
+  "You won't receive any alerts about this health routine — including when it's missed. Missed check-ins still appear on your dashboard, but no one is notified at the time.";
 
 const phone = z.string().trim().min(7, "Enter a valid WhatsApp number");
 const optionalPhone = z
