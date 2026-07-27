@@ -96,9 +96,7 @@ export default function SettingsPage() {
     lastName: "",
     email: "",
     whatsappNumber: "",
-    directContactNumber: "",
     address: "",
-    relationshipToLovedOne: "",
     preferredNotificationMethod: "whatsapp" as NotificationMethod,
   });
 
@@ -116,9 +114,7 @@ export default function SettingsPage() {
       lastName: carePartner.lastName,
       email: carePartner.email,
       whatsappNumber: carePartner.whatsappNumber || "",
-      directContactNumber: carePartner.directContactNumber || "",
       address: carePartner.address || "",
-      relationshipToLovedOne: carePartner.relationshipToLovedOne || "",
       preferredNotificationMethod: carePartner.preferredNotificationMethod || "whatsapp",
     });
   }, [carePartner]);
@@ -152,7 +148,6 @@ export default function SettingsPage() {
       firstName: profile.firstName,
       lastName: profile.lastName,
       whatsappNumber: profile.whatsappNumber,
-      directContactNumber: profile.directContactNumber,
       address: profile.address,
       timeZone: carePartner?.timeZone || settings.timeZone || "UTC",
       email: profile.email,
@@ -280,28 +275,11 @@ export default function SettingsPage() {
                 <Field label="Email">
                   <Input value={profile.email} disabled />
                 </Field>
-                <Field label="Relationship to Loved One">
-                  <Input
-                    value={profile.relationshipToLovedOne}
-                    onChange={(e) =>
-                      setProfile((p) => ({ ...p, relationshipToLovedOne: e.target.value }))
-                    }
-                    placeholder="e.g. Daughter"
-                  />
-                </Field>
                 <Field label="WhatsApp number">
                   <Input
                     value={profile.whatsappNumber}
                     onChange={(e) => setProfile((p) => ({ ...p, whatsappNumber: e.target.value }))}
                     placeholder="+91 …"
-                  />
-                </Field>
-                <Field label="Direct contact">
-                  <Input
-                    value={profile.directContactNumber}
-                    onChange={(e) =>
-                      setProfile((p) => ({ ...p, directContactNumber: e.target.value }))
-                    }
                   />
                 </Field>
                 <Field label="Address" className="sm:col-span-2">

@@ -284,7 +284,7 @@ export default function ReportsPage() {
               <SelectContent>
                 {store.lovedOnes.map((lo) => (
                   <SelectItem key={lo.id} value={lo.id}>
-                    {lo.firstName} {lo.surname}
+                    {lo.firstName} {lo.lastName}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -343,7 +343,7 @@ export default function ReportsPage() {
               {model.summary}
             </CardDescription>
             <p className="text-sm text-muted-foreground">
-              {lovedOne.firstName} {lovedOne.surname} ·{" "}
+              {lovedOne.firstName} {lovedOne.lastName} ·{" "}
               {format(model.from, "d MMM yyyy")} – {format(model.to, "d MMM yyyy")}
             </p>
           </div>

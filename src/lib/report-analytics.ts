@@ -369,7 +369,7 @@ export function buildReportModel(
     .sort((a, b) => +parseISO(b.triggeredAt) - +parseISO(a.triggeredAt));
 
   const meta = REPORT_KIND_META.find((m) => m.id === kind)!;
-  const name = `${lovedOne.firstName} ${lovedOne.surname}`;
+  const name = `${lovedOne.firstName} ${lovedOne.lastName}`;
 
   if (kind === "medication" || kind === "meals" || kind === "health") {
     const items = kind === "medication" ? med : kind === "meals" ? food : health;

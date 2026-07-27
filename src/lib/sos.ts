@@ -79,7 +79,7 @@ export function buildInitialCascade(input: {
     {
       role: "loved_one",
       label: CASCADE_ROLE_META.loved_one.label,
-      actorName: `${lovedOne.firstName} ${lovedOne.surname}`,
+      actorName: `${lovedOne.firstName} ${lovedOne.lastName}`,
       contact: lovedOne.whatsappNumber,
       status: "completed",
       notifiedAt: triggeredAt,
@@ -99,7 +99,9 @@ export function buildInitialCascade(input: {
     {
       role: "local_buddy",
       label: CASCADE_ROLE_META.local_buddy.label,
-      actorName: buddy?.name ?? "No Local Buddy on file",
+      actorName: buddy
+        ? `${buddy.firstName} ${buddy.lastName}`.trim()
+        : "No Local Buddy on file",
       contact: buddy?.whatsappNumber,
       status: buddy ? "pending" : "skipped",
       note: buddy ? "Queued after Care Partner" : "Skipped — no Local Buddy",
@@ -107,7 +109,9 @@ export function buildInitialCascade(input: {
     {
       role: "family_doctor",
       label: CASCADE_ROLE_META.family_doctor.label,
-      actorName: doctor?.name ?? "No Family Doctor on file",
+      actorName: doctor
+        ? `${doctor.firstName} ${doctor.lastName}`.trim()
+        : "No Family Doctor on file",
       contact: doctor?.whatsappNumber,
       status: doctor ? "pending" : "skipped",
       note: doctor ? "Queued after Local Buddy" : "Skipped — no Family Doctor",

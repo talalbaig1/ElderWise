@@ -37,16 +37,11 @@ export async function loadDoctorShareSummary(
 
   const elderId = link.elder_id as string;
 
-  const [elderRes, doctorRes, medRes, checkinRes, sosRes] = await Promise.all([
+  const [elderRes, medRes, checkinRes, sosRes] = await Promise.all([
     admin
       .from("elders")
-      .select("first_name, surname, timezone, address")
+      .select("first_name, last_name, timezone, address")
       .eq("id", elderId)
-      .maybeSingle(),
-    admin
-      .from("doctors")
-      .select("timezone")
-      .eq("elder_id", elderId)
       .maybeSingle(),
     admin
       .from("medications")
@@ -73,8 +68,8 @@ export async function loadDoctorShareSummary(
   if (elderRes.error || !elderRes.data) return null;
 
   const elder = elderRes.data;
-  const viewerTimeZone =
-    doctorRes.data?.timezone?.trim() || elder.timezone || "UTC";
+  // Architecture §10 — share page renders in the elder's timezone (never doctors.timezone).
+  const viewerTimeZone = (elder.timezone as string)?.trim() || "UTC";
 
   // Isolation proof helper for scripts: re-query sos without elder filter must never
   // be used here — we only select eq elder_id.
@@ -104,7 +99,7 @@ export async function loadDoctorShareSummary(
     viewerTimeZone,
     elder: {
       firstName: elder.first_name as string,
-      surname: elder.surname as string,
+      lastName: elder.last_name as string,
       timeZone: elder.timezone as string,
       address: elder.address as string,
     },

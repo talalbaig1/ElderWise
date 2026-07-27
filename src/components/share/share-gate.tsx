@@ -60,7 +60,7 @@ export function ShareGate({ token }: { token: string }) {
 
 function ShareSummaryView({ summary }: { summary: DoctorShareSummary }) {
   const tz = summary.viewerTimeZone;
-  const name = `${summary.elder.firstName} ${summary.elder.surname}`.trim();
+  const name = `${summary.elder.firstName} ${summary.elder.lastName}`.trim();
 
   return (
     <main className="mx-auto max-w-2xl space-y-10 px-6 py-12">

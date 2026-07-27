@@ -23,7 +23,8 @@ export function createBlankLovedOne(carePartnerId: string): LovedOne {
   return {
     id: uid("lo"),
     firstName: "",
-    surname: "",
+    lastName: "",
+    age: 70,
     whatsappNumber: "",
     gender: "prefer_not_to_say",
     preferredLanguage: "en",
@@ -52,12 +53,12 @@ export function createBlankMedication(lovedOneId: string): Medication {
     enabled: true,
     name: "",
     dosage: "",
-    dosageUnit: "mg",
+    dosageUnit: "TAB",
     times: ["08:00"],
     daysOfWeek: [...ALL_DAYS],
     startDate: today,
     endDate: "",
-    timingPreference: "no_preference",
+    timingPreference: "before_food",
     notifyCarePartner: "only_missed",
     escalationMinutes: 30,
     // TODO(backend/n8n): "Yes, all" records all; "Some of them" opens the 24h window
@@ -81,7 +82,7 @@ export function createBlankFood(lovedOneId: string): FoodRoutine {
     mealType: "custom",
     checkInTime: "09:00",
     startDate: today,
-    endDate: today,
+    endDate: undefined,
     daysOfWeek: [...ALL_DAYS],
     frequency: "custom",
     whatsappMessageTemplate: "Hi {name}, have you had breakfast today?",
@@ -104,7 +105,7 @@ export function createBlankHealth(lovedOneId: string): HealthRoutine {
     frequency: "custom",
     time: "10:30",
     startDate: today,
-    endDate: today,
+    endDate: undefined,
     daysOfWeek: [...ALL_DAYS],
     question: "How are you feeling today?",
     answerType: "yes_no",
@@ -120,8 +121,8 @@ export function createBlankBuddy(lovedOneId: string): LocalBuddy {
   return {
     id: uid("buddy"),
     lovedOneId,
-    name: "",
-    relationship: "",
+    firstName: "",
+    lastName: "",
     whatsappNumber: "",
     preferredContactMethod: "whatsapp",
     createdAt: now,
@@ -134,8 +135,10 @@ export function createBlankDoctor(lovedOneId: string): FamilyDoctor {
   return {
     id: uid("doc"),
     lovedOneId,
-    name: "",
+    firstName: "",
+    lastName: "",
     whatsappNumber: "",
+    clinicName: "",
     createdAt: now,
     updatedAt: now,
   };
@@ -167,15 +170,4 @@ export function removeLovedOneFromStore(
     notifications: store.notifications.filter((n) => n.lovedOneId !== lovedOneId),
     selectedLovedOneId,
   };
-}
-
-export function ageFromDob(dob?: string) {
-  if (!dob) return null;
-  const birth = new Date(dob);
-  if (Number.isNaN(birth.getTime())) return null;
-  const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age -= 1;
-  return age;
 }

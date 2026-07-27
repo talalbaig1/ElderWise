@@ -96,7 +96,7 @@ export function buildPrintHtml(model: ReportModel) {
   <div class="brand">ElderWise</div>
   <h1>${model.title}</h1>
   <div class="meta">
-    ${model.lovedOne.firstName} ${model.lovedOne.surname} · ${model.rangeLabel}<br/>
+    ${model.lovedOne.firstName} ${model.lovedOne.lastName} · ${model.rangeLabel}<br/>
     Generated ${format(new Date(), "d MMMM yyyy · HH:mm")}
   </div>
   <p class="summary">${model.summary}</p>

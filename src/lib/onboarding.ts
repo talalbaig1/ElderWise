@@ -136,18 +136,18 @@ export const doctorCircleSchema = z.object({
   whatsappNumber: optionalPhone,
 });
 
-/** Settings / Care Circle tab (pre-A4.4) — single name field until Pass 4. */
+/** Settings / Care Circle tab — Local Buddy write shape (A4.4). */
 export const localBuddySchema = z.object({
-  name: z.string().trim().min(1, "Name is required"),
+  firstName: z.string().trim().min(1, "First name is required"),
+  lastName: z.string().trim().min(1, "Last name is required"),
   whatsappNumber: phone,
-  directContactNumber: z.string().optional(),
 });
 
 export const doctorSchema = z.object({
-  name: z.string().trim().min(1, "Doctor name is required"),
+  firstName: z.string().trim().min(1, "First name is required"),
+  lastName: z.string().trim().min(1, "Last name is required"),
   whatsappNumber: optionalPhone,
-  directContactNumber: z.string().optional(),
-  clinicOrHospitalName: z.string().optional(),
+  clinicName: z.string().trim().min(1, "Clinic or hospital is required"),
 });
 
 export const medicationDraftSchema = z.object({
@@ -185,9 +185,9 @@ export const medicationSchema = z.object({
   id: z.string(),
   enabled: z.boolean(),
   name: z.string().trim().min(1, "Medication name is required"),
-  dosage: z.string().trim().min(1, "Dosage is required"),
-  dosageUnit: z.string().trim().min(1, "Unit is required"),
-  times: z.array(z.string().min(1)).min(1, "Add at least one time"),
+  dosage: z.string().trim().min(1, "Dosage quantity is required"),
+  dosageUnit: z.enum(DOSAGE_UNITS),
+  times: z.array(z.string().min(1)).length(1, "One time per medication"),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().optional(),
   notifyCarePartner: z.enum(NOTIFY_MODES),
@@ -414,11 +414,9 @@ export function applyOnboardingDraft(
     lastName: draft.carePartnerProfile.lastName || "",
     email: draft.carePartnerProfile.email || "",
     whatsappNumber: draft.carePartner.whatsappNumber,
-    directContactNumber: draft.carePartner.whatsappNumber,
     timeZone: draft.carePartner.timeZone,
     language: "en",
     preferredNotificationMethod: "whatsapp" as NotificationMethod,
-    relationshipToLovedOne: "Family",
     createdAt: store.carePartner?.createdAt ?? now,
     updatedAt: now,
   };
@@ -426,7 +424,8 @@ export function applyOnboardingDraft(
   const lovedOne: LovedOne = {
     id: lovedOneId,
     firstName: draft.lovedOne.firstName,
-    surname: draft.lovedOne.lastName,
+    lastName: draft.lovedOne.lastName,
+    age: draft.lovedOne.age,
     whatsappNumber: draft.lovedOne.whatsappNumber,
     gender: "prefer_not_to_say" as Gender,
     preferredLanguage: "en",
@@ -449,10 +448,9 @@ export function applyOnboardingDraft(
     : {
         id: buddyId,
         lovedOneId,
-        name: `${draft.localBuddy.firstName} ${draft.localBuddy.lastName}`.trim(),
-        relationship: "Local Buddy",
+        firstName: draft.localBuddy.firstName,
+        lastName: draft.localBuddy.lastName,
         whatsappNumber: draft.localBuddy.whatsappNumber,
-        directContactNumber: draft.localBuddy.whatsappNumber,
         preferredContactMethod: "whatsapp" as NotificationMethod,
         createdAt: now,
         updatedAt: now,
@@ -463,9 +461,10 @@ export function applyOnboardingDraft(
     : {
         id: doctorId,
         lovedOneId,
-        name: `${draft.doctor.firstName} ${draft.doctor.lastName}`.trim(),
+        firstName: draft.doctor.firstName,
+        lastName: draft.doctor.lastName,
         whatsappNumber: draft.doctor.whatsappNumber,
-        clinicOrHospitalName: draft.doctor.clinicName,
+        clinicName: draft.doctor.clinicName,
         createdAt: now,
         updatedAt: now,
       };

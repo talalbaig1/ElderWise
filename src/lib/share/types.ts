@@ -31,7 +31,7 @@ export interface DoctorShareSummary {
   viewerTimeZone: string;
   elder: {
     firstName: string;
-    surname: string;
+    lastName: string;
     timeZone: string;
     address: string;
   };

@@ -17,7 +17,16 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
+import { DOSAGE_UNITS } from "@/lib/onboarding";
 import { createBlankFood, createBlankHealth, createBlankMedication } from "@/lib/loved-ones";
 import { useDomainStore } from "@/components/data/app-data-provider";
 import {
@@ -29,7 +38,7 @@ import {
   upsertMedication,
 } from "@/lib/data/actions";
 import { labelElderLocalTime } from "@/lib/time/display";
-import type { FoodRoutine, HealthRoutine, Medication } from "@/types";
+import type { FoodRoutine, HealthRoutine, Medication, MedicationTiming } from "@/types";
 import { useRouter } from "next/navigation";
 
 export function MedicationTab({
@@ -49,7 +58,11 @@ export function MedicationTab({
   const save = async (med: Medication) => {
     setBusy(true);
     try {
-      const result = await upsertMedication(med);
+      const normalized: Medication = {
+        ...med,
+        times: [med.times[0] || "08:00"],
+      };
+      const result = await upsertMedication(normalized);
       if (!result.ok) {
         toast.error(result.error);
         return;
@@ -75,7 +88,7 @@ export function MedicationTab({
             <RoutineCard
               key={item.id}
               title={item.name || "Untitled"}
-              subtitle={`${item.dosage} ${item.dosageUnit} · ${item.times.map((t) => labelElderLocalTime(t, elderTz)).join(", ")} · ${item.startDate}${item.endDate ? ` → ${item.endDate}` : ""}`}
+              subtitle={`${item.dosage} ${item.dosageUnit} · ${labelElderLocalTime(item.times[0] ?? "", elderTz)} · ${item.startDate}${item.endDate ? ` → ${item.endDate}` : ""}`}
               enabled={item.enabled}
               onToggle={async (enabled) => {
                 setBusy(true);
@@ -90,12 +103,18 @@ export function MedicationTab({
                   setBusy(false);
                 }
               }}
-              onEdit={() => setEditing(item)}
+              onEdit={() =>
+                setEditing({
+                  ...item,
+                  times: [item.times[0] || "08:00"],
+                })
+              }
               onDuplicate={async () => {
                 const copy = {
                   ...item,
                   id: createBlankMedication(lovedOneId).id,
                   name: `${item.name} (copy)`,
+                  times: [item.times[0] || "08:00"],
                 };
                 setBusy(true);
                 try {
@@ -138,80 +157,118 @@ export function MedicationTab({
           </DialogHeader>
           {editing ? (
             <div className="space-y-4">
-              <Field label="Name">
+              <Field label="Name (include strength)">
                 <Input
                   value={editing.name}
                   onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                  placeholder="e.g. Metformin 500mg"
                 />
               </Field>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Dosage">
+                <Field label="Dosage quantity">
                   <Input
                     value={editing.dosage}
                     onChange={(e) => setEditing({ ...editing, dosage: e.target.value })}
                   />
                 </Field>
                 <Field label="Unit">
-                  <Input
+                  <Select
                     value={editing.dosageUnit}
-                    onChange={(e) => setEditing({ ...editing, dosageUnit: e.target.value })}
+                    onValueChange={(dosageUnit) => setEditing({ ...editing, dosageUnit })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DOSAGE_UNITS.map((unit) => (
+                        <SelectItem key={unit} value={unit}>
+                          {unit}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <TimePicker
+                  label="Time"
+                  value={editing.times[0] || "08:00"}
+                  onChange={(next) => setEditing({ ...editing, times: [next] })}
+                />
+                <Field label="Start date">
+                  <Input
+                    type="date"
+                    value={editing.startDate}
+                    onChange={(e) =>
+                      setEditing({ ...editing, startDate: e.target.value })
+                    }
+                  />
+                </Field>
+                <Field label="End date">
+                  <Input
+                    type="date"
+                    value={editing.endDate || ""}
+                    onChange={(e) =>
+                      setEditing({ ...editing, endDate: e.target.value })
+                    }
                   />
                 </Field>
               </div>
-              <Field label="Medication times">
-                {editing.times.map((t, idx) => (
-                  <div key={idx} className="mb-2 grid gap-2 sm:grid-cols-3 sm:items-end">
-                    <TimePicker
-                      value={t}
-                      onChange={(next) => {
-                        const times = [...editing.times];
-                        times[idx] = next;
-                        setEditing({ ...editing, times });
-                      }}
-                    />
-                    {idx === 0 ? (
-                      <>
-                        <Field label="Start date">
-                          <Input
-                            type="date"
-                            value={editing.startDate}
-                            onChange={(e) =>
-                              setEditing({ ...editing, startDate: e.target.value })
-                            }
-                          />
-                        </Field>
-                        <Field label="End date">
-                          <Input
-                            type="date"
-                            value={editing.endDate || ""}
-                            onChange={(e) =>
-                              setEditing({ ...editing, endDate: e.target.value })
-                            }
-                          />
-                        </Field>
-                      </>
-                    ) : null}
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="soft"
-                  onClick={() =>
-                    setEditing({ ...editing, times: [...editing.times, "20:00"] })
-                  }
-                >
-                  Add time
-                </Button>
-              </Field>
-              <Field label="Notify">
-                <SegmentedNotify
-                  value={editing.notifyCarePartner}
-                  onChange={(notifyCarePartner) =>
-                    setEditing({ ...editing, notifyCarePartner })
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Timing with meal">
+                  <Select
+                    value={
+                      editing.timingPreference === "after_food"
+                        ? "after_food"
+                        : "before_food"
+                    }
+                    onValueChange={(value) =>
+                      setEditing({
+                        ...editing,
+                        timingPreference: value as MedicationTiming,
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="before_food">Before meal</SelectItem>
+                      <SelectItem value="after_food">After meal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Notify Care Partner">
+                  <SegmentedNotify
+                    value={editing.notifyCarePartner}
+                    onChange={(notifyCarePartner) =>
+                      setEditing({ ...editing, notifyCarePartner })
+                    }
+                  />
+                </Field>
+              </div>
+              <div
+                className={cn(
+                  "space-y-2 transition-opacity",
+                  editing.notifyCarePartner === "not_required" && "opacity-50",
+                )}
+              >
+                <Label htmlFor={`esc-${editing.id}`}>Missed-dose escalation (minutes)</Label>
+                <Input
+                  id={`esc-${editing.id}`}
+                  type="number"
+                  min={5}
+                  max={240}
+                  value={editing.escalationMinutes}
+                  disabled={editing.notifyCarePartner === "not_required"}
+                  onChange={(e) =>
+                    setEditing({
+                      ...editing,
+                      escalationMinutes: Number(e.target.value) || 30,
+                    })
                   }
                 />
-              </Field>
+              </div>
             </div>
           ) : null}
           <DialogFooter>
@@ -266,7 +323,7 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
             <RoutineCard
               key={item.id}
               title={item.mealName}
-              subtitle={`${labelElderLocalTime(item.checkInTime, elderTz)} · ${item.startDate}${item.endDate ? ` → ${item.endDate}` : ""}`}
+              subtitle={labelElderLocalTime(item.checkInTime, elderTz)}
               enabled={item.enabled}
               onToggle={async (enabled) => {
                 setBusy(true);
@@ -316,27 +373,11 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
                   onChange={(e) => setEditing({ ...editing, mealName: e.target.value })}
                 />
               </Field>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <TimePicker
-                  label="Check-in time"
-                  value={editing.checkInTime}
-                  onChange={(checkInTime) => setEditing({ ...editing, checkInTime })}
-                />
-                <Field label="Start date">
-                  <Input
-                    type="date"
-                    value={editing.startDate}
-                    onChange={(e) => setEditing({ ...editing, startDate: e.target.value })}
-                  />
-                </Field>
-                <Field label="End date">
-                  <Input
-                    type="date"
-                    value={editing.endDate || ""}
-                    onChange={(e) => setEditing({ ...editing, endDate: e.target.value })}
-                  />
-                </Field>
-              </div>
+              <TimePicker
+                label="Check-in time"
+                value={editing.checkInTime}
+                onChange={(checkInTime) => setEditing({ ...editing, checkInTime })}
+              />
               <Field label="Notify Care Partner">
                 <SegmentedNotify
                   value={editing.notifyCarePartner}
@@ -399,7 +440,7 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
             <RoutineCard
               key={item.id}
               title={item.name}
-              subtitle={`${labelElderLocalTime(item.time, elderTz)} · ${item.startDate}${item.endDate ? ` → ${item.endDate}` : ""} · Answer: ${item.answerType === "yes_no" ? "Yes/No" : `${item.answerType} (Coming soon)`}`}
+              subtitle={`${labelElderLocalTime(item.time, elderTz)} · Answer: Yes/No`}
               enabled={item.enabled}
               onToggle={async (enabled) => {
                 setBusy(true);
@@ -456,27 +497,11 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
                   onChange={(e) => setEditing({ ...editing, name: e.target.value })}
                 />
               </Field>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <TimePicker
-                  label="Check-in time"
-                  value={editing.time}
-                  onChange={(time) => setEditing({ ...editing, time })}
-                />
-                <Field label="Start date">
-                  <Input
-                    type="date"
-                    value={editing.startDate}
-                    onChange={(e) => setEditing({ ...editing, startDate: e.target.value })}
-                  />
-                </Field>
-                <Field label="End date">
-                  <Input
-                    type="date"
-                    value={editing.endDate || ""}
-                    onChange={(e) => setEditing({ ...editing, endDate: e.target.value })}
-                  />
-                </Field>
-              </div>
+              <TimePicker
+                label="Check-in time"
+                value={editing.time}
+                onChange={(time) => setEditing({ ...editing, time })}
+              />
               <Field label="Notify Care Partner">
                 <SegmentedNotify
                   value={editing.notifyCarePartner}
@@ -566,23 +591,23 @@ function RoutineCard({
   title: string;
   subtitle: string;
   enabled: boolean;
-  onToggle: (enabled: boolean) => void;
+  onToggle: (enabled: boolean) => void | Promise<void>;
   onEdit: () => void;
-  onDelete: () => void;
-  onDuplicate?: () => void;
+  onDelete: () => void | Promise<void>;
+  onDuplicate?: () => void | Promise<void>;
 }) {
   return (
     <Card>
       <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
+        <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold">{title}</p>
-            <Badge variant={enabled ? "success" : "muted"}>{enabled ? "On" : "Off"}</Badge>
+            {!enabled ? <Badge variant="secondary">Off</Badge> : null}
           </div>
-          <p className="font-mono text-xs text-muted-foreground">{subtitle}</p>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Switch checked={enabled} onCheckedChange={onToggle} aria-label={`Enable ${title}`} />
+          <Switch checked={enabled} onCheckedChange={onToggle} />
           <Button size="icon" variant="ghost" onClick={onEdit} aria-label="Edit">
             <Pencil className="h-4 w-4" />
           </Button>
@@ -591,13 +616,7 @@ function RoutineCard({
               <Copy className="h-4 w-4" />
             </Button>
           ) : null}
-          <Button
-            size="icon"
-            variant="ghost"
-            className="text-sos"
-            onClick={onDelete}
-            aria-label="Delete"
-          >
+          <Button size="icon" variant="ghost" onClick={onDelete} aria-label="Remove">
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>

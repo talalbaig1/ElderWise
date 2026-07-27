@@ -84,7 +84,7 @@ export default function VoiceJournalPage() {
 
   const lovedOneName = (id: string) => {
     const lo = store.lovedOnes.find((l) => l.id === id);
-    return lo ? `${lo.firstName} ${lo.surname}` : "Loved One";
+    return lo ? `${lo.firstName} ${lo.lastName}` : "Loved One";
   };
 
   return (
@@ -129,7 +129,7 @@ export default function VoiceJournalPage() {
                 <SelectItem value="all">All Loved Ones</SelectItem>
                 {store.lovedOnes.map((lo) => (
                   <SelectItem key={lo.id} value={lo.id}>
-                    {lo.firstName} {lo.surname}
+                    {lo.firstName} {lo.lastName}
                   </SelectItem>
                 ))}
               </SelectContent>

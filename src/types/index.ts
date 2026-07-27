@@ -112,12 +112,10 @@ export interface CarePartner {
   lastName: string;
   email: string;
   whatsappNumber: string;
-  directContactNumber?: string;
   address?: string;
   timeZone: string;
   language: string;
   preferredNotificationMethod: NotificationMethod;
-  relationshipToLovedOne?: string;
   avatarUrl?: string;
   createdAt: string;
   updatedAt: string;
@@ -126,10 +124,11 @@ export interface CarePartner {
 export interface LovedOne {
   id: ID;
   firstName: string;
-  surname: string;
+  lastName: string;
+  /** Stored snapshot — does not self-update (Architecture elders.age). */
+  age: number;
   whatsappNumber: string;
   gender: Gender;
-  dateOfBirth?: string;
   preferredLanguage: string;
   /** Mandatory for SOS — shared with Local Buddy in an emergency (M17). */
   address: string;
@@ -157,12 +156,9 @@ export interface LovedOne {
 export interface LocalBuddy {
   id: ID;
   lovedOneId: ID;
-  name: string;
-  relationship: string;
+  firstName: string;
+  lastName: string;
   whatsappNumber: string;
-  directContactNumber?: string;
-  address?: string;
-  availabilityNotes?: string;
   preferredContactMethod: NotificationMethod;
   createdAt: string;
   updatedAt: string;
@@ -171,13 +167,11 @@ export interface LocalBuddy {
 export interface FamilyDoctor {
   id: ID;
   lovedOneId: ID;
-  name: string;
+  firstName: string;
+  lastName: string;
+  /** Empty string when doctors.whatsapp_number is null. */
   whatsappNumber: string;
-  directContactNumber?: string;
-  clinicOrHospitalName?: string;
-  clinicAddress?: string;
-  speciality?: string;
-  availabilityNotes?: string;
+  clinicName: string;
   createdAt: string;
   updatedAt: string;
 }

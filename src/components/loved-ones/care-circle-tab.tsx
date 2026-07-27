@@ -122,7 +122,7 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
             <p className="text-muted-foreground">{carePartner.email}</p>
           ) : null}
           <p className="text-muted-foreground">
-            {carePartner?.directContactNumber || carePartner?.whatsappNumber || "No phone yet"}
+            {carePartner?.whatsappNumber || "No WhatsApp yet"}
           </p>
           <p className="font-mono text-xs text-muted-foreground">You</p>
         </CardContent>
@@ -143,12 +143,25 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
         <CardContent className="space-y-3 text-sm">
           {buddyDraft ? (
             <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>Name</Label>
-                <Input
-                  value={buddyDraft.name}
-                  onChange={(e) => setBuddyDraft({ ...buddyDraft, name: e.target.value })}
-                />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>First name</Label>
+                  <Input
+                    value={buddyDraft.firstName}
+                    onChange={(e) =>
+                      setBuddyDraft({ ...buddyDraft, firstName: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Last name</Label>
+                  <Input
+                    value={buddyDraft.lastName}
+                    onChange={(e) =>
+                      setBuddyDraft({ ...buddyDraft, lastName: e.target.value })
+                    }
+                  />
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>WhatsApp</Label>
@@ -156,15 +169,6 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
                   value={buddyDraft.whatsappNumber}
                   onChange={(e) =>
                     setBuddyDraft({ ...buddyDraft, whatsappNumber: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Direct contact</Label>
-                <Input
-                  value={buddyDraft.directContactNumber || ""}
-                  onChange={(e) =>
-                    setBuddyDraft({ ...buddyDraft, directContactNumber: e.target.value })
                   }
                 />
               </div>
@@ -179,11 +183,10 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
             </div>
           ) : buddy ? (
             <>
-              <p className="font-semibold">{buddy.name}</p>
+              <p className="font-semibold">
+                {buddy.firstName} {buddy.lastName}
+              </p>
               <p className="text-muted-foreground">{buddy.whatsappNumber}</p>
-              {buddy.directContactNumber ? (
-                <p className="text-muted-foreground">{buddy.directContactNumber}</p>
-              ) : null}
             </>
           ) : (
             <p className="text-muted-foreground">Not added yet</p>
@@ -206,15 +209,28 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
         <CardContent className="space-y-3 text-sm">
           {doctorDraft ? (
             <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>Name</Label>
-                <Input
-                  value={doctorDraft.name}
-                  onChange={(e) => setDoctorDraft({ ...doctorDraft, name: e.target.value })}
-                />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>First name</Label>
+                  <Input
+                    value={doctorDraft.firstName}
+                    onChange={(e) =>
+                      setDoctorDraft({ ...doctorDraft, firstName: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Last name</Label>
+                  <Input
+                    value={doctorDraft.lastName}
+                    onChange={(e) =>
+                      setDoctorDraft({ ...doctorDraft, lastName: e.target.value })
+                    }
+                  />
+                </div>
               </div>
               <div className="space-y-1.5">
-                <Label>WhatsApp</Label>
+                <Label>WhatsApp (optional)</Label>
                 <Input
                   value={doctorDraft.whatsappNumber}
                   onChange={(e) =>
@@ -223,23 +239,11 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Direct contact</Label>
-                <Input
-                  value={doctorDraft.directContactNumber || ""}
-                  onChange={(e) =>
-                    setDoctorDraft({
-                      ...doctorDraft,
-                      directContactNumber: e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
                 <Label>Clinic or hospital</Label>
                 <Input
-                  value={doctorDraft.clinicOrHospitalName || ""}
+                  value={doctorDraft.clinicName}
                   onChange={(e) =>
-                    setDoctorDraft({ ...doctorDraft, clinicOrHospitalName: e.target.value })
+                    setDoctorDraft({ ...doctorDraft, clinicName: e.target.value })
                   }
                 />
               </div>
@@ -254,9 +258,13 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
             </div>
           ) : doctor ? (
             <>
-              <p className="font-semibold">{doctor.name}</p>
-              <p className="text-muted-foreground">{doctor.whatsappNumber}</p>
-              <p className="text-muted-foreground">{doctor.clinicOrHospitalName}</p>
+              <p className="font-semibold">
+                {doctor.firstName} {doctor.lastName}
+              </p>
+              <p className="text-muted-foreground">
+                {doctor.whatsappNumber || "No WhatsApp on file"}
+              </p>
+              <p className="text-muted-foreground">{doctor.clinicName}</p>
             </>
           ) : (
             <p className="text-muted-foreground">Not added yet</p>

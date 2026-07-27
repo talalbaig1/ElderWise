@@ -21,13 +21,13 @@ export function GlobalSearch({ className }: { className?: string }) {
 
     const people = store.lovedOnes
       .filter((lo) =>
-        `${lo.firstName} ${lo.surname} ${lo.relationshipToCarePartner}`
+        `${lo.firstName} ${lo.lastName} ${lo.relationshipToCarePartner}`
           .toLowerCase()
           .includes(q),
       )
       .map((lo) => ({
         id: `lo-${lo.id}`,
-        label: `${lo.firstName} ${lo.surname}`,
+        label: `${lo.firstName} ${lo.lastName}`,
         hint: lo.relationshipToCarePartner,
         href: `/loved-ones/${lo.id}`,
         onSelect: () => setSelectedLovedOneId(lo.id),

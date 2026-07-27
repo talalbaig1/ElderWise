@@ -187,7 +187,7 @@ export default function SosPage() {
             <SelectContent>
               {store.lovedOnes.map((lo) => (
                 <SelectItem key={lo.id} value={lo.id}>
-                  {lo.firstName} {lo.surname}
+                  {lo.firstName} {lo.lastName}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -305,7 +305,7 @@ export default function SosPage() {
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <p className="text-sm font-semibold">
-                            {lo ? `${lo.firstName} ${lo.surname}` : "Loved One"}
+                            {lo ? `${lo.firstName} ${lo.lastName}` : "Loved One"}
                           </p>
                           <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
                             {formatSosDateTime(event.triggeredAt, viewerTimeZone)}
@@ -351,7 +351,7 @@ export default function SosPage() {
                         ) : null}
                       </div>
                       <h2 className="font-display text-2xl">
-                        {lovedOneForSelected.firstName} {lovedOneForSelected.surname}
+                        {lovedOneForSelected.firstName} {lovedOneForSelected.lastName}
                       </h2>
                       <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
                         <span className="inline-flex items-center gap-1.5">

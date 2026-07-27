@@ -61,10 +61,10 @@ export function checkInStatusToDb(status: CheckInStatus): DbCheckInStatus | null
 
 export interface CarePartnerRow {
   id: string;
-  full_name: string;
+  first_name: string;
+  last_name: string;
   email: string;
   whatsapp_number: string | null;
-  phone_number: string | null;
   timezone: string;
   address: string | null;
   secondary_contact: unknown;
@@ -72,16 +72,12 @@ export interface CarePartnerRow {
 }
 
 export function carePartnerFromRow(row: CarePartnerRow): CarePartner {
-  const parts = row.full_name.trim().split(/\s+/);
-  const firstName = parts[0] ?? "";
-  const lastName = parts.slice(1).join(" ") || firstName;
   return {
     id: row.id,
-    firstName,
-    lastName,
+    firstName: row.first_name,
+    lastName: row.last_name,
     email: row.email,
     whatsappNumber: row.whatsapp_number ?? "",
-    directContactNumber: row.phone_number ?? undefined,
     address: row.address ?? undefined,
     timeZone: row.timezone,
     language: "en",
@@ -95,7 +91,9 @@ export interface ElderRow {
   id: string;
   care_partner_id: string;
   first_name: string;
-  surname: string;
+  last_name: string;
+  age: number;
+  relationship_to_care_partner: string;
   gender: string | null;
   whatsapp_number: string;
   timezone: string;
@@ -112,13 +110,14 @@ export function lovedOneFromElderRow(row: ElderRow): LovedOne {
     id: row.id,
     carePartnerId: row.care_partner_id,
     firstName: row.first_name,
-    surname: row.surname,
+    lastName: row.last_name,
+    age: row.age,
     gender: (row.gender as LovedOne["gender"]) || "prefer_not_to_say",
     whatsappNumber: row.whatsapp_number,
     preferredLanguage: "en",
     address: row.address,
     timeZone: row.timezone,
-    relationshipToCarePartner: "",
+    relationshipToCarePartner: row.relationship_to_care_partner,
     wellbeingStatus: "unknown",
     consentAttestedByCarePartner: row.consent_attested_by_ct,
     consentAttestedAt: row.consent_attested_at ?? "",
@@ -286,9 +285,9 @@ export function checkInFromRow(row: CheckinRow): CheckInResponse {
 export interface LocalCaregiverRow {
   id: string;
   elder_id: string;
-  full_name: string;
+  first_name: string;
+  last_name: string;
   whatsapp_number: string;
-  phone_number: string | null;
   action_plan: string | null;
   created_at: string;
 }
@@ -297,11 +296,9 @@ export function localBuddyFromRow(row: LocalCaregiverRow): LocalBuddy {
   return {
     id: row.id,
     lovedOneId: row.elder_id,
-    name: row.full_name,
-    relationship: "Local Buddy",
+    firstName: row.first_name,
+    lastName: row.last_name,
     whatsappNumber: row.whatsapp_number,
-    directContactNumber: row.phone_number ?? undefined,
-    availabilityNotes: row.action_plan ?? undefined,
     preferredContactMethod: "whatsapp",
     createdAt: row.created_at,
     updatedAt: row.created_at,
@@ -311,10 +308,10 @@ export function localBuddyFromRow(row: LocalCaregiverRow): LocalBuddy {
 export interface DoctorRow {
   id: string;
   elder_id: string;
-  full_name: string;
-  whatsapp_number: string;
-  phone_number: string | null;
-  address: string | null;
+  first_name: string;
+  last_name: string;
+  whatsapp_number: string | null;
+  clinic_name: string;
   timezone: string | null;
   approved_by_ct: boolean;
   created_at: string;
@@ -324,10 +321,10 @@ export function doctorFromRow(row: DoctorRow): FamilyDoctor {
   return {
     id: row.id,
     lovedOneId: row.elder_id,
-    name: row.full_name,
-    whatsappNumber: row.whatsapp_number,
-    directContactNumber: row.phone_number ?? undefined,
-    clinicAddress: row.address ?? undefined,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    whatsappNumber: row.whatsapp_number ?? "",
+    clinicName: row.clinic_name,
     createdAt: row.created_at,
     updatedAt: row.created_at,
   };

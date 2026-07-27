@@ -35,7 +35,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ageFromDob } from "@/lib/loved-ones";
 import { useDomainStore } from "@/components/data/app-data-provider";
 import { cn, initials } from "@/lib/utils";
 import type { WellbeingStatus } from "@/types";
@@ -49,7 +48,7 @@ export default function LovedOnesPage() {
 
   const filtered = useMemo(() => {
     return store.lovedOnes.filter((lo) => {
-      const hay = `${lo.firstName} ${lo.surname} ${lo.relationshipToCarePartner}`.toLowerCase();
+      const hay = `${lo.firstName} ${lo.lastName} ${lo.relationshipToCarePartner}`.toLowerCase();
       const matchesQuery = hay.includes(query.trim().toLowerCase());
       const matchesStatus = statusFilter === "all" || lo.wellbeingStatus === statusFilter;
       return matchesQuery && matchesStatus;
@@ -150,7 +149,6 @@ export default function LovedOnesPage() {
           )}
         >
           {filtered.map((lo) => {
-            const age = ageFromDob(lo.dateOfBirth);
             const meds = store.medications.filter((m) => m.lovedOneId === lo.id && m.enabled);
             const meals = store.foodRoutines.filter((f) => f.lovedOneId === lo.id && f.enabled);
             const activeSos = store.sosEvents.some(
@@ -173,20 +171,20 @@ export default function LovedOnesPage() {
                   <div className={cn("flex items-start gap-3", view === "list" && "flex-1")}>
                     <Avatar className="h-12 w-12">
                       <AvatarFallback>
-                        {initials(`${lo.firstName} ${lo.surname}`)}
+                        {initials(`${lo.firstName} ${lo.lastName}`)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <h2 className="font-display text-xl">
-                          {lo.firstName} {lo.surname}
+                          {lo.firstName} {lo.lastName}
                         </h2>
                         {selected ? <Badge variant="secondary">Selected</Badge> : null}
                         {activeSos ? <Badge variant="destructive">SOS</Badge> : null}
                       </div>
                       <p className="text-sm text-muted-foreground">
                         {lo.relationshipToCarePartner}
-                        {age != null ? ` · Age ${age}` : ""}
+                        {lo.age ? ` · Age ${lo.age}` : ""}
                       </p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <StatusPill kind="wellbeing" status={lo.wellbeingStatus} />

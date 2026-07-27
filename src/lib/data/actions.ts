@@ -163,7 +163,9 @@ export async function syncDomainConfig(
 const elderEditSchema = z.object({
   id: z.string().uuid(),
   firstName: z.string().trim().min(1, "First name is required"),
-  surname: z.string().trim().min(1, "Surname is required"),
+  lastName: z.string().trim().min(1, "Last name is required"),
+  age: z.coerce.number().int().min(1).max(120),
+  relationshipToCarePartner: z.string().trim().min(1, "Relationship is required"),
   whatsappNumber: z.string().trim().min(7, "Enter a valid WhatsApp number"),
   timeZone: z.string().trim().min(1, "Time zone is required"),
   address: z
@@ -177,7 +179,6 @@ export async function updateCarePartnerProfile(input: {
   firstName: string;
   lastName: string;
   whatsappNumber?: string;
-  directContactNumber?: string;
   address?: string;
   timeZone: string;
   email?: string;
@@ -191,7 +192,6 @@ export async function updateCarePartnerProfile(input: {
       lastName: z.string().trim().min(1, "Last name is required"),
       timeZone: z.string().trim().min(1, "Time zone is required"),
       whatsappNumber: z.string().optional(),
-      directContactNumber: z.string().optional(),
       address: z.string().optional(),
       email: z.string().email().optional().or(z.literal("")),
     })
@@ -200,7 +200,6 @@ export async function updateCarePartnerProfile(input: {
       lastName: input.lastName,
       timeZone: input.timeZone,
       whatsappNumber: input.whatsappNumber,
-      directContactNumber: input.directContactNumber,
       address: input.address,
       email: input.email ?? "",
     });
@@ -209,19 +208,18 @@ export async function updateCarePartnerProfile(input: {
     return fail(parsed.error.issues[0]?.message ?? "Invalid profile");
   }
 
-  const fullName = `${parsed.data.firstName} ${parsed.data.lastName}`.trim();
   const { data, error } = await supabase
     .from("care_partners")
     .update({
-      full_name: fullName,
+      first_name: parsed.data.firstName,
+      last_name: parsed.data.lastName,
       whatsapp_number: parsed.data.whatsappNumber || null,
-      phone_number: parsed.data.directContactNumber || null,
       timezone: parsed.data.timeZone,
       address: parsed.data.address || null,
       ...(parsed.data.email ? { email: parsed.data.email } : {}),
     })
     .eq("id", user.id)
-    .select("id, full_name")
+    .select("id, first_name, last_name")
     .maybeSingle();
 
   if (error) return fail(error.message);
@@ -234,7 +232,9 @@ export async function updateCarePartnerProfile(input: {
 export async function updateElder(input: {
   id: string;
   firstName: string;
-  surname: string;
+  lastName: string;
+  age: number;
+  relationshipToCarePartner: string;
   whatsappNumber: string;
   timeZone: string;
   address: string;
@@ -253,7 +253,9 @@ export async function updateElder(input: {
     .from("elders")
     .update({
       first_name: parsed.data.firstName,
-      surname: parsed.data.surname,
+      last_name: parsed.data.lastName,
+      age: parsed.data.age,
+      relationship_to_care_partner: parsed.data.relationshipToCarePartner,
       whatsapp_number: parsed.data.whatsappNumber,
       timezone: parsed.data.timeZone,
       address: parsed.data.address,
@@ -261,7 +263,7 @@ export async function updateElder(input: {
     })
     .eq("id", parsed.data.id)
     .eq("care_partner_id", user.id)
-    .select("id, first_name, address, consent_confirmed_at, consent_attested_by_ct")
+    .select("id, first_name, last_name, address, consent_confirmed_at, consent_attested_by_ct")
     .maybeSingle();
 
   if (error) return fail(error.message);
@@ -277,9 +279,9 @@ export async function upsertLocalCaregiver(buddy: LocalBuddy): Promise<ActionRes
   if (authErr || !user) return fail(authErr ?? "Not signed in");
 
   const parsed = localBuddySchema.safeParse({
-    name: buddy.name,
+    firstName: buddy.firstName,
+    lastName: buddy.lastName,
     whatsappNumber: buddy.whatsappNumber,
-    directContactNumber: buddy.directContactNumber ?? "",
   });
   if (!parsed.success) {
     return fail(parsed.error.issues[0]?.message ?? "Invalid Local Buddy");
@@ -291,16 +293,15 @@ export async function upsertLocalCaregiver(buddy: LocalBuddy): Promise<ActionRes
   const row = {
     id: buddy.id,
     elder_id: buddy.lovedOneId,
-    full_name: parsed.data.name,
+    first_name: parsed.data.firstName,
+    last_name: parsed.data.lastName,
     whatsapp_number: parsed.data.whatsappNumber,
-    phone_number: parsed.data.directContactNumber,
-    action_plan: buddy.availabilityNotes || null,
   };
 
   const { data, error } = await supabase
     .from("local_caregivers")
     .upsert(row, { onConflict: "elder_id" })
-    .select("id, full_name")
+    .select("id, first_name, last_name")
     .maybeSingle();
 
   if (error) return fail(error.message);
@@ -316,10 +317,10 @@ export async function upsertDoctor(doctor: FamilyDoctor): Promise<ActionResult> 
   if (authErr || !user) return fail(authErr ?? "Not signed in");
 
   const parsed = doctorSchema.safeParse({
-    name: doctor.name,
+    firstName: doctor.firstName,
+    lastName: doctor.lastName,
     whatsappNumber: doctor.whatsappNumber,
-    directContactNumber: doctor.directContactNumber,
-    clinicOrHospitalName: doctor.clinicOrHospitalName,
+    clinicName: doctor.clinicName,
   });
   if (!parsed.success) {
     return fail(parsed.error.issues[0]?.message ?? "Invalid doctor");
@@ -336,41 +337,34 @@ export async function upsertDoctor(doctor: FamilyDoctor): Promise<ActionResult> 
   if (existingErr) return fail(existingErr.message);
 
   const base = {
-    full_name: parsed.data.name,
-    whatsapp_number: parsed.data.whatsappNumber,
-    phone_number: parsed.data.directContactNumber || null,
-    address: parsed.data.clinicOrHospitalName || null,
+    first_name: parsed.data.firstName,
+    last_name: parsed.data.lastName,
+    whatsapp_number: parsed.data.whatsappNumber.trim() || null,
+    clinic_name: parsed.data.clinicName,
     approved_by_ct: true,
   };
 
   if (existing) {
-    // Never touch timezone on update — doctor has no settings screen to correct it.
+    // Never touch timezone on update — share page uses elder TZ (Architecture §10).
     const { data, error } = await supabase
       .from("doctors")
       .update(base)
       .eq("id", existing.id)
-      .select("id, full_name")
+      .select("id, first_name, last_name")
       .maybeSingle();
 
     if (error) return fail(error.message);
     if (!data) return fail("Doctor save failed — no row returned (check RLS)");
   } else {
-    const { data: elder, error: elderErr } = await supabase
-      .from("elders")
-      .select("timezone")
-      .eq("id", doctor.lovedOneId)
-      .maybeSingle();
-    if (elderErr) return fail(elderErr.message);
-
     const { data, error } = await supabase
       .from("doctors")
       .insert({
         id: doctor.id,
         elder_id: doctor.lovedOneId,
         ...base,
-        timezone: elder?.timezone ?? "UTC",
+        timezone: null,
       })
-      .select("id, full_name")
+      .select("id, first_name, last_name")
       .maybeSingle();
 
     if (error) return fail(error.message);

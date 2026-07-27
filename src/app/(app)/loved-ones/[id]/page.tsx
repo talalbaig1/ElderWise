@@ -30,7 +30,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ageFromDob } from "@/lib/loved-ones";
 import { useDomainStore } from "@/components/data/app-data-provider";
 import { updateElder } from "@/lib/data/actions";
 import { formatViewerDateTime } from "@/lib/time/display";
@@ -79,7 +78,6 @@ export default function LovedOneProfilePage() {
     );
   }
 
-  const age = ageFromDob(lovedOne.dateOfBirth);
   const selected = store.selectedLovedOneId === lovedOne.id;
 
   const startEdit = () => {
@@ -94,7 +92,9 @@ export default function LovedOneProfilePage() {
       const result = await updateElder({
         id: draft.id,
         firstName: draft.firstName,
-        surname: draft.surname,
+        lastName: draft.lastName,
+        age: draft.age,
+        relationshipToCarePartner: draft.relationshipToCarePartner,
         whatsappNumber: draft.whatsappNumber,
         timeZone: draft.timeZone,
         address: draft.address,
@@ -124,19 +124,19 @@ export default function LovedOneProfilePage() {
           </Button>
           <Avatar className="h-14 w-14">
             <AvatarFallback className="text-base">
-              {initials(`${lovedOne.firstName} ${lovedOne.surname}`)}
+              {initials(`${lovedOne.firstName} ${lovedOne.lastName}`)}
             </AvatarFallback>
           </Avatar>
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="font-display text-3xl">
-                {lovedOne.firstName} {lovedOne.surname}
+                {lovedOne.firstName} {lovedOne.lastName}
               </h1>
               {selected ? <Badge variant="secondary">Selected</Badge> : null}
             </div>
             <p className="text-muted-foreground">
               {lovedOne.relationshipToCarePartner}
-              {age != null ? ` · Age ${age}` : ""}
+              {lovedOne.age ? ` · Age ${lovedOne.age}` : ""}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusPill kind="wellbeing" status={lovedOne.wellbeingStatus} />
@@ -219,10 +219,32 @@ export default function LovedOneProfilePage() {
                       onChange={(e) => setDraft({ ...draft, firstName: e.target.value })}
                     />
                   </Field>
-                  <Field label="Surname">
+                  <Field label="Last name">
                     <Input
-                      value={draft.surname}
-                      onChange={(e) => setDraft({ ...draft, surname: e.target.value })}
+                      value={draft.lastName}
+                      onChange={(e) => setDraft({ ...draft, lastName: e.target.value })}
+                    />
+                  </Field>
+                  <Field label="Age">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={120}
+                      value={draft.age}
+                      onChange={(e) =>
+                        setDraft({ ...draft, age: Number(e.target.value) || draft.age })
+                      }
+                    />
+                  </Field>
+                  <Field label="Relationship to Care Partner">
+                    <Input
+                      value={draft.relationshipToCarePartner}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          relationshipToCarePartner: e.target.value,
+                        })
+                      }
                     />
                   </Field>
                   <Field label="WhatsApp">
@@ -291,6 +313,11 @@ export default function LovedOneProfilePage() {
                 </div>
               ) : (
                 <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                  <Item label="Age" value={String(lovedOne.age)} />
+                  <Item
+                    label="Relationship to Care Partner"
+                    value={lovedOne.relationshipToCarePartner || "—"}
+                  />
                   <Item label="WhatsApp" value={lovedOne.whatsappNumber} />
                   <Item label="Language" value={lovedOne.preferredLanguage} />
                   <Item label="Time zone" value={lovedOne.timeZone} />

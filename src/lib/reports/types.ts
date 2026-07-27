@@ -46,7 +46,7 @@ export type ReportPayload = {
   kind: PdfReportKind;
   kindLabel: string;
   elderFirstName: string;
-  elderSurname: string;
+  elderLastName: string;
   elderTimeZone: string;
   consentConfirmedAt: string | null;
   carePartnerFirstName: string;

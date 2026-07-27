@@ -151,7 +151,7 @@ export async function loadAppData(
 
   const elderName = (id: string) => {
     const lo = lovedOnes.find((e) => e.id === id);
-    return lo ? `${lo.firstName} ${lo.surname}`.trim() : undefined;
+    return lo ? `${lo.firstName} ${lo.lastName}`.trim() : undefined;
   };
 
   const sosNotifications = (sosNotifRes.data ?? []) as SosNotificationRow[];
@@ -163,8 +163,10 @@ export async function loadAppData(
       carePartner: carePartner
         ? `${carePartner.firstName} ${carePartner.lastName}`.trim()
         : undefined,
-      localBuddy: buddy?.name,
-      doctor: doc?.name,
+      localBuddy: buddy
+        ? `${buddy.firstName} ${buddy.lastName}`.trim()
+        : undefined,
+      doctor: doc ? `${doc.firstName} ${doc.lastName}`.trim() : undefined,
       location: elder?.address,
     });
   });

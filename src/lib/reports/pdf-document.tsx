@@ -137,7 +137,7 @@ function consentLine(data: ReportPayload): string {
 export function ReportPdfDocument({ data }: { data: ReportPayload }) {
   registerReportFonts();
 
-  const elderName = `${data.elderFirstName} ${data.elderSurname}`.trim();
+  const elderName = `${data.elderFirstName} ${data.elderLastName}`.trim();
   const nameFont = reportFontFamilyForText(elderName);
   const baseFont = "ElderWiseReport";
 

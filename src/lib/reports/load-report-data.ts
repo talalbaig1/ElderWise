@@ -75,7 +75,7 @@ export async function loadReportData(
 
   const { data: elder, error: elderErr } = await supabase
     .from("elders")
-    .select("id, first_name, surname, timezone, consent_confirmed_at, active")
+    .select("id, first_name, last_name, timezone, consent_confirmed_at, active")
     .eq("id", input.elderId)
     .eq("care_partner_id", userId)
     .maybeSingle();
@@ -95,7 +95,7 @@ export async function loadReportData(
 
   const { data: carePartner, error: cpErr } = await supabase
     .from("care_partners")
-    .select("full_name, timezone")
+    .select("first_name, last_name, timezone")
     .eq("id", userId)
     .maybeSingle();
 
@@ -107,8 +107,8 @@ export async function loadReportData(
     };
   }
 
-  const cpName = ((carePartner.full_name as string) || "").trim();
-  const carePartnerFirstName = cpName.split(/\s+/)[0] || "Care Partner";
+  const carePartnerFirstName =
+    ((carePartner.first_name as string) || "").trim() || "Care Partner";
   const carePartnerTimeZone =
     ((carePartner.timezone as string) || "").trim() || "UTC";
 
@@ -194,7 +194,7 @@ export async function loadReportData(
       kind: input.kind,
       kindLabel: PDF_REPORT_KIND_LABEL[input.kind],
       elderFirstName: (elder.first_name as string) || "",
-      elderSurname: (elder.surname as string) || "",
+      elderLastName: (elder.last_name as string) || "",
       elderTimeZone,
       consentConfirmedAt: (elder.consent_confirmed_at as string | null) ?? null,
       carePartnerFirstName,
