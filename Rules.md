@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.6 |
+| **Document** | Rules.md — v1.7 |
 | **Date** | 26 July 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
@@ -105,7 +105,7 @@ From `Architecture.md` §1 (P1). These are the walls that let eleven people work
 | **D10** | **`elders.address` is NOT NULL.** Mandatory even if Local Buddy / LCT is skipped. When an LCT exists, their SOS message carries the address — their purpose is to physically reach her. |
 | **D8** | **Foreign keys and indexes are not optional.** In particular `elders.whatsapp_number` must be indexed — the inbound webhook hits it on every single message. |
 | **D11** | **Drafts are hard-deleted; product data is soft-deleted.** A draft has no history worth keeping and holds a UNIQUE constraint (`elders.whatsapp_number`) hostage; a routine's history is the clinical record. |
-| **D12** | **One time per medication row.** `medications.times` has exactly one entry (`CHECK (array_length(times, 1) = 1)`). Two doses a day = two medication rows (Duplicate). Do not reintroduce multi-time UI or writers. |
+| **D12** | **One time per medication row.** `medications.times` has exactly one entry (`CHECK (cardinality(times) = 1)`). Two doses a day = two medication rows (Duplicate). Do not reintroduce multi-time UI or writers. Do not use `array_length` for this CHECK — it returns NULL on `'{}'` and the constraint would pass. |
 
 ---
 
@@ -296,6 +296,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 26 Jul 2026 | 1.7 | D12 CHECK expression corrected to `cardinality(times) = 1` (aligned with Architecture v1.9 / A4.1 migration). |
 | 26 Jul 2026 | 1.6 | **A4.** D12 — one time per medication row. W3 clarified: intentional non-sends (SOS skip rows; `not_required` mute) are logged/configured, not silent failures. No other rule changes. |
 | 24 Jul 2026 | 1.5 | **Three rules from the 23–24 Jul build.** D11 draft hard-delete vs soft-delete history; SEC8 single admin module / never escalate past RLS; C9 no percentage on zero denominator. |
 | 23 Jul 2026 | 1.4 | **Companion-doc references no longer pin version numbers.** `main` is the single source of truth; pinned cross-references forced edits to every other doc on each version bump and went stale silently. Refs now name the file only. Each document's own version remains in its header. |
