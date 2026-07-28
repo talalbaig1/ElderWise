@@ -5,8 +5,8 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.11 |
-| **Date** | 27 July 2026 |
+| **Document** | Architecture.md — v1.12 |
+| **Date** | 28 July 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
 
@@ -526,7 +526,9 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 - **Default expiry 30 days, always set on create.** An open-ended link is a permanent credential sitting in someone's WhatsApp history.
 - The doctor opens `/share/{token}`. A Next.js **server component** hashes the incoming token, looks it up, rejects if revoked or expired, and scopes every query to that one `elder_id`.
 - **Click-through gate:** `/share/{token}` renders neutral copy first; clinical data loads only after human interaction. Reason: link-preview crawlers (WhatsApp, Slack, Signal, email scanners) fetch any URL a CT sends and would otherwise receive health data with nobody clicking. Supported by `noindex`/`nofollow`, no OG or Twitter meta tags, `Disallow: /share/` in `robots.txt`, `Referrer-Policy: no-referrer`, `Cache-Control: private, no-store`.
-- **Doctor view allowlist:** elder name, check-in history, active routines, and SOS events (`triggered_at`, `status`, `resolved_at`, `resolved_by_role`, `resolved_channel`, derived response time). **Excluded:** `sos_notifications`, `resolved_by_id`, CT and Local Buddy contact details, addresses, phone numbers. Reason: the event is clinical; the dispatch log is operational and carries third-party identifiers.
+- **Doctor *share page* allowlist:** elder name, check-in history, active routines, and SOS events (`triggered_at`, `status`, `resolved_at`, `resolved_by_role`, `resolved_channel`, derived response time). **Excluded from the page:** `sos_notifications`, `resolved_by_id`, CT and Local Buddy contact details, addresses, phone numbers. Reason: the event is clinical; the dispatch log is operational and carries third-party identifiers.
+- **⚠️ This allowlist scopes the share page only — not the SOS channel.** The approved template `elderwise_sos_alert_doctor` deliberately carries the **Local Buddy's and Care Partner's names and WhatsApp numbers** to the doctor (`{{4}}`–`{{7}}`), because during an active emergency the doctor may need to reach a human immediately and a read-only page cannot be dialled. **Ruled 28 July 2026 (Talal).** The two surfaces differ on purpose: the share page is ambient and long-lived, the SOS message is transient and consented-to. Both are covered by the Review `consent_data_sharing_at` consent, which is required whenever a Doctor or Local Buddy is added. Do not "fix" the inconsistency by stripping the template — it was approved by Meta in this form.
+- Similarly, `elderwise_sos_alert_lct` discloses the **Doctor's name and clinic** to the Local Buddy (`{{4}}`/`{{5}}`), under the same consent and the same reasoning.
 - Rate limited to **20 requests per minute per platform IP** (`x-vercel-forwarded-for`; fall back to `x-forwarded-for` locally), **fail-open** — see §12.5.
 - **All data fetching for this route happens server-side.** No Supabase client is ever handed to the doctor's browser.
 - CT can revoke at any time — sets `revoked_at`, and the link dies on the next request.
@@ -555,6 +557,8 @@ Six workflows. Each is a separate n8n workflow so they can be built, tested, and
   - **SOS trigger** → WF-4 — **checked first and short-circuits everything else** (P2)
   - **SOS resolution reply** (from CT / LCT / Doctor) → WF-4
   - **Unrecognised** → a gentle, plain-language re-prompt. Never a silent drop; never an error message an elderly person has to interpret.
+- **Button-text matching must be case- and punctuation-insensitive.** Quick-reply webhooks return the label verbatim, and the approved labels are not what was drafted: `Yes, All` (not `Yes, all`), `Not Yet` (not `Not yet`), and food check-ins use **`Yes` / `No`** (not `Yes` / `Not yet`). Critically, `elderwise_sos_alert_ct` uses **`I Am Responding`** while `elderwise_sos_nudge` uses **`I'm Responding`** — the same action, two strings. Normalise before routing: lowercase, strip apostrophes and punctuation, collapse whitespace. **Never compare raw strings.** A case-sensitive match here is a silently dropped SOS resolution. Exact labels are listed in `Templates.md` §3.2.
+- **A `No` on a food or health check-in is a recorded negative response** (backend `responded`), **not** a missed check-in. Do not route it down the missed path.
 
 ### WF-3 · Response handler, reminder & escalation
 - **On response:** write to `checkins` (+ `checkin_medication_items` for medication), set `status = responded`. Fire WF-6 if the owning routine's `notify_care_partner = every_time`.
@@ -575,6 +579,20 @@ Six workflows. Each is a separate n8n workflow so they can be built, tested, and
 - Creates `sos_events` (`status = open`), resolves the elder's care circle via a **relational lookup** of CT + optional LCT + optional Doctor (§3.1 — not RAG).
 - Fans out WhatsApp messages **in parallel** to every contact that exists: **CT always**; **LCT only if a `local_caregivers` row exists**; **Doctor only if a `doctors` row exists and `whatsapp_number` is non-null**. Writes `sos_notifications` rows for every attempted send **and** every intentional skip.
 - **Doctor with no WhatsApp number:** do **not** send. Insert `sos_notifications` with `status = skipped`, `skip_reason = no_whatsapp_number`, `wa_message_id` NULL, `sent_at` NULL, `created_at = now()`. This is auditable and is **not** a delivery failure (W3 — intentional non-sends are logged as skips).
+- **Optional-contact variable substitution (mandatory).** Templates 10, 11 and 12 reference the Doctor and the Local Buddy, both of which are `0..1` per elder. Meta requires **every** positional variable on **every** send; a parameter cannot be omitted. When the contact does not exist, WF-4 supplies the literal string **`NA`**:
+  - `elderwise_sos_alert_ct` — `{{3}}` (Buddy), `{{4}}` (Doctor)
+  - `elderwise_sos_alert_lct` — `{{4}}` (Doctor name), `{{5}}` (Clinic)
+  - `elderwise_sos_alert_doctor` — `{{4}}` (Buddy name), `{{5}}` (Buddy number)
+
+  **This is a send-time substitution. The database is never written with placeholder rows.** `LEFT JOIN` + `COALESCE(..., 'NA')` when building parameters. Creating `NA` rows in `doctors` / `local_caregivers` was considered and **rejected** (28 July 2026): an absent row is the signal WF-4 dispatch, `sos_notifications.skip_reason`, the conditional `consent_data_sharing_at`, the Care Circle screen, and A4 Decision 6 all depend on. **Do not create placeholder rows.**
+
+  **Source note:** `{{5}}` and `{{7}}` come from **`whatsapp_number`**. A4 dropped `phone_number` from every table.
+- **SOS report link — n8n mints it (`{{3}}` of `elderwise_sos_alert_doctor`).** Ruled 28 July 2026. n8n **never** calls Next.js (P1), so the app cannot be asked at dispatch time. Order of operations:
+  1. **Reuse before mint.** If a `doctor_share_links` row exists for that elder with `revoked_at` NULL and `expires_at > now()`, use it. Fewer live credentials in circulation.
+  2. **Otherwise mint.** Generate a ≥32-byte random token, store its **SHA-256** hash, set `expires_at` to the §7.3 default of 30 days, set `created_by` to the elder's care partner, write with the service-role key.
+  3. **Never block the alert (P2).** If both reuse and mint fail, send the template with `{{3}} = NA` and log the failure at Sentry P1. **A doctor receiving the alert without a link is vastly better than no alert because a token insert timed out.** The SOS message is the product; the link is an enhancement.
+
+  The link resolves to `https://elder-wise-seven.vercel.app/share/{token}` over HTTPS. The §7.3 click-through gate already protects it from WhatsApp's link-preview crawler, so delivering it over WhatsApp is safe.
 - If no LCT is set, SOS is still handled by the CT (always present).
 - **Nudge loop: 4 nudges, 2 minutes apart** (M7). Each nudge goes to every recipient who has not yet resolved **and** who has a sendable channel.
 - **Resolution — two paths, both must work (M14b):**
@@ -631,6 +649,9 @@ Six workflows. Each is a separate n8n workflow so they can be built, tested, and
 | **Scheduling** | Every check-in fires in the **elder's** local time. `domain_configs.frequency` holds **local wall-clock times**; WF-1 converts to UTC at materialisation, using the IANA zone so DST is handled by the database, not by arithmetic. |
 | **Display (dashboard)** | Every timestamp renders in the **viewer's** (CT) timezone. |
 | **Share page + PDF** | No reliable "viewer session" timezone for the clinician. Both the doctor **share page** and report **PDF bodies** render in the **elder's** IANA zone (stated once in a header/banner). PDF “generated on” line renders in the **CT's** zone and is explicitly labelled. *(A4: removes the former exception that rendered the share link in `doctors.timezone`.)* |
+| **Doctor WhatsApp messages** | Same rule: **elder's** IANA zone. `doctors.timezone` is no longer collected and **must not** be used by WF-4. Applies to `elderwise_sos_alert_doctor` `{{2}}`, and to nudge/resolved timestamps sent to the doctor. |
+| **Local Buddy messages** | **Elder's** zone — the LCT has no timezone column and inherits the elder's by design. |
+| **Care Partner messages** | **Care partner's** zone (`care_partners.timezone`). Applies to templates 8, 9, 10 and to nudge/resolved timestamps sent to the CT. |
 | **CT timezone write rule** | `care_partners.timezone` is set on **INSERT only** and never overwritten on subsequent sign-in. Detected browser timezone seeds the row at creation; after that the stored value wins. Reason: overwriting discarded the CT's explicit Settings choice and shifted the whole dashboard for anyone signing in while travelling — the product's core scenario. |
 | **Never** | Never store a UTC offset. Never do timezone maths with `+03:00` style offsets. Never assume the CT and the EP share a timezone — the entire premise of this product is that they don't. |
 
@@ -763,6 +784,8 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 | A-7 | ~~**Dev project test accounts** — clean up before Demo Day.~~ — **CLOSED 26 Jul 2026.** Discharged by **Phases.md A4.0** (full public-table + Auth wipe at the start of the A4 migration window), which supersedes ad-hoc account cleanup. | Closed |
 | A-8 | **A3.5 rate limiting is implemented but INACTIVE** — `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` are not configured on Vercel, so the limiter no-ops in Production. Fail-open by design, so nothing appears broken. | Talal |
 | A-9 | **Track B — WF-6 notify authority** — Robert: stop reading `domain_configs.ct_notification`; honour per-routine `notify_care_partner` including `not_required`. | Robert |
+| A-10 | **Template 12 `elderwise_sos_alert_doctor` is PENDING with Meta.** The only unapproved template and the demo's SOS story depends on it. Check daily. If rejected, the SOS demo still runs on templates 10/11/13/14 with the doctor leg shown as a logged `skipped` row. | Talal |
+| A-11 | **Period label derivation (B-3)** — `Morning`/`Afternoon`/`Evening`/`Night` for `elderwise_ep_medication_reminder` `{{2}}` and `elderwise_ct_interaction_notice` `{{2}}`. No column stores it; WF-3/WF-6 derive it from the routine's local time in the elder's zone. Cut points and wording need a ruling. | Sandy + Sama |
 
 ---
 
@@ -770,6 +793,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | Date | Version | Change |
 |---|---|---|
+| 28 Jul 2026 | 1.12 | **SOS path reconciled to the templates Meta approved** (WABA `1495493002256968`, Graph API 28 Jul). §7.3 doctor allowlist **rescoped to the share page only**; the SOS channel deliberately carries CT/Buddy names and WhatsApp numbers to the doctor, and the Doctor's name/clinic to the Buddy — ruled 28 Jul, covered by `consent_data_sharing_at`. §8 WF-4 gains **`NA` send-time substitution** for absent Doctor/Buddy (DB never written with placeholder rows — explicitly rejected) and the **SOS share-link reuse-or-mint** path with fail-open-to-`NA` (P2: never block the alert). §8 WF-2 gains **case- and punctuation-insensitive button matching** (`I Am Responding` vs `I'm Responding`; food buttons are `Yes`/`No`). §10 states doctor/buddy/CT message timezones explicitly. A-10 (template 12 pending), A-11 (period label) opened. |
 | 27 Jul 2026 | 1.11 | **§5.7 FR-ON-7.** Care Circle draft inserts Doctor with `approved_by_ct = false`; Review sets `true` with `consent_data_sharing_at`. |
 | 27 Jul 2026 | 1.10 | **Corrected `voice_journal_entries`.** Table is **not** created in the MVP — journal screen renders empty state (`load-app-data.ts`). Prior wording caused A4.0 wipe to abort treating a non-existent table as present. |
 | 26 Jul 2026 | 1.9 | **A4.1 Pass 1 revision.** `medications.times` CHECK uses `cardinality(times) = 1` (not `array_length` — NULL pass on `'{}'`). `sos_notifications.status` has no DEFAULT; document `sos_notifications_status_fields_consistent` CHECK (`sent` / `skipped` / `failed` field rules). |
