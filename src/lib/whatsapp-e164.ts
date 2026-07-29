@@ -96,8 +96,8 @@ export const optionalWhatsAppE164Schema = z
   .trim()
   .transform((value) => (value === "" ? "" : normalizeWhatsAppNumber(value)))
   .refine(
-    (value) =>
-      value === "" || value === null || (typeof value === "string" && isValidWhatsAppE164(value)),
+    (value): value is "" | string =>
+      value === "" || (typeof value === "string" && isValidWhatsAppE164(value)),
     WHATSAPP_E164_ERROR,
   )
-  .transform((value) => (value === "" || value === null ? "" : value));
+  .transform((value) => (value === "" ? "" : value));
