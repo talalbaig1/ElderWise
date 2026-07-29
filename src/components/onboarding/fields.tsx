@@ -8,7 +8,13 @@ import {
   NOT_REQUIRED_WARNING_MEDICATION,
   type NotifyCarePartnerMode,
 } from "@/lib/onboarding";
+import {
+  normalizeWhatsAppNumber,
+  validateOptionalWhatsAppNumber,
+  validateRequiredWhatsAppNumber,
+} from "@/lib/whatsapp-e164";
 import type { DayOfWeek } from "@/types";
+import { Input } from "@/components/ui/input";
 
 export function DayChips({
   value,
@@ -155,4 +161,56 @@ export function WhatsAppPreview({
 export function FieldError({ message }: { message?: string }) {
   if (!message) return null;
   return <p className="text-xs text-sos">{message}</p>;
+}
+
+export function WhatsAppNumberInput({
+  id,
+  value,
+  onChange,
+  onBlurError,
+  error,
+  optional = false,
+  placeholder = "+966569362418",
+  disabled,
+}: {
+  id?: string;
+  value: string;
+  onChange: (value: string) => void;
+  onBlurError?: (message?: string) => void;
+  error?: string;
+  optional?: boolean;
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="space-y-1">
+      <Input
+        id={id}
+        type="tel"
+        inputMode="tel"
+        autoComplete="tel"
+        placeholder={placeholder}
+        value={value}
+        disabled={disabled}
+        aria-invalid={Boolean(error)}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={() => {
+          const normalized = value.trim() === "" ? "" : normalizeWhatsAppNumber(value);
+          if (normalized !== value) {
+            onChange(normalized);
+          }
+
+          if (optional) {
+            const result = validateOptionalWhatsAppNumber(normalized);
+            onBlurError?.(result.ok ? undefined : result.error);
+            return;
+          }
+
+          const result = validateRequiredWhatsAppNumber(normalized);
+          onBlurError?.(result.ok ? undefined : result.error);
+        }}
+      />
+      <FieldError message={error} />
+    </div>
+  );
 }

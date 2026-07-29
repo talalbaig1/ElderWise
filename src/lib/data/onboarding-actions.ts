@@ -14,6 +14,11 @@ import {
 } from "@/lib/onboarding";
 import { createClient } from "@/lib/supabase/server";
 import { syncDomainConfig } from "@/lib/data/actions";
+import {
+  mapWhatsAppDbError,
+  validateOptionalWhatsAppNumber,
+  validateRequiredWhatsAppNumber,
+} from "@/lib/whatsapp-e164";
 
 export type OnboardingActionResult =
   | { ok: true }
@@ -452,9 +457,12 @@ export async function saveCareCircleDraft(input: {
   const { supabase, user, error: authErr } = await requireUser();
   if (authErr || !user) return failElder(authErr ?? "Not signed in");
 
-  const wa = input.carePartner.whatsappNumber.trim();
+  const waCheck = validateRequiredWhatsAppNumber(input.carePartner.whatsappNumber);
+  if (!waCheck.ok) return failElder(waCheck.error);
+  const elderWaCheck = validateRequiredWhatsAppNumber(input.elder.whatsappNumber);
+  if (!elderWaCheck.ok) return failElder(elderWaCheck.error);
+
   const tz = input.carePartner.timezone.trim();
-  if (!wa) return failElder("Care partner WhatsApp number is required");
   if (!tz) return failElder("Care partner timezone is required");
 
   if (
@@ -466,7 +474,7 @@ export async function saveCareCircleDraft(input: {
   }
 
   const p_care_partner = {
-    whatsapp_number: wa,
+    whatsapp_number: waCheck.value,
     timezone: tz,
     ...(input.carePartner.firstName?.trim()
       ? { first_name: input.carePartner.firstName.trim() }
@@ -485,27 +493,44 @@ export async function saveCareCircleDraft(input: {
     last_name: input.elder.lastName.trim(),
     age: input.elder.age,
     relationship_to_care_partner: input.elder.relationshipToCarePartner.trim(),
-    whatsapp_number: input.elder.whatsappNumber.trim(),
+    whatsapp_number: elderWaCheck.value,
     timezone: input.elder.timezone.trim(),
     address: input.elder.address.trim(),
   };
 
-  const p_local_buddy = input.localBuddy
-    ? {
-        first_name: input.localBuddy.firstName.trim(),
-        last_name: input.localBuddy.lastName.trim(),
-        whatsapp_number: input.localBuddy.whatsappNumber.trim(),
-      }
-    : null;
+  let p_local_buddy: {
+    first_name: string;
+    last_name: string;
+    whatsapp_number: string;
+  } | null = null;
 
-  const p_doctor = input.doctor
-    ? {
-        first_name: input.doctor.firstName.trim(),
-        last_name: input.doctor.lastName.trim(),
-        whatsapp_number: input.doctor.whatsappNumber?.trim() ?? "",
-        clinic_name: input.doctor.clinicName.trim(),
-      }
-    : null;
+  if (input.localBuddy) {
+    const buddyWa = validateRequiredWhatsAppNumber(input.localBuddy.whatsappNumber);
+    if (!buddyWa.ok) return failElder(buddyWa.error);
+    p_local_buddy = {
+      first_name: input.localBuddy.firstName.trim(),
+      last_name: input.localBuddy.lastName.trim(),
+      whatsapp_number: buddyWa.value,
+    };
+  }
+
+  let p_doctor: {
+    first_name: string;
+    last_name: string;
+    whatsapp_number: string;
+    clinic_name: string;
+  } | null = null;
+
+  if (input.doctor) {
+    const doctorWa = validateOptionalWhatsAppNumber(input.doctor.whatsappNumber ?? "");
+    if (!doctorWa.ok) return failElder(doctorWa.error);
+    p_doctor = {
+      first_name: input.doctor.firstName.trim(),
+      last_name: input.doctor.lastName.trim(),
+      whatsapp_number: doctorWa.value ?? "",
+      clinic_name: input.doctor.clinicName.trim(),
+    };
+  }
 
   const { data, error } = await supabase.rpc("save_care_circle_draft", {
     p_care_partner,
@@ -516,7 +541,7 @@ export async function saveCareCircleDraft(input: {
 
   if (error) {
     if (isWhatsappUniqueViolation(error)) return failElder(WHATSAPP_TAKEN);
-    return failElder(error.message);
+    return failElder(mapWhatsAppDbError(error.message));
   }
 
   const elderId = typeof data === "string" ? data : String(data ?? "");

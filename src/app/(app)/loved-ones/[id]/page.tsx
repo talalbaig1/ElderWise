@@ -19,7 +19,7 @@ import {
   MealsTab,
   MedicationTab,
 } from "@/components/loved-ones/routine-tabs";
-import { ChoiceChips } from "@/components/onboarding/fields";
+import { ChoiceChips, WhatsAppNumberInput } from "@/components/onboarding/fields";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ConsentStatusBadge } from "@/components/shared/consent-status-badge";
 import { StatusPill } from "@/components/shared/status-pill";
@@ -35,6 +35,7 @@ import { updateElder } from "@/lib/data/actions";
 import { formatViewerDateTime } from "@/lib/time/display";
 import { initials } from "@/lib/utils";
 import type { Gender, LovedOne } from "@/types";
+import { validateRequiredWhatsAppNumber } from "@/lib/whatsapp-e164";
 
 export default function LovedOneProfilePage() {
   const params = useParams<{ id: string }>();
@@ -44,6 +45,7 @@ export default function LovedOneProfilePage() {
   const [editingOverview, setEditingOverview] = useState(false);
   const [draft, setDraft] = useState<LovedOne | null>(null);
   const [saving, setSaving] = useState(false);
+  const [whatsappError, setWhatsappError] = useState<string | undefined>();
 
   const related = useMemo(() => {
     if (!lovedOne) return null;
@@ -87,6 +89,14 @@ export default function LovedOneProfilePage() {
 
   const saveOverview = async () => {
     if (!draft) return;
+
+    const whatsapp = validateRequiredWhatsAppNumber(draft.whatsappNumber);
+    if (!whatsapp.ok) {
+      setWhatsappError(whatsapp.error);
+      toast.error(whatsapp.error);
+      return;
+    }
+
     setSaving(true);
     try {
       const result = await updateElder({
@@ -95,7 +105,7 @@ export default function LovedOneProfilePage() {
         lastName: draft.lastName,
         age: draft.age,
         relationshipToCarePartner: draft.relationshipToCarePartner,
-        whatsappNumber: draft.whatsappNumber,
+        whatsappNumber: whatsapp.value,
         timeZone: draft.timeZone,
         address: draft.address,
         gender: draft.gender,
@@ -105,6 +115,7 @@ export default function LovedOneProfilePage() {
         return;
       }
       toast.success("Profile saved");
+      setWhatsappError(undefined);
       setEditingOverview(false);
       setDraft(null);
       router.refresh();
@@ -248,9 +259,13 @@ export default function LovedOneProfilePage() {
                     />
                   </Field>
                   <Field label="WhatsApp">
-                    <Input
+                    <WhatsAppNumberInput
                       value={draft.whatsappNumber}
-                      onChange={(e) => setDraft({ ...draft, whatsappNumber: e.target.value })}
+                      onChange={(whatsappNumber) =>
+                        setDraft({ ...draft, whatsappNumber })
+                      }
+                      onBlurError={setWhatsappError}
+                      error={whatsappError}
                     />
                   </Field>
                   <Field label="Time zone (IANA)">
@@ -296,7 +311,14 @@ export default function LovedOneProfilePage() {
                     />
                   </div>
                   <div className="flex gap-2 sm:col-span-2">
-                    <Button onClick={saveOverview} disabled={saving}>
+                    <Button
+                      onClick={saveOverview}
+                      disabled={
+                        saving ||
+                        Boolean(whatsappError) ||
+                        !validateRequiredWhatsAppNumber(draft.whatsappNumber).ok
+                      }
+                    >
                       Save changes
                     </Button>
                     <Button

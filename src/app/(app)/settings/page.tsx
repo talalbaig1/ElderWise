@@ -45,11 +45,13 @@ import {
   detectBrowserTimeZone,
 } from "@/lib/settings";
 import { useDomainStore } from "@/components/data/app-data-provider";
+import { WhatsAppNumberInput } from "@/components/onboarding/fields";
 import { updateCarePartnerProfile } from "@/lib/data/actions";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth, useElderWiseStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import type { NotificationMethod, UserSettings } from "@/types";
+import { validateRequiredWhatsAppNumber } from "@/lib/whatsapp-e164";
 
 type SettingsSection =
   | "profile"
@@ -106,6 +108,7 @@ export default function SettingsPage() {
     confirm: "",
   });
   const [showPasswords, setShowPasswords] = useState(false);
+  const [whatsappError, setWhatsappError] = useState<string | undefined>();
 
   useEffect(() => {
     if (!carePartner) return;
@@ -144,10 +147,20 @@ export default function SettingsPage() {
       toast.error("First and last name are required");
       return;
     }
+
+    const whatsapp = profile.whatsappNumber.trim()
+      ? validateRequiredWhatsAppNumber(profile.whatsappNumber)
+      : { ok: true as const, value: null };
+    if (!whatsapp.ok) {
+      setWhatsappError(whatsapp.error);
+      toast.error(whatsapp.error);
+      return;
+    }
+
     const result = await updateCarePartnerProfile({
       firstName: profile.firstName,
       lastName: profile.lastName,
-      whatsappNumber: profile.whatsappNumber,
+      whatsappNumber: whatsapp.value ?? "",
       address: profile.address,
       timeZone: carePartner?.timeZone || settings.timeZone || "UTC",
       email: profile.email,
@@ -157,6 +170,7 @@ export default function SettingsPage() {
       return;
     }
     toast.success("Profile saved");
+    setWhatsappError(undefined);
     router.refresh();
   };
 
@@ -276,10 +290,13 @@ export default function SettingsPage() {
                   <Input value={profile.email} disabled />
                 </Field>
                 <Field label="WhatsApp number">
-                  <Input
+                  <WhatsAppNumberInput
                     value={profile.whatsappNumber}
-                    onChange={(e) => setProfile((p) => ({ ...p, whatsappNumber: e.target.value }))}
-                    placeholder="+91 …"
+                    onChange={(whatsappNumber) =>
+                      setProfile((p) => ({ ...p, whatsappNumber }))
+                    }
+                    onBlurError={setWhatsappError}
+                    error={whatsappError}
                   />
                 </Field>
                 <Field label="Address" className="sm:col-span-2">
@@ -317,7 +334,16 @@ export default function SettingsPage() {
                   </Select>
                 </Field>
                 <div className="sm:col-span-2">
-                  <Button onClick={saveProfile}>Save profile</Button>
+                  <Button
+                    onClick={saveProfile}
+                    disabled={
+                      Boolean(whatsappError) ||
+                      (profile.whatsappNumber.trim() !== "" &&
+                        !validateRequiredWhatsAppNumber(profile.whatsappNumber).ok)
+                    }
+                  >
+                    Save profile
+                  </Button>
                 </div>
               </CardContent>
             </Card>

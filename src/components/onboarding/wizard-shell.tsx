@@ -18,6 +18,7 @@ interface WizardShellProps {
   backLabel?: string;
   hideNext?: boolean;
   hideBack?: boolean;
+  nextDisabled?: boolean;
   secondaryAction?: ReactNode;
   busy?: boolean;
 }
@@ -30,6 +31,7 @@ export function WizardShell({
   backLabel = "Back",
   hideNext,
   hideBack,
+  nextDisabled,
   secondaryAction,
   busy,
 }: WizardShellProps) {
@@ -127,7 +129,7 @@ export function WizardShell({
             <div className="flex flex-wrap gap-2">
               {secondaryAction}
               {!hideNext ? (
-                <Button type="button" onClick={onNext} disabled={busy}>
+                <Button type="button" onClick={onNext} disabled={busy || nextDisabled}>
                   {busy ? "Saving…" : nextLabel}
                   {!busy ? <ArrowRight className="h-4 w-4" /> : null}
                 </Button>

@@ -13,6 +13,7 @@ import type {
   NotificationMethod,
 } from "@/types";
 import { readStorage, removeStorage, STORAGE_KEYS, writeStorage } from "@/lib/storage";
+import { optionalWhatsAppE164Schema, requiredWhatsAppE164Schema } from "@/lib/whatsapp-e164";
 
 export const DAYS: { value: DayOfWeek; label: string }[] = [
   { value: "monday", label: "Mon" },
@@ -86,11 +87,8 @@ export const NOT_REQUIRED_WARNING_FOOD =
 export const NOT_REQUIRED_WARNING_HEALTH =
   "You won't receive any alerts about this health routine — including when it's missed. Missed check-ins still appear on your dashboard, but no one is notified at the time.";
 
-const phone = z.string().trim().min(7, "Enter a valid WhatsApp number");
-const optionalPhone = z
-  .string()
-  .trim()
-  .refine((v) => v === "" || v.length >= 7, "Enter a valid WhatsApp number");
+const phone = requiredWhatsAppE164Schema;
+const optionalPhone = optionalWhatsAppE164Schema;
 
 export function todayInTimeZone(timeZone: string): string {
   try {

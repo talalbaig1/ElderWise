@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { WhatsAppNumberInput } from "@/components/onboarding/fields";
 import { createBlankBuddy, createBlankDoctor } from "@/lib/loved-ones";
 import { useDomainStore } from "@/components/data/app-data-provider";
 import { upsertDoctor, upsertLocalCaregiver } from "@/lib/data/actions";
@@ -16,6 +17,10 @@ import {
 import { formatViewerDateTime } from "@/lib/time/display";
 import type { FamilyDoctor, LocalBuddy } from "@/types";
 import { useRouter } from "next/navigation";
+import {
+  validateOptionalWhatsAppNumber,
+  validateRequiredWhatsAppNumber,
+} from "@/lib/whatsapp-e164";
 
 export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
   const router = useRouter();
@@ -30,16 +35,26 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
   const [doctorDraft, setDoctorDraft] = useState<FamilyDoctor | null>(null);
   const [saving, setSaving] = useState(false);
   const [issuedUrl, setIssuedUrl] = useState<string | null>(null);
+  const [buddyWhatsappError, setBuddyWhatsappError] = useState<string | undefined>();
+  const [doctorWhatsappError, setDoctorWhatsappError] = useState<string | undefined>();
 
   const saveBuddy = async (value: LocalBuddy) => {
+    const whatsapp = validateRequiredWhatsAppNumber(value.whatsappNumber);
+    if (!whatsapp.ok) {
+      setBuddyWhatsappError(whatsapp.error);
+      toast.error(whatsapp.error);
+      return;
+    }
+
     setSaving(true);
     try {
-      const result = await upsertLocalCaregiver(value);
+      const result = await upsertLocalCaregiver({ ...value, whatsappNumber: whatsapp.value });
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
       toast.success("Local Buddy saved");
+      setBuddyWhatsappError(undefined);
       setBuddyDraft(null);
       router.refresh();
     } finally {
@@ -48,14 +63,25 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
   };
 
   const saveDoctor = async (value: FamilyDoctor) => {
+    const whatsapp = validateOptionalWhatsAppNumber(value.whatsappNumber);
+    if (!whatsapp.ok) {
+      setDoctorWhatsappError(whatsapp.error);
+      toast.error(whatsapp.error);
+      return;
+    }
+
     setSaving(true);
     try {
-      const result = await upsertDoctor(value);
+      const result = await upsertDoctor({
+        ...value,
+        whatsappNumber: whatsapp.value ?? "",
+      });
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
       toast.success("Family Doctor saved");
+      setDoctorWhatsappError(undefined);
       setDoctorDraft(null);
       router.refresh();
     } finally {
@@ -165,15 +191,25 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
               </div>
               <div className="space-y-1.5">
                 <Label>WhatsApp</Label>
-                <Input
+                <WhatsAppNumberInput
                   value={buddyDraft.whatsappNumber}
-                  onChange={(e) =>
-                    setBuddyDraft({ ...buddyDraft, whatsappNumber: e.target.value })
+                  onChange={(whatsappNumber) =>
+                    setBuddyDraft({ ...buddyDraft, whatsappNumber })
                   }
+                  onBlurError={setBuddyWhatsappError}
+                  error={buddyWhatsappError}
                 />
               </div>
               <div className="flex gap-2">
-                <Button size="sm" disabled={saving} onClick={() => saveBuddy(buddyDraft)}>
+                <Button
+                  size="sm"
+                  disabled={
+                    saving ||
+                    Boolean(buddyWhatsappError) ||
+                    !validateRequiredWhatsAppNumber(buddyDraft.whatsappNumber).ok
+                  }
+                  onClick={() => saveBuddy(buddyDraft)}
+                >
                   Save
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setBuddyDraft(null)}>
@@ -231,11 +267,14 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
               </div>
               <div className="space-y-1.5">
                 <Label>WhatsApp (optional)</Label>
-                <Input
+                <WhatsAppNumberInput
+                  optional
                   value={doctorDraft.whatsappNumber}
-                  onChange={(e) =>
-                    setDoctorDraft({ ...doctorDraft, whatsappNumber: e.target.value })
+                  onChange={(whatsappNumber) =>
+                    setDoctorDraft({ ...doctorDraft, whatsappNumber })
                   }
+                  onBlurError={setDoctorWhatsappError}
+                  error={doctorWhatsappError}
                 />
               </div>
               <div className="space-y-1.5">
@@ -248,7 +287,15 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
                 />
               </div>
               <div className="flex gap-2">
-                <Button size="sm" disabled={saving} onClick={() => saveDoctor(doctorDraft)}>
+                <Button
+                  size="sm"
+                  disabled={
+                    saving ||
+                    Boolean(doctorWhatsappError) ||
+                    !validateOptionalWhatsAppNumber(doctorDraft.whatsappNumber).ok
+                  }
+                  onClick={() => saveDoctor(doctorDraft)}
+                >
                   Save
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setDoctorDraft(null)}>

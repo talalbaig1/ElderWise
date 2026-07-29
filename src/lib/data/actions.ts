@@ -9,6 +9,11 @@ import {
   localBuddySchema,
   medicationSchema,
 } from "@/lib/onboarding";
+import {
+  mapWhatsAppDbError,
+  validateOptionalWhatsAppNumber,
+  validateRequiredWhatsAppNumber,
+} from "@/lib/whatsapp-e164";
 import { createClient } from "@/lib/supabase/server";
 import type {
   FamilyDoctor,
@@ -166,7 +171,7 @@ const elderEditSchema = z.object({
   lastName: z.string().trim().min(1, "Last name is required"),
   age: z.coerce.number().int().min(1).max(120),
   relationshipToCarePartner: z.string().trim().min(1, "Relationship is required"),
-  whatsappNumber: z.string().trim().min(7, "Enter a valid WhatsApp number"),
+  whatsappNumber: z.string().trim().min(1, "WhatsApp number is required"),
   timeZone: z.string().trim().min(1, "Time zone is required"),
   address: z
     .string()
@@ -208,12 +213,19 @@ export async function updateCarePartnerProfile(input: {
     return fail(parsed.error.issues[0]?.message ?? "Invalid profile");
   }
 
+  const whatsapp = parsed.data.whatsappNumber?.trim()
+    ? validateRequiredWhatsAppNumber(parsed.data.whatsappNumber)
+    : { ok: true as const, value: null };
+  if (!whatsapp.ok) {
+    return fail(whatsapp.error);
+  }
+
   const { data, error } = await supabase
     .from("care_partners")
     .update({
       first_name: parsed.data.firstName,
       last_name: parsed.data.lastName,
-      whatsapp_number: parsed.data.whatsappNumber || null,
+      whatsapp_number: whatsapp.value,
       timezone: parsed.data.timeZone,
       address: parsed.data.address || null,
       ...(parsed.data.email ? { email: parsed.data.email } : {}),
@@ -222,7 +234,7 @@ export async function updateCarePartnerProfile(input: {
     .select("id, first_name, last_name")
     .maybeSingle();
 
-  if (error) return fail(error.message);
+  if (error) return fail(mapWhatsAppDbError(error.message));
   if (!data) return fail("Profile update failed — no row returned (check RLS)");
 
   revalidateApp();
@@ -248,6 +260,11 @@ export async function updateElder(input: {
     return fail(parsed.error.issues[0]?.message ?? "Invalid Loved One");
   }
 
+  const whatsapp = validateRequiredWhatsAppNumber(parsed.data.whatsappNumber);
+  if (!whatsapp.ok) {
+    return fail(whatsapp.error);
+  }
+
   // Never touch consent_confirmed_at or consent_attested_* (M16a/b).
   const { data, error } = await supabase
     .from("elders")
@@ -256,7 +273,7 @@ export async function updateElder(input: {
       last_name: parsed.data.lastName,
       age: parsed.data.age,
       relationship_to_care_partner: parsed.data.relationshipToCarePartner,
-      whatsapp_number: parsed.data.whatsappNumber,
+      whatsapp_number: whatsapp.value,
       timezone: parsed.data.timeZone,
       address: parsed.data.address,
       gender: parsed.data.gender,
@@ -266,7 +283,7 @@ export async function updateElder(input: {
     .select("id, first_name, last_name, address, consent_confirmed_at, consent_attested_by_ct")
     .maybeSingle();
 
-  if (error) return fail(error.message);
+  if (error) return fail(mapWhatsAppDbError(error.message));
   if (!data) return fail("Loved One update failed — no row returned (check RLS)");
 
   revalidatePath(`/loved-ones/${parsed.data.id}`);
@@ -304,7 +321,7 @@ export async function upsertLocalCaregiver(buddy: LocalBuddy): Promise<ActionRes
     .select("id, first_name, last_name")
     .maybeSingle();
 
-  if (error) return fail(error.message);
+  if (error) return fail(mapWhatsAppDbError(error.message));
   if (!data) return fail("Local Buddy save failed — no row returned (check RLS)");
 
   revalidatePath(`/loved-ones/${buddy.lovedOneId}`);
@@ -353,7 +370,7 @@ export async function upsertDoctor(doctor: FamilyDoctor): Promise<ActionResult> 
       .select("id, first_name, last_name")
       .maybeSingle();
 
-    if (error) return fail(error.message);
+    if (error) return fail(mapWhatsAppDbError(error.message));
     if (!data) return fail("Doctor save failed — no row returned (check RLS)");
   } else {
     const { data, error } = await supabase
@@ -367,7 +384,7 @@ export async function upsertDoctor(doctor: FamilyDoctor): Promise<ActionResult> 
       .select("id, first_name, last_name")
       .maybeSingle();
 
-    if (error) return fail(error.message);
+    if (error) return fail(mapWhatsAppDbError(error.message));
     if (!data) return fail("Doctor save failed — no row returned (check RLS)");
   }
 

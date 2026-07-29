@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { FieldError } from "@/components/onboarding/fields";
+import { FieldError, WhatsAppNumberInput } from "@/components/onboarding/fields";
 import { useOnboarding } from "@/components/onboarding/onboarding-context";
 import { WizardShell } from "@/components/onboarding/wizard-shell";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,10 @@ import {
   localBuddyCircleSchema,
   lovedOneCircleSchema,
 } from "@/lib/onboarding";
+import {
+  validateOptionalWhatsAppNumber,
+  validateRequiredWhatsAppNumber,
+} from "@/lib/whatsapp-e164";
 
 function issuesToErrors(prefix: string, issues: { path: PropertyKey[]; message: string }[]) {
   const next: Record<string, string> = {};
@@ -54,6 +58,51 @@ export function CareCircleStep() {
   const doctor = draft.doctor;
   const buddyEngaged = isLocalBuddyEngaged(localBuddy);
   const doctorEngaged = isDoctorEngaged(doctor);
+
+  const canProceed = useMemo(() => {
+    const cpWa = validateRequiredWhatsAppNumber(carePartner.whatsappNumber);
+    if (!cpWa.ok || !carePartner.timeZone.trim()) return false;
+
+    const loWa = validateRequiredWhatsAppNumber(lovedOne.whatsappNumber);
+    if (
+      !loWa.ok ||
+      !lovedOne.firstName.trim() ||
+      !lovedOne.lastName.trim() ||
+      !lovedOne.timeZone.trim() ||
+      !lovedOne.relationshipToCarePartner.trim() ||
+      !lovedOne.address.trim() ||
+      !Number.isInteger(lovedOne.age) ||
+      lovedOne.age < 1 ||
+      lovedOne.age > 120
+    ) {
+      return false;
+    }
+
+    if (buddyEngaged) {
+      const buddyWa = validateRequiredWhatsAppNumber(localBuddy.whatsappNumber);
+      if (
+        !buddyWa.ok ||
+        !localBuddy.firstName.trim() ||
+        !localBuddy.lastName.trim()
+      ) {
+        return false;
+      }
+    }
+
+    if (doctorEngaged) {
+      const doctorWa = validateOptionalWhatsAppNumber(doctor.whatsappNumber);
+      if (
+        !doctorWa.ok ||
+        !doctor.firstName.trim() ||
+        !doctor.lastName.trim() ||
+        !doctor.clinicName.trim()
+      ) {
+        return false;
+      }
+    }
+
+    return true;
+  }, [buddyEngaged, carePartner, doctor, doctorEngaged, localBuddy, lovedOne]);
 
   const runSave = async (): Promise<boolean> => {
     const cpParsed = carePartnerCircleSchema.safeParse(carePartner);
@@ -79,10 +128,36 @@ export function CareCircleStep() {
     }
     setErrors({});
 
+    const cpWa = validateRequiredWhatsAppNumber(carePartner.whatsappNumber);
+    const loWa = validateRequiredWhatsAppNumber(lovedOne.whatsappNumber);
+    if (!cpWa.ok || !loWa.ok) {
+      setErrors({
+        ...(cpWa.ok ? {} : { "carePartner.whatsappNumber": cpWa.error }),
+        ...(loWa.ok ? {} : { "lovedOne.whatsappNumber": loWa.error }),
+      });
+      toast.error("Please complete the required fields");
+      return false;
+    }
+
+    const buddyWa =
+      buddyEngaged ? validateRequiredWhatsAppNumber(localBuddy.whatsappNumber) : null;
+    const doctorWa =
+      doctorEngaged ? validateOptionalWhatsAppNumber(doctor.whatsappNumber) : null;
+    if (buddyWa && !buddyWa.ok) {
+      setErrors({ "localBuddy.whatsappNumber": buddyWa.error });
+      toast.error("Please complete the required fields");
+      return false;
+    }
+    if (doctorWa && !doctorWa.ok) {
+      setErrors({ "doctor.whatsappNumber": doctorWa.error });
+      toast.error("Please complete the required fields");
+      return false;
+    }
+
     setBusy(true);
     const result = await saveCareCircleDraft({
       carePartner: {
-        whatsappNumber: carePartner.whatsappNumber,
+        whatsappNumber: cpWa.value,
         timezone: carePartner.timeZone,
         firstName: draft.carePartnerProfile.firstName,
         lastName: draft.carePartnerProfile.lastName,
@@ -94,12 +169,22 @@ export function CareCircleStep() {
         lastName: lovedOne.lastName,
         age: lovedOne.age,
         relationshipToCarePartner: lovedOne.relationshipToCarePartner,
-        whatsappNumber: lovedOne.whatsappNumber,
+        whatsappNumber: loWa.value,
         timezone: lovedOne.timeZone,
         address: lovedOne.address,
       },
-      localBuddy: buddyEngaged ? localBuddy : null,
-      doctor: doctorEngaged ? doctor : null,
+      localBuddy: buddyEngaged && buddyWa?.ok
+        ? {
+            ...localBuddy,
+            whatsappNumber: buddyWa.value,
+          }
+        : null,
+      doctor: doctorEngaged && doctorWa?.ok
+        ? {
+            ...doctor,
+            whatsappNumber: doctorWa.value ?? "",
+          }
+        : null,
     });
     setBusy(false);
 
@@ -160,7 +245,7 @@ export function CareCircleStep() {
   };
 
   return (
-    <WizardShell onNext={onNext} busy={busy}>
+    <WizardShell onNext={onNext} busy={busy} nextDisabled={!canProceed}>
       <div className="space-y-6">
         <section className="space-y-4 rounded-2xl border bg-background/70 p-4">
           <h3 className="font-display text-xl">Care Partner (you)</h3>
@@ -173,14 +258,22 @@ export function CareCircleStep() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="cp-wa">WhatsApp number</Label>
-              <Input
+              <WhatsAppNumberInput
                 id="cp-wa"
                 value={carePartner.whatsappNumber}
-                onChange={(e) =>
-                  patchDraft({ carePartner: { ...carePartner, whatsappNumber: e.target.value } })
+                onChange={(whatsappNumber) =>
+                  patchDraft({ carePartner: { ...carePartner, whatsappNumber } })
                 }
+                onBlurError={(message) =>
+                  setErrors((prev) => {
+                    const next = { ...prev };
+                    if (message) next["carePartner.whatsappNumber"] = message;
+                    else delete next["carePartner.whatsappNumber"];
+                    return next;
+                  })
+                }
+                error={errors["carePartner.whatsappNumber"]}
               />
-              <FieldError message={errors["carePartner.whatsappNumber"]} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="cp-tz">Time zone</Label>
@@ -201,13 +294,23 @@ export function CareCircleStep() {
           <h3 className="font-display text-xl">Loved One</h3>
           <div className="space-y-2">
             <Label htmlFor="lo-wa">WhatsApp number</Label>
-            <Input
+            <WhatsAppNumberInput
               id="lo-wa"
-              placeholder="We'll send check-ins here"
+              placeholder="We'll send check-ins here — e.g. +966569362418"
               value={lovedOne.whatsappNumber}
-              onChange={(e) => patchDraft({ lovedOne: { ...lovedOne, whatsappNumber: e.target.value } })}
+              onChange={(whatsappNumber) =>
+                patchDraft({ lovedOne: { ...lovedOne, whatsappNumber } })
+              }
+              onBlurError={(message) =>
+                setErrors((prev) => {
+                  const next = { ...prev };
+                  if (message) next["lovedOne.whatsappNumber"] = message;
+                  else delete next["lovedOne.whatsappNumber"];
+                  return next;
+                })
+              }
+              error={errors["lovedOne.whatsappNumber"]}
             />
-            <FieldError message={errors["lovedOne.whatsappNumber"]} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
@@ -324,14 +427,22 @@ export function CareCircleStep() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="buddy-wa">WhatsApp number</Label>
-            <Input
+            <WhatsAppNumberInput
               id="buddy-wa"
               value={localBuddy.whatsappNumber}
-              onChange={(e) =>
-                patchDraft({ localBuddy: { ...localBuddy, whatsappNumber: e.target.value } })
+              onChange={(whatsappNumber) =>
+                patchDraft({ localBuddy: { ...localBuddy, whatsappNumber } })
               }
+              onBlurError={(message) =>
+                setErrors((prev) => {
+                  const next = { ...prev };
+                  if (message) next["localBuddy.whatsappNumber"] = message;
+                  else delete next["localBuddy.whatsappNumber"];
+                  return next;
+                })
+              }
+              error={errors["localBuddy.whatsappNumber"]}
             />
-            <FieldError message={errors["localBuddy.whatsappNumber"]} />
           </div>
         </section>
 
@@ -383,12 +494,23 @@ export function CareCircleStep() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="doc-wa">WhatsApp number (optional)</Label>
-            <Input
+            <WhatsAppNumberInput
               id="doc-wa"
+              optional
               value={doctor.whatsappNumber}
-              onChange={(e) => patchDraft({ doctor: { ...doctor, whatsappNumber: e.target.value } })}
+              onChange={(whatsappNumber) =>
+                patchDraft({ doctor: { ...doctor, whatsappNumber } })
+              }
+              onBlurError={(message) =>
+                setErrors((prev) => {
+                  const next = { ...prev };
+                  if (message) next["doctor.whatsappNumber"] = message;
+                  else delete next["doctor.whatsappNumber"];
+                  return next;
+                })
+              }
+              error={errors["doctor.whatsappNumber"]}
             />
-            <FieldError message={errors["doctor.whatsappNumber"]} />
           </div>
         </section>
       </div>
