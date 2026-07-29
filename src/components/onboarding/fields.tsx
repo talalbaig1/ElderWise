@@ -12,6 +12,7 @@ import {
   normalizeWhatsAppNumber,
   validateOptionalWhatsAppNumber,
   validateRequiredWhatsAppNumber,
+  WHATSAPP_E164_ERROR,
 } from "@/lib/whatsapp-e164";
 import type { DayOfWeek } from "@/types";
 import { Input } from "@/components/ui/input";
@@ -195,7 +196,22 @@ export function WhatsAppNumberInput({
         aria-invalid={Boolean(error)}
         onChange={(event) => onChange(event.target.value)}
         onBlur={() => {
-          const normalized = value.trim() === "" ? "" : normalizeWhatsAppNumber(value);
+          if (value.trim() === "") {
+            if (optional) {
+              onBlurError?.(undefined);
+            } else {
+              const result = validateRequiredWhatsAppNumber("");
+              onBlurError?.(result.ok ? undefined : result.error);
+            }
+            return;
+          }
+
+          const normalized = normalizeWhatsAppNumber(value);
+          if (normalized === null) {
+            onBlurError?.(WHATSAPP_E164_ERROR);
+            return;
+          }
+
           if (normalized !== value) {
             onChange(normalized);
           }

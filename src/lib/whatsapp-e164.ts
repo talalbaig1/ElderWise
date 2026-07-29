@@ -6,18 +6,35 @@ export const E164_WHATSAPP_REGEX = /^\+[1-9][0-9]{7,14}$/;
 export const WHATSAPP_E164_ERROR =
   "Please enter the number with the country code, for example +966569362418.";
 
-export function normalizeWhatsAppNumber(raw: string): string {
-  let value = raw.trim().replace(/[\s\-()[\]]/g, "");
+/** Strip only whitespace, hyphens, brackets, and parentheses. */
+function stripWhatsAppSeparators(raw: string): string {
+  return raw.trim().replace(/[\s\-()[\]]/g, "");
+}
+
+/**
+ * Normalise user input toward canonical E.164.
+ * Returns null when unexpected characters remain after separator stripping.
+ */
+export function normalizeWhatsAppNumber(raw: string): string | null {
+  let value = stripWhatsAppSeparators(raw);
 
   if (value.startsWith("00")) {
     value = `+${value.slice(2)}`;
   }
 
   if (value.startsWith("+")) {
-    return `+${value.slice(1).replace(/\D/g, "")}`;
+    const digits = value.slice(1);
+    if (digits.length === 0 || !/^\d+$/.test(digits)) {
+      return null;
+    }
+    return `+${digits}`;
   }
 
-  return value.replace(/\D/g, "");
+  if (value.length === 0 || !/^\d+$/.test(value)) {
+    return null;
+  }
+
+  return value;
 }
 
 export function isValidWhatsAppE164(value: string): boolean {
@@ -33,7 +50,7 @@ export function validateRequiredWhatsAppNumber(
   }
 
   const normalized = normalizeWhatsAppNumber(trimmed);
-  if (!isValidWhatsAppE164(normalized)) {
+  if (normalized === null || !isValidWhatsAppE164(normalized)) {
     return { ok: false, error: WHATSAPP_E164_ERROR };
   }
 
@@ -49,7 +66,7 @@ export function validateOptionalWhatsAppNumber(
   }
 
   const normalized = normalizeWhatsAppNumber(trimmed);
-  if (!isValidWhatsAppE164(normalized)) {
+  if (normalized === null || !isValidWhatsAppE164(normalized)) {
     return { ok: false, error: WHATSAPP_E164_ERROR };
   }
 
@@ -67,11 +84,20 @@ export const requiredWhatsAppE164Schema = z
   .string()
   .trim()
   .min(1, "WhatsApp number is required")
-  .transform(normalizeWhatsAppNumber)
-  .refine(isValidWhatsAppE164, WHATSAPP_E164_ERROR);
+  .transform((value) => normalizeWhatsAppNumber(value))
+  .refine(
+    (value): value is string => value !== null && isValidWhatsAppE164(value),
+    WHATSAPP_E164_ERROR,
+  )
+  .transform((value) => value as string);
 
 export const optionalWhatsAppE164Schema = z
   .string()
   .trim()
   .transform((value) => (value === "" ? "" : normalizeWhatsAppNumber(value)))
-  .refine((value) => value === "" || isValidWhatsAppE164(value), WHATSAPP_E164_ERROR);
+  .refine(
+    (value) =>
+      value === "" || value === null || (typeof value === "string" && isValidWhatsAppE164(value)),
+    WHATSAPP_E164_ERROR,
+  )
+  .transform((value) => (value === "" || value === null ? "" : value));
