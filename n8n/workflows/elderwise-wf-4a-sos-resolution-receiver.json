@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "6b04ce47-2282-4c7f-a548-09cebd9c6f35",
+  "activeVersionId": "bb62d200-9e23-4b75-a5d9-848490c12658",
   "connections": {
     "Already Resolved?": {
       "main": [
@@ -60,7 +60,7 @@
       ]
     }
   },
-  "description": "A2.7 SOS resolution receiver. Header Auth on the webhook node; verifies sos_events.status via parameterised query and returns 200/409/404. Verifies only, never writes.",
+  "description": "A2.7 SOS resolution receiver. Header Auth; verifies sos_events.status via parameterised query; returns 200/409/404. Verifies only, never writes. ignoreBots removed - it rejected curl before auth ran.",
   "id": "jeNrf7b7ne3JX2Xu",
   "meta": {
     "aiBuilderAssisted": true,
@@ -80,9 +80,7 @@
       "parameters": {
         "authentication": "headerAuth",
         "httpMethod": "POST",
-        "options": {
-          "ignoreBots": true
-        },
+        "options": {},
         "path": "elderwise-sos-resolved",
         "responseMode": "responseNode"
       },
@@ -92,7 +90,7 @@
       ],
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "webhookId": "023b3a2d-499d-457e-8f14-bb0a9d88c54f"
+      "webhookId": "e4d1edc8-3c50-408a-930c-c9fa4cb9f700"
     },
     {
       "credentials": {
@@ -109,7 +107,8 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $json.body.sos_event_id }}"
         },
-        "query": "SELECT $1::uuid AS sos_event_id, (s.id IS NOT NULL) AS found, COALESCE(s.status::text, '') AS status, s.resolved_at, COALESCE(s.resolved_by_role::text, '') AS resolved_by_role, COALESCE(s.resolved_channel::text, '') AS resolved_channel FROM (SELECT 1) AS probe LEFT JOIN sos_events s ON s.id = $1::uuid"
+        "query": "SELECT $1::uuid AS sos_event_id, (s.id IS NOT NULL) AS found, COALESCE(s.status::text, '') AS status, s.resolved_at, COALESCE(s.resolved_by_role::text, '') AS resolved_by_role, COALESCE(s.resolved_channel::text, '') AS resolved_channel FROM (SELECT 1) AS probe LEFT JOIN sos_events s ON s.id = $1::uuid",
+        "resource": "database"
       },
       "position": [
         224,
@@ -137,12 +136,9 @@
           ],
           "options": {
             "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 1
+            "typeValidation": "strict"
           }
-        },
-        "options": {}
+        }
       },
       "position": [
         448,
@@ -169,12 +165,9 @@
           ],
           "options": {
             "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 1
+            "typeValidation": "strict"
           }
-        },
-        "options": {}
+        }
       },
       "position": [
         672,
