@@ -1,5 +1,4 @@
 {
-  "activeVersion": null,
   "activeVersionId": null,
   "connections": {
     "Run Manually": {
@@ -70,10 +69,8 @@
     }
   ],
   "settings": {
-    "availableInMCP": true,
     "binaryMode": "separate",
     "executionOrder": "v1"
   },
-  "staticData": null,
-  "versionCounter": 4
+  "staticData": null
 }
