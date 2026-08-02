@@ -1,0 +1,243 @@
+{
+  "activeVersionId": "6b04ce47-2282-4c7f-a548-09cebd9c6f35",
+  "connections": {
+    "Already Resolved?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Ack 200 - Stop Nudges",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Conflict 409 - Still Open",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Event Found?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Already Resolved?",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Not Found 404",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Look Up SOS Event": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Event Found?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "SOS Resolution Webhook": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Look Up SOS Event",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "description": "A2.7 SOS resolution receiver. Header Auth on the webhook node; verifies sos_events.status via parameterised query and returns 200/409/404. Verifies only, never writes.",
+  "id": "jeNrf7b7ne3JX2Xu",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "name": "ElderWise WF-4a - SOS Resolution Receiver",
+  "nodes": [
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Q6mi3iH0I8Wn9vCY",
+          "name": "ElderWise SOS Webhook Secret"
+        }
+      },
+      "id": "c6173d25-c434-47eb-a437-30f64f887be2",
+      "name": "SOS Resolution Webhook",
+      "parameters": {
+        "authentication": "headerAuth",
+        "httpMethod": "POST",
+        "options": {
+          "ignoreBots": true
+        },
+        "path": "elderwise-sos-resolved",
+        "responseMode": "responseNode"
+      },
+      "position": [
+        0,
+        192
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "webhookId": "023b3a2d-499d-457e-8f14-bb0a9d88c54f"
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "d3b6203d-3444-417c-a97d-75983c765ddd",
+      "name": "Look Up SOS Event",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $json.body.sos_event_id }}"
+        },
+        "query": "SELECT $1::uuid AS sos_event_id, (s.id IS NOT NULL) AS found, COALESCE(s.status::text, '') AS status, s.resolved_at, COALESCE(s.resolved_by_role::text, '') AS resolved_by_role, COALESCE(s.resolved_channel::text, '') AS resolved_channel FROM (SELECT 1) AS probe LEFT JOIN sos_events s ON s.id = $1::uuid"
+      },
+      "position": [
+        224,
+        192
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "ef824096-1c11-430d-b6b0-421fae28eb38",
+      "name": "Event Found?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.found }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        448,
+        192
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "id": "7b5e6544-2b3c-4174-bb0e-e8bea5ceaad2",
+      "name": "Already Resolved?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.status }}",
+              "operator": {
+                "operation": "equals",
+                "type": "string"
+              },
+              "rightValue": "resolved"
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        672,
+        96
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "id": "6ecfffef-3909-4c4a-b948-16e49738dca9",
+      "name": "Ack 200 - Stop Nudges",
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        },
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, sos_event_id: $json.sos_event_id, status: $json.status, resolved_by_role: $json.resolved_by_role, resolved_channel: $json.resolved_channel }) }}"
+      },
+      "position": [
+        896,
+        0
+      ],
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5
+    },
+    {
+      "id": "f9072529-0b5f-47b4-941d-11fa75c5fdf7",
+      "name": "Conflict 409 - Still Open",
+      "parameters": {
+        "options": {
+          "responseCode": 409
+        },
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: \"sos_event_not_resolved_in_db\", sos_event_id: $json.sos_event_id, status: $json.status }) }}"
+      },
+      "position": [
+        896,
+        192
+      ],
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5
+    },
+    {
+      "id": "b899a1cb-229a-435b-a46a-9e317f87f3a9",
+      "name": "Not Found 404",
+      "parameters": {
+        "options": {
+          "responseCode": 404
+        },
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: \"sos_event_not_found\" }) }}"
+      },
+      "position": [
+        672,
+        288
+      ],
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5
+    }
+  ],
+  "settings": {
+    "binaryMode": "separate",
+    "executionOrder": "v1"
+  },
+  "staticData": null
+}
