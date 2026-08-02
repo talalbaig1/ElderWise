@@ -1,0 +1,140 @@
+{
+  "activeVersion": {
+    "authors": "Talal Baig",
+    "autosaved": false,
+    "connections": {
+      "WhatsApp Inbound": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Payload Received",
+              "type": "main"
+            }
+          ]
+        ]
+      }
+    },
+    "createdAt": "2026-07-29T08:58:41.565Z",
+    "description": null,
+    "name": null,
+    "nodes": [
+      {
+        "credentials": {
+          "whatsAppTriggerApi": {
+            "id": "yRmM0ncyE6QlOBUR",
+            "name": "WhatsApp 966503330619"
+          }
+        },
+        "id": "7d239f66-c4a1-403e-bfb4-3062fd20aa51",
+        "name": "WhatsApp Inbound",
+        "parameters": {
+          "options": {
+            "messageStatusUpdates": [
+              "all"
+            ]
+          },
+          "updates": [
+            "messages"
+          ]
+        },
+        "position": [
+          0,
+          0
+        ],
+        "type": "n8n-nodes-base.whatsAppTrigger",
+        "typeVersion": 1,
+        "webhookId": "c00d92cf-e88d-4aed-9e5b-e3eb70f6db49"
+      },
+      {
+        "id": "e17ac0d5-6168-4727-8f4f-3c53047c3ce6",
+        "name": "Payload Received",
+        "position": [
+          224,
+          0
+        ],
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1
+      }
+    ],
+    "updatedAt": "2026-07-29T08:58:41.565Z",
+    "versionId": "051214c0-00f3-4cde-947f-f3269710d7a6",
+    "workflowId": "oHSNqoskL0nOoOfo",
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-07-29T08:58:49.594Z",
+        "event": "activated",
+        "id": 305,
+        "userId": "9a342620-d6b5-4758-bdac-d00ffc291bff",
+        "versionId": "051214c0-00f3-4cde-947f-f3269710d7a6",
+        "workflowId": "oHSNqoskL0nOoOfo"
+      }
+    ]
+  },
+  "activeVersionId": "051214c0-00f3-4cde-947f-f3269710d7a6",
+  "connections": {
+    "WhatsApp Inbound": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Payload Received",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "description": "WF-2 skeleton. Owns the permanent Meta callback URL. Robert builds the routing logic here - do not recreate this workflow or the webhook URL changes and Meta must be reconfigured.",
+  "id": "oHSNqoskL0nOoOfo",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "name": "ElderWise WF-2 - WhatsApp Inbound Router",
+  "nodes": [
+    {
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "yRmM0ncyE6QlOBUR",
+          "name": "WhatsApp 966503330619"
+        }
+      },
+      "id": "7d239f66-c4a1-403e-bfb4-3062fd20aa51",
+      "name": "WhatsApp Inbound",
+      "parameters": {
+        "options": {
+          "messageStatusUpdates": [
+            "all"
+          ]
+        },
+        "updates": [
+          "messages"
+        ]
+      },
+      "position": [
+        0,
+        0
+      ],
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "webhookId": "c00d92cf-e88d-4aed-9e5b-e3eb70f6db49"
+    },
+    {
+      "id": "e17ac0d5-6168-4727-8f4f-3c53047c3ce6",
+      "name": "Payload Received",
+      "position": [
+        224,
+        0
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    }
+  ],
+  "settings": {
+    "availableInMCP": true,
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "versionCounter": 3
+}

@@ -1,0 +1,79 @@
+{
+  "activeVersion": null,
+  "activeVersionId": null,
+  "connections": {
+    "Run Manually": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Fetch Approved Templates",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "description": "Read-only audit: pulls all approved WhatsApp message templates from the Meta Graph API using the existing WhatsApp credential, for reconciliation against Templates.md.",
+  "id": "PADE2m75e6xVGS2e",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "name": "ElderWise - Template Audit (read-only)",
+  "nodes": [
+    {
+      "id": "794beae2-71ce-44ef-a4fc-4c38dd1c253a",
+      "name": "Run Manually",
+      "parameters": {},
+      "position": [
+        0,
+        0
+      ],
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Khl54gAdR4rvZaUO",
+          "name": "WhatsApp 966503330619"
+        }
+      },
+      "id": "d0bf558b-4736-4143-9de6-2f7dfc13c1cc",
+      "name": "Fetch Approved Templates",
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "options": {},
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "name,status,category,language,components"
+            },
+            {
+              "name": "limit",
+              "value": "100"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "url": "https://graph.facebook.com/v23.0/1495493002256968/message_templates"
+      },
+      "position": [
+        224,
+        0
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4
+    }
+  ],
+  "settings": {
+    "availableInMCP": true,
+    "binaryMode": "separate",
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "versionCounter": 4
+}
