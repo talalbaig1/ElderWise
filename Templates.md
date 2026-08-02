@@ -4,16 +4,16 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · Team Lead: Talal Baig |
-| **Document** | Templates.md — v1.5 |
-| **Date** | 28 July 2026 |
+| **Document** | Templates.md — v1.6 |
+| **Date** | 2 August 2026 |
 | **Purpose** | Every message ElderWise sends. **Reconciled against the live Meta WABA — this document now records what Meta actually approved, not what was drafted.** |
 | **WABA** | `1495493002256968` · display number **966503330619** |
 | **Owner** | Talal (submission) · Sama + Reema (copy & tone) |
-| **Status** | 🟢 **13 APPROVED · 1 PENDING** (`elderwise_sos_alert_doctor`) |
+| **Status** | 🟢 **ALL 14 APPROVED** — full message set cleared by Meta |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Phases.md` |
 
 > **⚠️ Authority note.** §4–6 below are **transcribed verbatim from the Meta Graph API**
-> (`GET /v23.0/1495493002256968/message_templates`, retrieved 28 July 2026). Where this
+> (`GET /v23.0/1495493002256968/message_templates`, re-verified 2 August 2026). Where this
 > document and Meta disagree, **Meta wins** and this document is wrong. Do not edit the
 > body text here to make it read better — edit it in Meta first, accept the re-review, then
 > transcribe the result back.
@@ -105,7 +105,7 @@ review, and the SOS set must not be disturbed.
 
 ## 3. Template registry — live status
 
-Retrieved from Meta 28 July 2026.
+Retrieved from Meta **2 August 2026**. All 14 APPROVED.
 
 | # | Template name | Audience | Status | Vars | Buttons | Meta template ID |
 |---|---|---|---|---|---|---|
@@ -120,7 +120,7 @@ Retrieved from Meta 28 July 2026.
 | 9 | `elderwise_ct_missed_notice` | Care Partner | ✅ APPROVED | 3 | 0 | `3121885814676749` |
 | 10 | `elderwise_sos_alert_ct` | Care Partner | ✅ APPROVED | 4 | 1 | `1289025163308840` |
 | 11 | `elderwise_sos_alert_lct` | Local Buddy | ✅ APPROVED | **5** | 1 | `1372423371082977` |
-| 12 | `elderwise_sos_alert_doctor` | Doctor | 🟡 **PENDING** | **7** | 1 | `2431697744021678` |
+| 12 | `elderwise_sos_alert_doctor` | Doctor | ✅ APPROVED | **7** | 1 | `2431697744021678` |
 | 13 | `elderwise_sos_nudge` | CT / LCT / DR | ✅ APPROVED | 2 | 1 | `2044073236223703` |
 | 14 | `elderwise_sos_resolved` | CT / LCT / DR | ✅ APPROVED | 3 | 0 | `1380761780602851` |
 
@@ -441,7 +441,7 @@ protected by the §7.3 click-through gate against WhatsApp's link-preview crawle
 
 ---
 
-### 12 · `elderwise_sos_alert_doctor` — 🟡 PENDING
+### 12 · `elderwise_sos_alert_doctor` — ✅ APPROVED
 **Header:** `SOS Alert` · **Sent only if** a `doctors` row exists **and** `whatsapp_number` is non-null.
 
 > 🚨 EMERGENCY ALERT 🚨
@@ -460,9 +460,9 @@ protected by the §7.3 click-through gate against WhatsApp's link-preview crawle
 `skip_reason = no_whatsapp_number`, `wa_message_id` NULL, `sent_at` NULL. Not a delivery
 failure (W3).
 
-> **⚠️ This is the only template still in review.** It is also the one the demo's SOS story
-> depends on. Track its status daily. If it is rejected, the resubmission window is the
-> critical path — see §9.
+> **✅ Approved 2 August 2026**, unchanged from the submitted version — same body, same seven
+> variables, same `Acknowledge` button. The full SOS path (CT → Buddy → Doctor → nudge →
+> resolved) is now live on approved templates end to end.
 
 > **Data-disclosure note.** `{{5}}` and `{{7}}` push the Buddy's and Care Partner's WhatsApp
 > numbers to the Doctor. This is a **deliberate exception** to the doctor-view allowlist,
@@ -541,7 +541,7 @@ Sent immediately when the elder triggers an SOS — she must not be left in sile
 
 | # | Item | Severity | Owner |
 |---|---|---|---|
-| **OT-8** | **`elderwise_sos_alert_doctor` is PENDING.** The only unapproved template, and the demo's SOS story needs it. Check daily. | 🔴 High | Talal |
+| ~~OT-8~~ | ~~`elderwise_sos_alert_doctor` PENDING~~ — **CLOSED 2 Aug 2026. Approved unchanged.** All 14 templates now approved. | Closed | Talal |
 | **OT-7** | **The "No, thank you" path must actually be built.** An elder who declines is never messaged again and the CT is told. Not an edge case — it is the basis of her consent being real. | Medium | Robert / Sandy |
 | **OT-9** | **Period label derivation (B-3)** — `Morning`/`Afternoon`/`Evening`/`Night` for templates 5 and 8. No column stores it. Confirm cut points and wording. | Medium | Sandy + Sama |
 | **OT-4** | Language of the elder's WhatsApp — MVP is English only. Cosmetic for the demo; real for the product. | Medium | Team |
@@ -558,14 +558,15 @@ Sent immediately when the elder triggers an SOS — she must not be left in sile
 | By 19 July | Submit templates 1–7 and 10–13 | ✅ Done |
 | By 26 July | Submit 8, 9, 14 · resubmit rejections | ✅ Done |
 | **27 July** | **All 14 submitted.** Several reformatted during upload to clear Meta validation errors. | ✅ Done |
-| **28 July** | **13 approved.** `elderwise_sos_alert_doctor` still in review. Live state reconciled into this document. | ▶️ Current |
-| **🚦 9 August** | **Channel go/no-go.** Core set is approved → **WhatsApp as planned.** | On track |
-| By 16 August | Template 12 approved, or SOS demo runs on the CT + LCT path alone | Watch |
+| **28 July** | **13 approved.** `elderwise_sos_alert_doctor` still in review. Live state reconciled into this document. | ✅ Done |
+| **2 August** | **All 14 approved.** `elderwise_sos_alert_doctor` cleared review unchanged. Verified via Graph API. | ▶️ Current |
+| **🚦 9 August** | **Channel go/no-go.** Full set approved → **WhatsApp as planned.** | ✅ Cleared early |
+| ~~By 16 August~~ | ~~Template 12 approved, or SOS demo runs on the CT + LCT path alone~~ | ✅ Closed 2 Aug |
 
-**If template 12 is rejected:** the SOS demo can still run — the CT alert (10), the Buddy
-alert (11), the nudge (13) and the resolution (14) are all approved. The doctor leg would
-be shown as a logged `skipped` row rather than a live message. Not ideal, not fatal.
-**Do not let a template-12 rejection stall the rest of Track B.**
+**Contingency no longer needed.** All four SOS templates (10, 11, 12, 13) plus the
+resolution (14) are approved, so the full doctor leg can be demonstrated live. The
+`skipped` row path remains implemented and correct for the real case it exists for — a
+doctor with no WhatsApp number, or no doctor on the record at all (§3.3).
 
 **Common rejection causes to avoid on any resubmission:** a variable at the very start or
 end of the body · missing sample values · promotional phrasing in a UTILITY template ·
@@ -577,6 +578,7 @@ placeholder count not matching the samples · buttons over 20 characters.
 
 | Date | Version | Change |
 |---|---|---|
+| 2 Aug 2026 | **1.6** | **All 14 templates APPROVED** — `elderwise_sos_alert_doctor` cleared Meta review on 2 Aug, unchanged from submission (same body, seven variables, `Acknowledge` button). Registry, §6 heading, §8 OT-8 and §9 submission table updated. Template-12 rejection contingency removed as moot; the `skipped` path remains for the real case (no doctor / no number). Re-verified against the live WABA via Graph API. **No body text, variable, or button changed anywhere in this revision** — §3.2, §3.3, §3.4 and §3.5 stand exactly as written in v1.5. | 
 | 28 Jul 2026 | **1.5** | **Reconciled against the live Meta WABA `1495493002256968`** (Graph API, 28 Jul). Registry rewritten with real statuses (13 APPROVED / 1 PENDING) and Meta template IDs. **§4–6 bodies replaced with the verbatim approved text** — all 14 gained TEXT headers; several were reworded during submission. **Two structural drifts recorded:** `sos_alert_lct` 3→5 vars (+Doctor, +Clinic), `sos_alert_doctor` 3→7 vars (+report link, +Buddy name/number, +CP name/number). **New §3.2** exact button labels + case-insensitive matching rule (B-1); food buttons are `Yes`/`No`, not `Yes`/`Not yet`. **New §3.3** NA substitution at send time, DB untouched (ruling: Talal, 28 Jul). **New §3.4** SOS share-link mint-or-reuse by n8n, fail-open to NA. **New §3.5** variable→source map incl. doctor-timezone rule (B-2) and period-label derivation (B-3). **New §2.1** known accepted copy defects ("Hay", trailing 👍) — accepted for demo. `language` is `en`, never `en_US`. OT-6 closed; OT-8/OT-9 opened. |
 | 26 Jul 2026 | 1.4 | **A4 contract notes.** Dosage = quantity; strength in medicine name — Meta `{{3}}` bodies unchanged. Free-form picker rows show name + quantity + unit. Templates 8/9 keyed off per-routine `notify_care_partner` incl. never send on `not_required`. Template 12: skip + log when doctor has no WhatsApp. |
 | 23 Jul 2026 | 1.3 | Companion-doc references no longer pin version numbers. |
@@ -587,4 +589,4 @@ placeholder count not matching the samples · buttons over 20 characters.
 ---
 
 *Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 28 July 2026.*
-*Template bodies transcribed verbatim from Meta Graph API, WABA `1495493002256968`, retrieved 28 July 2026.*
+*Template bodies transcribed verbatim from Meta Graph API, WABA `1495493002256968` — transcribed 28 July 2026, statuses re-verified 2 August 2026 (all 14 APPROVED).*
