@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { differenceInSeconds, formatDistanceToNow, parseISO } from "date-fns";
 import { motion, useReducedMotion } from "framer-motion";
@@ -65,6 +66,7 @@ function useElapsedTick(enabled: boolean, setTick: Dispatch<SetStateAction<numbe
 }
 
 export default function SosPage() {
+  const router = useRouter();
   const {
     store,
     setSelectedLovedOneId,
@@ -86,6 +88,7 @@ export default function SosPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | SOSStatus>("all");
   const [resolveOpen, setResolveOpen] = useState(false);
   const [resolveNotes, setResolveNotes] = useState("");
+  const [resolving, setResolving] = useState(false);
   const [tick, setTick] = useState(0);
 
   const activeForLovedOne = useMemo(
@@ -146,11 +149,40 @@ export default function SosPage() {
     toast.message("Acknowledge stays unwired until A2.7");
   };
 
-  const onResolve = () => {
-    toast.message("Resolve stays unwired until A2.7", {
-      description: "Dashboard SOS resolution + n8n webhook is A2.7.",
-    });
-    setResolveOpen(false);
+  const onResolve = async () => {
+    if (!selected || resolving) return;
+
+    setResolving(true);
+    try {
+      const response = await fetch("/api/sos/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sos_event_id: selected.id }),
+      });
+
+      let payload: { error?: string; already_resolved?: boolean } = {};
+      try {
+        payload = (await response.json()) as typeof payload;
+      } catch {
+        // non-JSON body
+      }
+
+      if (!response.ok) {
+        toast.error(payload.error || "Could not resolve SOS");
+        return;
+      }
+
+      toast.success(
+        payload.already_resolved
+          ? "This SOS was already resolved"
+          : "SOS marked resolved",
+      );
+      setResolveOpen(false);
+      setResolveNotes("");
+      router.refresh();
+    } finally {
+      setResolving(false);
+    }
   };
 
   const onCancel = () => {
@@ -598,11 +630,12 @@ export default function SosPage() {
           <DialogHeader>
             <DialogTitle>Resolve SOS</DialogTitle>
             <DialogDescription>
-              Record how the emergency was closed. Notes are saved to local history.
+              This marks the SOS resolved in the database so WhatsApp nudges stop.
+              Optional notes stay on this device only.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="resolve-notes">Resolution notes</Label>
+            <Label htmlFor="resolve-notes">Resolution notes (optional)</Label>
             <textarea
               id="resolve-notes"
               value={resolveNotes}
@@ -613,10 +646,12 @@ export default function SosPage() {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setResolveOpen(false)}>
+            <Button variant="outline" disabled={resolving} onClick={() => setResolveOpen(false)}>
               Back
             </Button>
-            <Button onClick={onResolve}>Mark resolved</Button>
+            <Button onClick={() => void onResolve()} disabled={resolving}>
+              {resolving ? "Resolving…" : "Mark resolved"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
