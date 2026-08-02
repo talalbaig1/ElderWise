@@ -89,6 +89,7 @@ export default function SosPage() {
   const [resolveOpen, setResolveOpen] = useState(false);
   const [resolveNotes, setResolveNotes] = useState("");
   const [resolving, setResolving] = useState(false);
+  const [triggering, setTriggering] = useState(false);
   const [tick, setTick] = useState(0);
 
   const activeForLovedOne = useMemo(
@@ -131,22 +132,49 @@ export default function SosPage() {
     (e) => e.status === "active" || e.status === "acknowledged",
   ).length;
 
-  const triggerSos = () => {
-    toast.message("SOS trigger stays unwired until A2.7", {
-      description: "Pass 1 reads live sos_events only.",
-    });
+  const walkthroughOnlyMessage =
+    "Acknowledge and Cancel are part of the walkthrough. To close this alert, use Resolve.";
+
+  const triggerSos = async () => {
+    if (!selectedLovedOne?.id || triggering) return;
+
+    setTriggering(true);
+    try {
+      const response = await fetch("/api/sos/trigger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ elder_id: selectedLovedOne.id }),
+      });
+
+      let payload: { error?: string; sos_event_id?: string } = {};
+      try {
+        payload = (await response.json()) as typeof payload;
+      } catch {
+        // non-JSON body
+      }
+
+      if (!response.ok) {
+        toast.error(payload.error || "Could not start demo SOS");
+        return;
+      }
+
+      toast.success("Demo SOS started");
+      router.refresh();
+    } finally {
+      setTriggering(false);
+    }
   };
 
   const onAcknowledge = () => {
-    toast.message("Acknowledge stays unwired until A2.7");
+    toast.message(walkthroughOnlyMessage);
   };
 
   const onBuddyAck = () => {
-    toast.message("Acknowledge stays unwired until A2.7");
+    toast.message(walkthroughOnlyMessage);
   };
 
   const onDoctorAck = () => {
-    toast.message("Acknowledge stays unwired until A2.7");
+    toast.message(walkthroughOnlyMessage);
   };
 
   const onResolve = async () => {
@@ -186,7 +214,7 @@ export default function SosPage() {
   };
 
   const onCancel = () => {
-    toast.message("Cancel stays unwired until A2.7");
+    toast.message(walkthroughOnlyMessage);
   };
 
   const progress = selected ? cascadeProgress(selected.cascadeSteps) : 0;
@@ -224,9 +252,14 @@ export default function SosPage() {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="sos" onClick={triggerSos} className="gap-2">
+          <Button
+            variant="sos"
+            onClick={() => void triggerSos()}
+            disabled={triggering || !selectedLovedOne?.id}
+            className="gap-2"
+          >
             <Siren className="h-4 w-4" />
-            Trigger SOS
+            {triggering ? "Starting…" : "Start demo SOS"}
           </Button>
         </div>
       </div>
@@ -282,9 +315,9 @@ export default function SosPage() {
         <EmptyState
           icon={Siren}
           title="No SOS events yet"
-          description="Use Trigger SOS to run a demo emergency cascade for the selected Loved One."
-          actionLabel="Trigger SOS"
-          onAction={triggerSos}
+          description="Use Start demo SOS to create a practice alert for the selected Loved One. This does not send WhatsApp messages."
+          actionLabel="Start demo SOS"
+          onAction={() => void triggerSos()}
         />
       ) : (
         <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
