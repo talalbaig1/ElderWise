@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "7e0f4856-2422-4c13-a4ba-718cdbb7d850",
+  "activeVersionId": "42a4366f-fbce-4f7c-a8cf-42bc66cbfdf8",
   "connections": {
     "Any Due?": {
       "main": [
@@ -41,23 +41,12 @@
         ]
       ]
     },
-    "Mark Overdue As Missed": {
-      "main": [
-        [
-          {
-            "index": 0,
-            "node": "Find Due Health Check-ins",
-            "type": "main"
-          }
-        ]
-      ]
-    },
     "Materialise Due Health Check-ins": {
       "main": [
         [
           {
             "index": 0,
-            "node": "Mark Overdue As Missed",
+            "node": "Find Due Health Check-ins",
             "type": "main"
           }
         ]
@@ -75,7 +64,7 @@
       ]
     }
   },
-  "description": "WF-1c health scheduler. Materialise-then-dispatch per health_routine via the new FK. Honours days_of_week. Template 3, one variable.",
+  "description": "WF-1c health scheduler. Silent overdue marking removed - WF-3c owns the missed transition and escalates.",
   "id": "2HgbXGM0Z5XQArf1",
   "meta": {
     "aiBuilderAssisted": true,
@@ -134,30 +123,6 @@
           "name": "ElderWise Supabase (Postgres)"
         }
       },
-      "id": "23f8ad98-f5ab-40b2-be8c-47872d95a3e2",
-      "name": "Mark Overdue As Missed",
-      "parameters": {
-        "operation": "executeQuery",
-        "options": {
-          "connectionTimeout": 10
-        },
-        "query": "WITH upd AS (UPDATE checkins c SET status = 'missed', missed_at = now() FROM health_routines h WHERE c.health_routine_id = h.id AND c.domain = 'health' AND c.status = 'scheduled' AND now() > c.scheduled_for + make_interval(mins => h.escalation_minutes) RETURNING 1) SELECT count(*)::int AS marked_missed FROM upd",
-        "resource": "database"
-      },
-      "position": [
-        448,
-        96
-      ],
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6
-    },
-    {
-      "credentials": {
-        "postgres": {
-          "id": "WH9oLDfKfOX6KW5F",
-          "name": "ElderWise Supabase (Postgres)"
-        }
-      },
       "id": "ab864ccb-2911-4b12-aa01-d13febb850d8",
       "name": "Find Due Health Check-ins",
       "parameters": {
@@ -169,7 +134,7 @@
         "resource": "database"
       },
       "position": [
-        672,
+        448,
         96
       ],
       "type": "n8n-nodes-base.postgres",
@@ -199,7 +164,7 @@
         }
       },
       "position": [
-        896,
+        672,
         96
       ],
       "type": "n8n-nodes-base.if",
@@ -237,13 +202,13 @@
         "template": "elderwise_ep_health_checkin|en"
       },
       "position": [
-        1120,
+        896,
         0
       ],
       "retryOnFail": true,
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1.1,
-      "webhookId": "76a89eaa-59ab-46d0-a9f9-f421cd59f084"
+      "webhookId": "b87947f1-2a46-4363-a30d-609f60dd3a6e"
     },
     {
       "credentials": {
@@ -264,7 +229,7 @@
         "resource": "database"
       },
       "position": [
-        1344,
+        1120,
         0
       ],
       "type": "n8n-nodes-base.postgres",
@@ -275,7 +240,7 @@
       "name": "Nothing Due",
       "parameters": {},
       "position": [
-        1120,
+        896,
         192
       ],
       "type": "n8n-nodes-base.noOp",
@@ -283,7 +248,11 @@
     }
   ],
   "settings": {
-    "executionOrder": "v1"
+    "binaryMode": "separate",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "uvBstI6J42nNhIYz",
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed"
   },
   "staticData": {
     "node:Every Minute": {

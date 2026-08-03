@@ -180,7 +180,11 @@
     }
   ],
   "settings": {
-    "executionOrder": "v1"
+    "binaryMode": "separate",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "uvBstI6J42nNhIYz",
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed"
   },
   "staticData": {
     "node:Every 5 Minutes": {

@@ -230,7 +230,10 @@
   ],
   "settings": {
     "binaryMode": "separate",
-    "executionOrder": "v1"
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "uvBstI6J42nNhIYz",
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed"
   },
   "staticData": null
 }

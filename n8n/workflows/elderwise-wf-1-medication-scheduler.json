@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "ecf967f1-9dfc-4fc1-aa4e-2b7cdda779dd",
+  "activeVersionId": "e60838ab-9967-4743-98c0-41d7fbf848c8",
   "connections": {
     "Any Due?": {
       "main": [
@@ -41,23 +41,12 @@
         ]
       ]
     },
-    "Mark Overdue As Missed": {
-      "main": [
-        [
-          {
-            "index": 0,
-            "node": "Find Due Check-ins",
-            "type": "main"
-          }
-        ]
-      ]
-    },
     "Materialise Due Check-ins": {
       "main": [
         [
           {
             "index": 0,
-            "node": "Mark Overdue As Missed",
+            "node": "Find Due Check-ins",
             "type": "main"
           }
         ]
@@ -75,13 +64,13 @@
       ]
     }
   },
-  "description": "WF-1 scheduler, medication only. Now honours days_of_week in all three queries (materialise, escalation lookup, send). Empty array means every day. Locale-independent day mapping.",
+  "description": "WF-1 medication scheduler. Silent overdue marking removed - WF-3c is now the sole owner of the missed transition and escalates every one. Honours days_of_week.",
   "id": "sqFa3XkYSEEVgPpC",
   "meta": {
     "aiBuilderAssisted": true,
     "builderVariant": "mcp"
   },
-  "name": "ElderWise WF-1 - Scheduler",
+  "name": "ElderWise WF-1 - Medication Scheduler",
   "nodes": [
     {
       "id": "a8388873-483f-4b88-a857-9e0b2b302fe2",
@@ -134,30 +123,6 @@
           "name": "ElderWise Supabase (Postgres)"
         }
       },
-      "id": "54258c56-dd57-4d2f-9a04-678f4f9eb69c",
-      "name": "Mark Overdue As Missed",
-      "parameters": {
-        "operation": "executeQuery",
-        "options": {
-          "connectionTimeout": 10
-        },
-        "query": "WITH overdue AS (SELECT c.id, c.scheduled_for, COALESCE(MIN(m.escalation_minutes), 30) AS esc FROM checkins c JOIN elders e ON e.id = c.elder_id LEFT JOIN medications m ON m.elder_id = e.id AND m.enabled AND m.active AND to_char(c.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) AND (cardinality(m.days_of_week) = 0 OR (ARRAY['sunday','monday','tuesday','wednesday','thursday','friday','saturday'])[extract(dow from (c.scheduled_for AT TIME ZONE e.timezone)::date)::int + 1] = ANY(m.days_of_week)) WHERE c.status = 'scheduled' AND c.domain = 'medication' GROUP BY c.id, c.scheduled_for HAVING now() > c.scheduled_for + make_interval(mins => COALESCE(MIN(m.escalation_minutes), 30))), upd AS (UPDATE checkins c SET status = 'missed', missed_at = now() FROM overdue o WHERE c.id = o.id RETURNING 1) SELECT count(*)::int AS marked_missed FROM upd",
-        "resource": "database"
-      },
-      "position": [
-        448,
-        96
-      ],
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6
-    },
-    {
-      "credentials": {
-        "postgres": {
-          "id": "WH9oLDfKfOX6KW5F",
-          "name": "ElderWise Supabase (Postgres)"
-        }
-      },
       "id": "68b4470e-a3ef-4d3b-943b-a9976782919e",
       "name": "Find Due Check-ins",
       "parameters": {
@@ -169,7 +134,7 @@
         "resource": "database"
       },
       "position": [
-        672,
+        448,
         96
       ],
       "type": "n8n-nodes-base.postgres",
@@ -199,7 +164,7 @@
         }
       },
       "position": [
-        896,
+        672,
         96
       ],
       "type": "n8n-nodes-base.if",
@@ -245,12 +210,13 @@
         "template": "elderwise_ep_medication_checkin|en"
       },
       "position": [
-        1120,
+        896,
         0
       ],
+      "retryOnFail": true,
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1.1,
-      "webhookId": "16e05611-7199-479b-bd9e-e470246cd6be"
+      "webhookId": "3cdb56fa-adf8-493c-ae1e-9b1ef75f92d0"
     },
     {
       "credentials": {
@@ -271,7 +237,7 @@
         "resource": "database"
       },
       "position": [
-        1344,
+        1120,
         0
       ],
       "type": "n8n-nodes-base.postgres",
@@ -282,7 +248,7 @@
       "name": "Nothing Due",
       "parameters": {},
       "position": [
-        1120,
+        896,
         192
       ],
       "type": "n8n-nodes-base.noOp",

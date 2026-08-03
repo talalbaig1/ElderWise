@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "ae5af41f-383c-4f45-9884-8080fe652ce4",
+  "activeVersionId": "f995b183-2e3e-45ef-ba35-042f733b7636",
   "connections": {
     "Anything Missed?": {
       "main": [
@@ -42,13 +42,13 @@
       ]
     }
   },
-  "description": "WF-3c missed sweep, now all three domains. Escalation window comes from the owning routine via the checkins FKs, not from medications only.",
+  "description": "WF-3c is now the sole owner of the missed transition for all three domains. Handles both reminded-and-silent and never-dispatched, and escalates every one to WF-6.",
   "id": "A3Z7yjrxLRZ6pI5r",
   "meta": {
     "aiBuilderAssisted": true,
     "builderVariant": "mcp"
   },
-  "name": "ElderWise WF-3c - Missed Sweep",
+  "name": "ElderWise WF-3c - Missed Sweep (All Domains)",
   "nodes": [
     {
       "id": "5b8fe2e0-4fe5-4720-9f8f-11fafb3cf794",
@@ -84,7 +84,7 @@
         "options": {
           "connectionTimeout": 10
         },
-        "query": "WITH due AS (SELECT c.id FROM checkins c JOIN elders e ON e.id = c.elder_id LEFT JOIN medications m ON c.domain = 'medication' AND m.elder_id = e.id AND m.enabled AND m.active AND to_char(c.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) LEFT JOIN food_routines f ON f.id = c.food_routine_id LEFT JOIN health_routines h ON h.id = c.health_routine_id WHERE c.status = 'reminded' AND c.reminder_sent_at IS NOT NULL GROUP BY c.id, c.reminder_sent_at HAVING now() > c.reminder_sent_at + make_interval(mins => COALESCE(MIN(m.escalation_minutes), MIN(f.escalation_minutes), MIN(h.escalation_minutes), 30))), upd AS (UPDATE checkins c SET status = 'missed', missed_at = now(), escalated_at = now() FROM due WHERE c.id = due.id RETURNING c.id) SELECT id AS checkin_id, 'missed' AS notification_type FROM upd",
+        "query": "WITH esc AS (SELECT c.id, c.status, c.scheduled_for, c.reminder_sent_at, COALESCE(MIN(m.escalation_minutes), MIN(f.escalation_minutes), MIN(h.escalation_minutes), 30) AS esc_mins FROM checkins c JOIN elders e ON e.id = c.elder_id LEFT JOIN medications m ON c.domain = 'medication' AND m.elder_id = e.id AND m.enabled AND m.active AND to_char(c.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) LEFT JOIN food_routines f ON f.id = c.food_routine_id LEFT JOIN health_routines h ON h.id = c.health_routine_id WHERE c.status IN ('reminded','scheduled') AND e.active AND e.consent_confirmed_at IS NOT NULL GROUP BY c.id, c.status, c.scheduled_for, c.reminder_sent_at), due AS (SELECT id FROM esc WHERE (status = 'reminded' AND reminder_sent_at IS NOT NULL AND now() > reminder_sent_at + make_interval(mins => esc_mins)) OR (status = 'scheduled' AND now() > scheduled_for + make_interval(mins => esc_mins))), upd AS (UPDATE checkins c SET status = 'missed', missed_at = now(), escalated_at = now() FROM due WHERE c.id = due.id RETURNING c.id) SELECT id AS checkin_id, 'missed' AS notification_type FROM upd",
         "resource": "database"
       },
       "position": [
@@ -143,6 +143,7 @@
         672,
         0
       ],
+      "retryOnFail": true,
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3
     },
@@ -159,7 +160,11 @@
     }
   ],
   "settings": {
-    "executionOrder": "v1"
+    "binaryMode": "separate",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "uvBstI6J42nNhIYz",
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed"
   },
   "staticData": {
     "node:Every Minute": {

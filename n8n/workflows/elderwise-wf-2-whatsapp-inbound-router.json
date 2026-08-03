@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "0c719adc-55f1-4067-b631-54f7188f7ea9",
+  "activeVersionId": "b1d3713f-6adc-4728-85f4-5065b27d48c9",
   "connections": {
     "WhatsApp Inbound": {
       "main": [
@@ -49,17 +49,6 @@
       "webhookId": "c00d92cf-e88d-4aed-9e5b-e3eb70f6db49"
     },
     {
-      "id": "e17ac0d5-6168-4727-8f4f-3c53047c3ce6",
-      "name": "Payload Received",
-      "parameters": {},
-      "position": [
-        352,
-        -256
-      ],
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1
-    },
-    {
       "id": "272220af-d5b4-4ed8-b2fc-9d37f9b62c24",
       "name": "Call 'ElderWise WF-2a - Inbound Router'",
       "parameters": {
@@ -90,7 +79,10 @@
   ],
   "settings": {
     "binaryMode": "separate",
-    "executionOrder": "v1"
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "uvBstI6J42nNhIYz",
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed"
   },
   "staticData": null
 }

@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "9d703de7-0227-4157-ae56-72561a42f1f2",
+  "activeVersionId": "5a603b73-8312-4a84-96c6-907a13087349",
   "connections": {
     "Any Due?": {
       "main": [
@@ -41,23 +41,12 @@
         ]
       ]
     },
-    "Mark Overdue As Missed": {
-      "main": [
-        [
-          {
-            "index": 0,
-            "node": "Find Due Food Check-ins",
-            "type": "main"
-          }
-        ]
-      ]
-    },
     "Materialise Due Food Check-ins": {
       "main": [
         [
           {
             "index": 0,
-            "node": "Mark Overdue As Missed",
+            "node": "Find Due Food Check-ins",
             "type": "main"
           }
         ]
@@ -75,7 +64,7 @@
       ]
     }
   },
-  "description": "WF-1b food scheduler. Materialise-then-dispatch per food_routine via the new FK. Honours days_of_week. Template 4, two variables.",
+  "description": "WF-1b food scheduler. Silent overdue marking removed - WF-3c owns the missed transition and escalates.",
   "id": "J0HQ47OKo21whK9G",
   "meta": {
     "aiBuilderAssisted": true,
@@ -134,30 +123,6 @@
           "name": "ElderWise Supabase (Postgres)"
         }
       },
-      "id": "a950ac7f-a0a4-479a-81ed-1547cbaf83e7",
-      "name": "Mark Overdue As Missed",
-      "parameters": {
-        "operation": "executeQuery",
-        "options": {
-          "connectionTimeout": 10
-        },
-        "query": "WITH upd AS (UPDATE checkins c SET status = 'missed', missed_at = now() FROM food_routines f WHERE c.food_routine_id = f.id AND c.domain = 'food' AND c.status = 'scheduled' AND now() > c.scheduled_for + make_interval(mins => f.escalation_minutes) RETURNING 1) SELECT count(*)::int AS marked_missed FROM upd",
-        "resource": "database"
-      },
-      "position": [
-        448,
-        96
-      ],
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6
-    },
-    {
-      "credentials": {
-        "postgres": {
-          "id": "WH9oLDfKfOX6KW5F",
-          "name": "ElderWise Supabase (Postgres)"
-        }
-      },
       "id": "17e8225a-b306-4fb4-a7c5-e2d1d9d6c0f8",
       "name": "Find Due Food Check-ins",
       "parameters": {
@@ -169,7 +134,7 @@
         "resource": "database"
       },
       "position": [
-        672,
+        448,
         96
       ],
       "type": "n8n-nodes-base.postgres",
@@ -199,7 +164,7 @@
         }
       },
       "position": [
-        896,
+        672,
         96
       ],
       "type": "n8n-nodes-base.if",
@@ -241,13 +206,13 @@
         "template": "elderwise_ep_food_checkin|en"
       },
       "position": [
-        1120,
+        896,
         0
       ],
       "retryOnFail": true,
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1.1,
-      "webhookId": "5f290566-b5b9-4085-b9b1-e193ebe8a404"
+      "webhookId": "5079ac6c-c20e-4fe7-9e3b-ce320f67b652"
     },
     {
       "credentials": {
@@ -268,7 +233,7 @@
         "resource": "database"
       },
       "position": [
-        1344,
+        1120,
         0
       ],
       "type": "n8n-nodes-base.postgres",
@@ -279,7 +244,7 @@
       "name": "Nothing Due",
       "parameters": {},
       "position": [
-        1120,
+        896,
         192
       ],
       "type": "n8n-nodes-base.noOp",
@@ -287,7 +252,11 @@
     }
   ],
   "settings": {
-    "executionOrder": "v1"
+    "binaryMode": "separate",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "uvBstI6J42nNhIYz",
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed"
   },
   "staticData": {
     "node:Every Minute": {
