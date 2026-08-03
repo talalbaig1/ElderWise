@@ -180,7 +180,7 @@ Meta requires **every** positional variable on **every** send. Templates 10, 11 
 reference the Doctor and the Local Buddy, **both of which are optional** (`0..1` per elder,
 per-card Skip at onboarding — A4 Decision 6).
 
-**Ruling (Talal, 3 August 2026):**
+**Ruling (Talal, 28 July 2026):**
 
 > When a Doctor or Local Buddy does not exist, WF-4 supplies the literal string **`NA`**
 > for their variables. **The database is not touched.** No placeholder rows are created.
@@ -217,7 +217,7 @@ the signal the rest of the system depends on:
 Template 12 now carries a report link. Nothing previously minted one at SOS time — A2.6
 built share links as a **CT-initiated dashboard action** only.
 
-**Ruling (Talal, 3 August 2026): n8n mints it.** Reasoning and full rules in
+**Ruling (Talal, 28 July 2026): n8n mints it.** Reasoning and full rules in
 `Architecture.md` §8 WF-4. Summary (reuse-before-mint **struck 3 August 2026** — only
 `token_hash` is stored; a hash cannot be reversed into a link):
 
@@ -469,7 +469,7 @@ failure (W3).
 
 > **Data-disclosure note.** `{{5}}` and `{{7}}` push the Buddy's and Care Partner's WhatsApp
 > numbers to the Doctor. This is a **deliberate exception** to the doctor-view allowlist,
-> which governs the share page only. Ruled 3 August 2026 — see `Architecture.md` §7.3.
+> which governs the share page only. Ruled 28 July 2026 — see `Architecture.md` §7.3.
 
 ---
 
