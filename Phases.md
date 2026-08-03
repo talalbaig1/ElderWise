@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.12 |
+| **Document** | Phases.md — v1.13 |
 | **Date** | 3 August 2026 |
 | **Demo Day** | **Saturday 29 August 2026** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Templates.md` |
@@ -189,7 +189,7 @@ Runs **in parallel with Track A from day one.**
 
 ### B2 · Core workflows *(Sprint 4–5)*
 
-> **Nine-workflow map** (`Architecture.md` §8, v1.15). Built as of 3 Aug: WF-0, WF-1, WF-2 (thin) + WF-2a, WF-3a/3b/3c, WF-4a, WF-6. **WF-1 / WF-3a / WF-3b / WF-3c are medication-only** (health and food unbuilt — A-16). **Remaining Track B:** WF-4 (SOS orchestrator), WF-5 (voice → STT), and health + food domains.
+> **Thirteen-workflow map** (`Architecture.md` §8). Built as of 3 Aug: WF-0, WF-1, WF-2 (thin) + WF-2a, WF-3a/3b/3c, **WF-4 / 4a / 4b / 4c / 4d**, WF-6. **WF-1 / WF-3a / WF-3b / WF-3c are medication-only** (health and food unbuilt — A-16). **Remaining Track B workflow: WF-5 (voice → STT) only.**
 
 | # | Workflow | Owner | Status |
 |---|---|---|---|
@@ -204,7 +204,7 @@ Runs **in parallel with Track A from day one.**
 | # | Workflow | Owner | Note |
 |---|---|---|---|
 | B3.1 | **WF-5 Voice → STT** — download audio → Storage → **OpenAI Whisper** → derive `{"answer":"yes"|"no"|"unclear"}` → **treat clean yes/no exactly as a button tap** | Talal | **Never guess** (N3). `unclear` → re-ask once → then missed. Do not gate on ASR confidence. **Not built.** |
-| B3.2 | **WF-4 SOS orchestrator** — immediate dispatch → 4 nudges, 2 min apart → resolve via WhatsApp **or** dashboard → status re-check before every nudge | Talal | **The most important code in the repo (N2).** **Not built.** WF-4a resolution receiver is already live (A2.7). |
+| B3.2 | **WF-4 SOS family** — WF-4 (`HSEp1YhQFHjga9qa`) + WF-4b + WF-4c + WF-4d + existing WF-4a. **Alert + 3 nudges** (not 4 nudges). | Talal | **DONE 3 August 2026.** Proven E2E on real WhatsApp: dispatch to three recipients with `NA` substitution and share-link minting; resolution attributed by `context.id` to two different roles from a single shared number; template 14 broadcast to all three; nudge round 1 with a single correct increment; two-minute gate declining to re-send. **Not proven:** nudge rounds 2 and 3 and exhaustion at `nudges_sent = 3` — schedule one deliberate four-round run at rehearsal (I3). |
 
 **🚪 GATE B.** An elder confirms consent and only then begins receiving check-ins. A real WhatsApp number receives a real check-in, a Yes/No button reply is recorded, a voice reply is transcribed and recorded, a missed check-in escalates to the CT, and an SOS reaches all three recipients and can be resolved from **both** channels.
 
@@ -283,7 +283,7 @@ The proposal was a **second channel (Telegram)** so the demo could run even if t
 | **Robert Nadra** | n8n infrastructure · Meta webhook / channel ops |
 | **Bharathkumar Kasinathan** | Screens · repo support |
 | **Reema Akhtar** | Copy review + QA (proposed) — owner: Reema to confirm role |
-| **Sandhya "Sandy" Babu Kunadian** | Submitted **PR #2** (WF-3 and WF-6, 24 July) — pending review; will be **closed rather than merged**, with the work re-imported to the shared n8n instance |
+| **Sandhya "Sandy" Babu Kunadian** | Submitted **PR #2** (WF-3 and WF-6, 24 July) — **action: close, do not merge** (hand-adds `n8n/workflows/*.json`, collides with export script). Work re-imported to the shared n8n instance. |
 | **Aimé Habimana** | Role to be confirmed — owner: Aimé / Talal |
 | **Anil Kumar B** | Role to be confirmed — owner: Anil / Talal |
 | **Jaimin Patel** | Role to be confirmed — owner: Jaimin / Talal |
@@ -292,16 +292,16 @@ The proposal was a **second channel (Telegram)** so the demo could run even if t
 
 | Work | Owner / status |
 |---|---|
-| WF-4 (SOS orchestrator) | **Talal** — remaining |
-| WF-5 (voice → STT) | **Talal** — remaining |
-| Health + food domains (Track B) | **Talal** — remaining (A-16) |
+| WF-5 (voice → STT) | **Talal** — **only remaining Track B workflow** |
+| Health + food domains | **Talal** — open product scope (A-16); not a missing SOS workflow |
+| **Action: close PR #2** (Sandy) | **Close, do not merge** — hand-adds `n8n/workflows/*.json`, colliding with the export script that wipes and rewrites that directory |
 | Application wiring (Track A2) | Needs owner — Talal to assign |
 | Most of the 9 screens (Track A1) | Needs owner — Talal to assign |
 | Sentry setup + PII scrubbing | Needs owner — Talal to assign |
 | QA / end-to-end testing | Needs owner — Talal to assign |
 | Demo-day deck + video | Needs owner — Talal to assign |
 
-> **Remaining Track B critical path:** **WF-4**, **WF-5**, and **health + food domains**. WF-1/3a/3b/3c are medication-only as of 3 Aug. Close other ownership gaps at the next sync.
+> **Remaining Track B workflow: WF-5 only.** WF-4 family DONE 3 Aug. WF-1/3a/3b/3c are medication-only. Close other ownership gaps at the next sync.
 
 ---
 
@@ -323,6 +323,7 @@ The proposal was a **second channel (Telegram)** so the demo could run even if t
 
 | Date | Version | Change |
 |---|---|---|
+| 3 Aug 2026 | 1.13 | **WF-4 SOS DONE.** B3.2 built as WF-4/4b/4c/4d (+ WF-4a); E2E proven on real WhatsApp (dispatch, `context.id` attribution, template 14, nudge round 1). Remaining Track B workflow: **WF-5 only**. PR #2 close-not-merge action recorded. |
 | 3 Aug 2026 | 1.12 | **Correction pass.** B2 owners corrected: WF-0–WF-6 built by Claude in-session with Talal approval/test (not Robert). WF-4 and WF-5 owner = Talal (consistent across §5 / §8). Sandy: PR #2 (WF-3/WF-6) pending, will close not merge. §7 channel go/no-go cleared (WhatsApp; all 14 approved 2 Aug). Track B remaining = WF-4, WF-5, health + food; WF-1/3a/3b/3c medication-only. Footer → 3 Aug. |
 | 3 Aug 2026 | 1.11 | **Track B build of 3 Aug.** B1.5 consent **DONE** (real WhatsApp, including decline — closes `Templates.md` OT-7). B2.1–B2.4 **DONE** (WF-1 NFR-6 verified at 26 s; WF-2 thin + WF-2a; WF-3a/3b/3c; WF-6). Remaining Track B: **WF-4** SOS orchestrator and **WF-5** voice → STT. Header date → 3 Aug (~26 days to Demo Day). |
 | 2 Aug 2026 | 1.10 | **A2.7 DONE** — n8n WF-4a receiver `jeNrf7b7ne3JX2Xu` + `src/app/api/sos/resolve/route.ts`, E2E in production 2 Aug 2026. **GATE A2 fully met.** §0.8 STT = OpenAI Whisper (2 Aug). §5 B2: **WF-0** recorded; build order **WF-0 → WF-2 consent branch → WF-1**. Stale "Today is 14 July" header replaced. B1.5 points at consent_requested/declined migration (file only; Talal applies). |

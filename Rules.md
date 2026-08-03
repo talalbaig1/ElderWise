@@ -3,14 +3,14 @@
 | Field | Value |
 |---|---|
 | **Product** | ElderWise |
-| **Team** | AIGF Cohort 7 · Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.9 |
+| **Team** | AIGF Cohort 7 · Group 7 (10 members) · Team Lead: Talal Baig |
+| **Document** | Rules.md — v1.10 |
 | **Date** | 3 August 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
 
 > **Read this before writing a single line of code.**
-> This file is the contract. Eleven people across seven timezones are building one product in six weeks with AI agents that will happily generate whatever they're asked for. Without a shared set of rules, we don't get one product — we get eleven, badly merged.
+> This file is the contract. Ten people across seven timezones are building one product in six weeks with AI agents that will happily generate whatever they're asked for. Without a shared set of rules, we don't get one product — we get ten, badly merged.
 >
 > **This file lives at `/.cursor/rules/` and is committed to the repo.** Cursor and Claude Code read it. It applies to them exactly as it applies to you.
 
@@ -61,7 +61,7 @@ Both mentors flagged the same risk for this team: **feature overload**.
 
 ## 3. Rules for AI agents (Cursor, Claude Code)
 
-You are working in a repository with eleven contributors and a hard deadline. You are not a free agent.
+You are working in a repository with ten contributors and a hard deadline. You are not a free agent.
 
 | # | Rule |
 |---|---|
@@ -78,7 +78,7 @@ You are working in a repository with eleven contributors and a hard deadline. Yo
 
 ## 4. Architectural boundaries
 
-From `Architecture.md` §1 (P1). These are the walls that let eleven people work in parallel without colliding.
+From `Architecture.md` §1 (P1). These are the walls that let ten people work in parallel without colliding.
 
 | # | Rule |
 |---|---|
@@ -128,13 +128,13 @@ From `Architecture.md` §1 (P1). These are the walls that let eleven people work
 > Every item below cost real debugging time on **3 August 2026**. Check each before merging a workflow change.
 
 - [ ] **Never edit a workflow that contains a webhook trigger via the API.** `update_workflow` rotates the trigger node's `webhookId`. That changes the Meta callback URL and silently stops all inbound WhatsApp. **UI only** for webhook-bearing workflows (WF-2, WF-4a). Sub-workflows without a webhook are safe to update programmatically.
-- [ ] **Guard every node that consumes a Postgres write.** An `INSERT`/`UPDATE` matching zero rows returns `{success: true}`, not an empty set — downstream runs with junk. A plain `SELECT` returns `[]` and correctly halts.
+- [ ] **Guard every node that consumes a Postgres result — reads as well as writes.** An `INSERT`/`UPDATE` matching zero rows returns `{success: true}`, and so does a **CTE-based `SELECT`** matching zero rows. Only a simple single-statement `SELECT` reliably returns `[]`. Do not rely on statement type to decide whether a guard is needed. Guard everything. Proven twice on 3 August: WF-4c `Load Broadcast Recipients` and WF-4d `Find Due Nudge Recipients` are pure read queries on CTEs and both returned `{success: true}` on zero rows. In WF-4d that carried undefined values into the WhatsApp node. Consequence: on a one-minute cron, WF-4d would have errored every minute that no SOS was due — roughly 1,400 times a day — firing the error workflow into Telegram and Gmail each time, burying a real alert.
 - [ ] **Guard every parameterised query's input.** An empty `queryReplacement` sends no parameters: there is no parameter `$1`.
-- [ ] **Verify which credential n8n actually bound**, after every create and every update. It has bound the wrong one, dropped one, and silently corrected one.
+- [ ] **Verify which credential n8n actually bound**, after every create and every update. It has bound the wrong one, dropped one, and silently corrected one. On **update**, `autoAssignedCredentials: []` means "no new assignments were made", **not** "the binding was dropped". Existing bindings persist across updates — verified 3 August.
 - [ ] **Act on your own validity flags.** If a parser sets `parsed: false`, the next node must not run.
 - [ ] **Delivery-status callbacks** (`statuses`, no `messages`) are normal inbound traffic and must be handled, not treated as errors.
+- [ ] **A sub-workflow called from another sub-workflow must be published before it can execute.** A first-level call from a manual execution resolves the draft, but a second-level call goes through `getPublishedWorkflowData` and fails with *"Workflow is not active and cannot be executed."* This is broader than the known rule that a parent cannot be published until its children are. Production chains are three deep — WF-2 → WF-2a → WF-4b → WF-4c — so every workflow below WF-2a must be published. Failure mode observed 3 August: the resolution was written to the database and then the broadcast call failed, leaving an SOS marked resolved with nobody told, and the only trace an execution marked `error`. Architecture §11 classes this as **P0**.
 
----
 
 ## 7. Security rules
 
@@ -153,7 +153,7 @@ From `Architecture.md` §1 (P1). These are the walls that let eleven people work
 
 ## 8. Code standards
 
-Defaults, not dogma. Consistency across eleven contributors matters more than any individual preference here.
+Defaults, not dogma. Consistency across ten contributors matters more than any individual preference here.
 
 | # | Rule |
 |---|---|
@@ -191,7 +191,7 @@ The elderly person's experience *is* the product. These rules matter as much as 
 | **G1** | **Branch per member.** `feature/<name>-<what>`. Build in isolation, merge into a stable `main`. (Akhil's directive.) |
 | **G2** | **`main` is always demo-able.** If `main` is broken, that is a stop-the-line event, not a "someone will fix it tomorrow" event. |
 | **G3** | **No direct commits to `main`.** PR, review, merge. |
-| **G4** | **Small PRs, merged often.** An eleven-person team that all merge in week six will not have a product in week six. |
+| **G4** | **Small PRs, merged often.** A ten-person team that all merge in week six will not have a product in week six. |
 | **G5** | **Pull from `main` before you start work each day.** Distributed team, seven timezones — the repo moved while you slept. |
 | **G6** | **If you're blocked, say so within 24 hours.** Silence in a distributed team reads as progress, right up until it doesn't. |
 | **G7** | **Prerequisite: every member has a GitHub account.** (Open item — blocks branch assignment.) |
@@ -242,7 +242,7 @@ Do not build these. Not partially, not "just in case", not "it was easy".
 
 Be clear-eyed about what we're holding: **phone numbers, home context, medication names and dosages, health check-in histories, voice recordings of elderly people, and the identity of who is coming to help them in an emergency.** That is a rich target and a vulnerable population. On top of that:
 
-- The code is being written **fast, by eleven people, with AI agents** — the exact profile that produces the vulnerabilities catalogued below.
+- The code is being written **fast, by ten people, with AI agents** — the exact profile that produces the vulnerabilities catalogued below.
 - **n8n runs with the service-role key and bypasses RLS**, so one bad workflow can reach every family's data.
 - A **denial-of-care** attack (silencing reminders, forging a "yes I took my medicine", or resolving someone else's live SOS) is worse than a data breach. It's the only system I know of in this cohort where a security bug can plausibly hurt a human body, not just a database.
 
@@ -310,6 +310,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 3 Aug 2026 | 1.10 | **§6a corrected.** Postgres guard applies to reads as well as writes — CTE-based SELECTs also return `{success: true}` on zero rows. Nested sub-workflows must be published to execute. `autoAssignedCredentials: []` on update means no new assignments, not dropped bindings. Team size → 10. |
 | 3 Aug 2026 | 1.9 | **§6a n8n implementation rules** — pre-merge checklist from 3 Aug Track B debugging (webhookId rotation / UI-only; guard Postgres writes; empty `queryReplacement`; verify credentials; honour `parsed: false`; delivery-status callbacks). |
 | 27 Jul 2026 | 1.8 | **D13** — applied migrations are immutable; corrections ship as new forward migrations only. |
 | 26 Jul 2026 | 1.7 | D12 CHECK expression corrected to `cardinality(times) = 1` (aligned with Architecture v1.9 / A4.1 migration). |
@@ -323,4 +324,4 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 26 July 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 3 August 2026.*

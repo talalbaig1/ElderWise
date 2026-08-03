@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.15 |
+| **Document** | Architecture.md — v1.16 |
 | **Date** | 3 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
@@ -344,8 +344,8 @@ Index: `(elder_id, domain, scheduled_for)` and `(status, scheduled_for)` — the
 | `id` | uuid PK | |
 | `elder_id` | uuid FK | |
 | `triggered_at` | timestamptz | |
-| `status` | enum(`open`,`resolved`) | **Exhausting all 4 nudges does not resolve it** — it stays `open` (FR-SOS-3c). |
-| `nudges_sent` | integer | 0–4 |
+| `status` | enum(`open`,`resolved`) | **Exhausting all three nudges (after the initial alert) does not resolve it** — it stays `open` (FR-SOS-3c). |
+| `nudges_sent` | integer | **0–3** — counts **nudge rounds only**, not the initial alert |
 | `resolved_by_role` | enum(`care_partner`,`local_caregiver`,`doctor`) | nullable |
 | `resolved_by_id` | uuid | nullable |
 | `resolved_channel` | enum(`whatsapp`,`dashboard`) | **Both paths must work** (M14b) |
@@ -458,7 +458,7 @@ Negative or partial medication answers that still count as a recorded response r
 | Layer | States / behaviour | Authority |
 |---|---|---|
 | **Display (front end)** | `active` \| `acknowledged` \| `resolved` \| `cancelled`; sequential visual cascade (Loved One → Care Partner → Local Buddy → Family Doctor) on a demo timer | Presentation only |
-| **Dispatch (n8n / DB)** | `sos_events.status` = `open` \| `resolved`; parallel notify CT + LCT (if present) + Doctor (if present); 4 nudges, 2 min apart | **Source of truth** |
+| **Dispatch (n8n / DB)** | `sos_events.status` = `open` \| `resolved`; notify CT + LCT (if present) + Doctor (if present); **1 alert + 3 nudges** (2 min apart); `nudges_sent` 0–3 | **Source of truth** |
 
 See WF-4 for the full dispatch rules. The display cascade must **not** replace Meeting-11 parallel dispatch.
 
@@ -547,7 +547,7 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 
 ## 8. The message path (n8n)
 
-**Nine n8n workflows** (as of the Track B build of **3 August 2026**). n8n constraints forced a split from the earlier six-/seven-workflow map: the Meta inbound webhook must stay on a thin shell, and response / reminder / missed work as separate cron or sub-workflows.
+**Thirteen n8n workflows** (as of the Track B build of **3 August 2026**, including the WF-4 SOS family). n8n constraints forced splits from the earlier six-/seven-workflow map: the Meta inbound webhook must stay on a thin shell; response / reminder / missed are separate; and **SOS dispatch, nudge loop, and resolution had to become separate workflows** because a resolution arriving mid-loop cannot be handed to a running execution, and because a suspended in-execution wait loop does not survive an n8n restart — which this section requires. The cron sweep (WF-4d) does.
 
 | Workflow | n8n ID | Trigger | Role |
 |---|---|---|---|
@@ -558,10 +558,14 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 | **WF-3a** Response Handler | `j0CWtHYyzplmad09` | sub-workflow | Records medication button replies — **medication only** |
 | **WF-3b** Reminder Sweep | `5P19E5CPhA14K6fo` | cron 1 min | One reminder after `escalation_minutes` — **medication only** |
 | **WF-3c** Missed Sweep | `A3Z7yjrxLRZ6pI5r` | cron 1 min | Marks missed; escalates to WF-6 — **medication only** |
+| **WF-4** SOS Orchestrator | `HSEp1YhQFHjga9qa` | sub-workflow | Create/reuse `sos_events`, load care circle, mint share link, dispatch templates 10/11/12 at `nudge_index 0`, acknowledge the elder |
 | **WF-4a** SOS Resolution Receiver | `jeNrf7b7ne3JX2Xu` | webhook | A2.7 dashboard → n8n stop-nudges |
+| **WF-4b** SOS Resolution Handler | `jh2P2gibpCsnyhoy` | sub-workflow | WhatsApp resolution path — attribute, write, call WF-4c |
+| **WF-4c** SOS Resolution Broadcast | `Baydb7saYNyAayMC` | sub-workflow | Template 14 to every recipient of a `sent` alert |
+| **WF-4d** SOS Nudge Sweep | `EY36qDhdv5FqfL0W` | **cron 1 min** | Nudge rounds 1–3, template 13 |
 | **WF-6** CT Notification Dispatch | `6I6OC7qJ5YhhUQxU` | sub-workflow | Templates 8 and 9 |
 
-**Not yet built (Track B remaining):** **WF-4** SOS orchestrator (dispatch + nudges) · **WF-5** voice → STT · **health and food domains** (templates 3, 4, 6, 7 approved and unused — A-16). Specs below for WF-4/WF-5 still describe intended behaviour.
+**Not yet built (Track B remaining):** **WF-5** voice → STT only. Health and food domains remain unbuilt as product scope (A-16) but are not a missing SOS workflow.
 
 > **⚠️ SCOPE — medication only (as built, 3 Aug 2026).** WF-1, WF-3a, WF-3b and WF-3c handle `domain = 'medication'` **only**. Health and food check-ins are **not built**, though templates 3, 4, 6 and 7 are Meta-approved and unused. Related cause: the live elder has **one** `domain_configs` row, not the three §5.2 requires (A-13). Do not assume all three domains work.
 
@@ -593,17 +597,27 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 - **Trigger:** sub-workflow (called by WF-2).
 - Resolves the sender's number → `elders.whatsapp_number` (indexed).
 - Routes on payload type:
-  - **Welcome confirmation** → set `elders.consent_confirmed_at`. Until this exists, nothing else is ever sent.
-  - **Welcome decline** → set `elders.consent_declined_at`. **Terminal:** never schedule, never re-ask. Proven on real WhatsApp **3 August 2026:** button `No, thank you` normalises to `no thank you` (lowercase, strip apostrophes and punctuation, collapse whitespace) and sets `consent_declined_at`.
+  - **Welcome confirmation** → set `elders.consent_confirmed_at`. Until this exists, nothing else is ever sent (except SOS — see below).
+  - **Welcome decline** → set `elders.consent_declined_at`. **Terminal for check-ins:** never schedule, never re-ask. Proven on real WhatsApp **3 August 2026:** button `No, thank you` normalises to `no thank you` (lowercase, strip apostrophes and punctuation, collapse whitespace) and sets `consent_declined_at`.
   - **Button reply** (medication *Yes, All* / *Some of them* / *Not Yet*) → **WF-3a**. Health / food Yes-No routing is **not built** (A-16).
   - **Medication = "Some of them"** — **scope reduction, ruled by Talal 3 August 2026:** the free-form interactive medicine list (`Templates.md` §7.1) is **not built**. The reply is recorded as `response_value = 'some_of_them'`, `status = responded`, and the Care Partner is notified (via WF-6 — see below). **Known gap:** we do **not** capture which medicines were taken — `checkin_medication_items` is populated only on *Yes, All*. Reason: the native WhatsApp node has no interactive-list message type; delivering one requires raw HTTP to the Graph API, which the team has ruled against. See open item **A-12**.
   - **Voice note** → WF-5 (STT) — **not built yet**
-  - **SOS trigger** → WF-4 — **checked first and short-circuits everything else** (P2) — **orchestrator not built yet**; resolution path uses **WF-4a**
-  - **SOS resolution reply** (from CT / LCT / Doctor) → WF-4 / WF-4a as applicable
+  - **SOS trigger** → **WF-4** — **checked first and short-circuits everything else** (P2). The elder's message must normalise to exactly `sos` or `help` — **whole-message exact match**, case-insensitive, **not** a contains-match. A contains-match would fire a three-person emergency on *"can you help me with my tablets?"*. **Ruled by Talal, 3 August 2026.** **SOS fires regardless of consent state**, including an elder who has declined — deliberate carve-out from N5: she is the sender, and the alerts go to her care circle, not to her. **Ruled by Talal, 3 August 2026.**
+  - **SOS resolution reply** → **WF-4b** (WhatsApp path). Matched on **four** button labels, not two (table below). Dashboard path → **WF-4a**.
   - **Delivery-status callbacks** (`statuses`, no `messages`) — normal inbound traffic; handle, do not treat as errors (`Rules.md` §6a)
   - **Unrecognised** → a gentle, plain-language re-prompt. Never a silent drop; never an error message an elderly person has to interpret.
-- **Button-text matching must be case- and punctuation-insensitive.** Quick-reply webhooks return the label verbatim, and the approved labels are not what was drafted: `Yes, All` (not `Yes, all`), `Not Yet` (not `Not yet`), and food check-ins use **`Yes` / `No`** (not `Yes` / `Not yet`). Critically, `elderwise_sos_alert_ct` uses **`I Am Responding`** while `elderwise_sos_nudge` uses **`I'm Responding`** — the same action, two strings. Normalise before routing: lowercase, strip apostrophes and punctuation, collapse whitespace. **Never compare raw strings.** A case-sensitive match here is a silently dropped SOS resolution. Exact labels are listed in `Templates.md` §3.2.
-- **A `No` on a food or health check-in is a recorded negative response** (backend `responded`), **not** a missed check-in. Do not route it down the missed path.
+- **SOS resolution labels — all four must resolve to the same SOS resolution.** Matching only two previously documented labels would silently discard the Buddy's and the Doctor's resolutions — two of the three recipients unable to stop a live emergency.
+
+| Template | Recipient | Button | Normalised |
+|---|---|---|---|
+| 10 `elderwise_sos_alert_ct` | CT | `I Am Responding` | `i am responding` |
+| 11 `elderwise_sos_alert_lct` | Buddy | `I'm on my way` | `im on my way` |
+| 12 `elderwise_sos_alert_doctor` | Doctor | `Acknowledge` | `acknowledge` |
+| 13 `elderwise_sos_nudge` | all three | `I'm Responding` | `im responding` |
+
+- **Normalisation (load-bearing order):** lowercase → **strip apostrophes first** → strip remaining punctuation → collapse whitespace. Apostrophe-stripping must run **before** the non-alphanumeric replace, or `I'm on my way` becomes `i m on my way` and the match fails. **Never compare raw strings.** Exact labels: `Templates.md` §3.2.
+- **Resolution is attributed by `context.id`, never by sender number.** An inbound quick-reply carries `context.id` = the wamid of the message it replies to. Join it to `sos_notifications.wa_message_id` to get the exact `recipient_role`, `recipient_id` and which nudge round was answered. Sender-number lookup is ambiguous whenever one person holds more than one role, and is a fallback only — on ambiguity, log and do not guess (P3). Verified live on 3 August: three replies from one number resolved to three distinct roles.
+- **A `No` on a food or health check-in is a recorded negative response** (backend `responded`), **not** a missed check-in. Do not route it down the missed path. (Health/food routing not built — A-16.)
 
 ### WF-3a · Response Handler (`j0CWtHYyzplmad09`)
 - **Scope (as built):** `domain = 'medication'` **only**. Health and food response handling is not built (A-16).
@@ -623,19 +637,20 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 - Find medication `checkins` where `status = reminded` and the delay has elapsed again → `status = missed`, set `missed_at`.
 - If `notify_care_partner ≠ not_required`, escalate to the **CT only** (LCT and Doctor are never contacted on a missed check-in) → fire **WF-6**. If `not_required`, record the miss and send nothing.
 
-### WF-4 · SOS orchestrator — **the critical path (P2)** — **not yet built**
+### WF-4 · SOS Orchestrator (`HSEp1YhQFHjga9qa`) — **built 3 August 2026** — **the critical path (P2)**
 
 > **SOS has two layers — do not confuse them.**
 >
 > **(A) SOS display layer (front end / presentation only).** The dashboard UI may show states `active | acknowledged | resolved | cancelled` and a sequential visual cascade (Loved One → Care Partner → Local Buddy → Family Doctor) that advances on a demo timer. This is presentation for the care-partner portal and demo UX. It is **not** the dispatch algorithm.
 >
-> **(B) SOS dispatch logic (backend / n8n — actual behaviour).** On trigger, notify **CT + LCT (if present) + Doctor (if present) in parallel, immediately**; then **4 nudges, 2 minutes apart**, to every unresolved recipient; any of CT / LCT / Doctor may resolve via **WhatsApp or dashboard**; if all 4 nudges exhaust with no resolution, the event **stays open** (never auto-closes). This is the Meeting-11 decision and must be preserved.
+> **(B) SOS dispatch logic (backend / n8n — actual behaviour).** On trigger, notify **CT + LCT (if present) + Doctor (if present)**; then **three nudges, 2 minutes apart** (`nudge_index` 1–3); any of CT / LCT / Doctor may resolve via **WhatsApp or dashboard**; if all three nudges exhaust with no resolution, the event **stays open** (never auto-closes). Meeting-11 parallel intent is preserved; measured implementation is sequential (~4 s) — see below.
 >
 > **Source of truth:** `sos_events.status` is `open | resolved`. Front-end SOS states are a **display mapping** over that (and demo cascade metadata), not a second workflow.
 
 - **Trigger:** SOS from WF-2a. Runs **immediately**; must never wait behind routine traffic.
-- Creates `sos_events` (`status = open`), resolves the elder's care circle via a **relational lookup** of CT + optional LCT + optional Doctor (§3.1 — not RAG).
-- Fans out WhatsApp messages **in parallel** to every contact that exists: **CT always**; **LCT only if a `local_caregivers` row exists**; **Doctor only if a `doctors` row exists and `whatsapp_number` is non-null**. Writes `sos_notifications` rows for every attempted send **and** every intentional skip.
+- Create or reuse an open `sos_events` row (`status = open`), load the elder's care circle via a **relational lookup** of CT + optional LCT + optional Doctor (§3.1 — not RAG).
+- **Elder acknowledgement (free-form).** On trigger, send the `Templates.md` §7.3 message to the elder. It is **free-form, not a template** — her own SOS message opens the 24-hour customer service window. **`NA` must never appear in it** (four variants; T3).
+- Dispatch templates **10 / 11 / 12** at **`nudge_index 0`** (the **initial alert** — **not a nudge**). Recipients: **CT always**; **LCT only if a `local_caregivers` row exists**; **Doctor only if a `doctors` row exists and `whatsapp_number` is non-null**. Writes `sos_notifications` rows for every attempted send **and** every intentional skip.
 - **Doctor with no WhatsApp number:** do **not** send. Insert `sos_notifications` with `status = skipped`, `skip_reason = no_whatsapp_number`, `wa_message_id` NULL, `sent_at` NULL, `created_at = now()`. This is auditable and is **not** a delivery failure (W3 — intentional non-sends are logged as skips).
 - **Optional-contact variable substitution (mandatory).** Templates 10, 11 and 12 reference the Doctor and the Local Buddy, both of which are `0..1` per elder. Meta requires **every** positional variable on **every** send; a parameter cannot be omitted. When the contact does not exist, WF-4 supplies the literal string **`NA`**:
   - `elderwise_sos_alert_ct` — `{{3}}` (Buddy), `{{4}}` (Doctor)
@@ -645,29 +660,50 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
   **This is a send-time substitution. The database is never written with placeholder rows.** `LEFT JOIN` + `COALESCE(..., 'NA')` when building parameters. Creating `NA` rows in `doctors` / `local_caregivers` was considered and **rejected** (28 July 2026): an absent row is the signal WF-4 dispatch, `sos_notifications.skip_reason`, the conditional `consent_data_sharing_at`, the Care Circle screen, and A4 Decision 6 all depend on. **Do not create placeholder rows.**
 
   **Source note:** `{{5}}` and `{{7}}` come from **`whatsapp_number`**. A4 dropped `phone_number` from every table.
-- **SOS report link — n8n mints it (`{{3}}` of `elderwise_sos_alert_doctor`).** Ruled 28 July 2026. n8n **never** calls Next.js (P1), so the app cannot be asked at dispatch time. Order of operations:
-  1. **Reuse before mint.** If a `doctor_share_links` row exists for that elder with `revoked_at` NULL and `expires_at > now()`, use it. Fewer live credentials in circulation.
-  2. **Otherwise mint.** Generate a ≥32-byte random token, store its **SHA-256** hash, set `expires_at` to the §7.3 default of 30 days, set `created_by` to the elder's care partner, write with the service-role key.
-  3. **Never block the alert (P2).** If both reuse and mint fail, send the template with `{{3}} = NA` and log the failure at Sentry P1. **A doctor receiving the alert without a link is vastly better than no alert because a token insert timed out.** The SOS message is the product; the link is an enhancement.
+- **SOS report link — always mint (`{{3}}` of `elderwise_sos_alert_doctor`).** Ruled 28 July 2026 (mint at SOS time); **reuse-before-mint struck 3 August 2026** — impossible because `doctor_share_links` stores `token_hash` only (SHA-256); §7.3 / SEC2 state the raw token exists once, in the URL. A hash cannot be reversed into a link. Order of operations:
+  1. **Always mint.** Generate ≥32 random bytes, store the SHA-256 hash, set `expires_at` to the §7.3 default of 30 days, set `created_by` to the elder's care partner, write with the service-role key. n8n **never** calls Next.js (P1).
+  2. **Never block the alert (P2).** If the mint fails, send template 12 with `{{3}} = NA` and log the failure at Sentry P1. **A doctor receiving the alert without a link is vastly better than no alert because a token insert timed out.**
+
+  **Implementation note:** `pgcrypto` lives in the **`extensions`** schema on this project — `gen_random_bytes` and `digest` **must be schema-qualified** or they fail at runtime.
 
   The link resolves to `https://elder-wise-seven.vercel.app/share/{token}` over HTTPS. The §7.3 click-through gate already protects it from WhatsApp's link-preview crawler, so delivering it over WhatsApp is safe.
 - If no LCT is set, SOS is still handled by the CT (always present).
-- **Nudge loop: 4 nudges, 2 minutes apart** (M7). Each nudge goes to every recipient who has not yet resolved **and** who has a sendable channel.
+- **Nudge model (corrected 3 August 2026 — ruled by Talal):**
+  - `nudge_index 0` = the **initial alert**. **The alert is not a nudge.**
+  - `nudge_index 1, 2, 3` = **three nudges**, 2 minutes apart (WF-4d).
+  - **Four rounds total: one alert plus three nudges.**
+  - `sos_events.nudges_sent` counts **nudge rounds only, 0–3**.
+  - Reason: `sos_notifications.nudge_index` carries `CHECK (nudge_index >= 0 AND nudge_index <= 3)`. A fifth round would have been rejected by the constraint mid-SOS.
+- **Dispatch timing — requirement vs observed.** The requirement remains "notify CT + optional LCT + optional Doctor immediately." **Observed on the live run of 3 August:** CT `09:15:17.97`, Buddy `09:15:19.15`, Doctor `09:15:22.05` — n8n executes branches **sequentially**, about **4 seconds** end to end. Recorded as observed behaviour; do not change the requirement.
 - **Resolution — two paths, both must work (M14b):**
-  1. **WhatsApp** — any recipient replies/taps to resolve → WF-2a routes it here.
+  1. **WhatsApp** — any recipient replies/taps to resolve → WF-2a → **WF-4b** → **WF-4c**.
   2. **Dashboard** — the CT (or Doctor via share link) resolves in the UI → a Next.js **route handler** writes `sos_events.status = 'resolved'` **and then fires an authenticated webhook to n8n (WF-4a)** so the nudge loop stops immediately, with no polling delay. This is the one documented exception to P1 (§1), taken because on the SOS path latency is the harm.
      - The webhook carries a **shared-secret header**; n8n rejects any call without it.
      - It is fired **server-side only**, from a route handler — never from the browser, or anyone could resolve anyone's SOS.
      - **The webhook is an optimisation, not the mechanism.** See the safety net below.
-- **Safety net — the database remains the source of truth.** Before sending **every** nudge, WF-4 re-reads `sos_events.status` and aborts if it is `resolved`. If the webhook is dropped, delayed, or n8n restarts mid-sequence, the loop still stops on its own. A missed webhook must never mean a resolved SOS keeps pinging the doctor.
+- **Safety net — the database remains the source of truth.** Before sending **every** nudge, WF-4d re-reads `sos_events.status` and aborts if it is `resolved`. If the webhook is dropped, delayed, or n8n restarts mid-sequence, the loop still stops on its own. A missed webhook must never mean a resolved SOS keeps pinging the doctor.
 - On resolution: stop all nudges, record `resolved_by_role`, `resolved_by_id`, `resolved_channel`, `resolved_at`.
-- **If all 4 nudges are exhausted with no resolution:** the nudge sequence ends and the SOS **remains `open`** on the dashboard until a human resolves it. It does not auto-close. It does not disappear.
-- **Do not** replace this parallel dispatch with the front-end sequential cascade. The cascade is display-only (§5.5).
+- **If all three nudges are exhausted with no resolution:** the nudge sequence ends and the SOS **remains `open`** on the dashboard until a human resolves it. It does not auto-close. It does not disappear.
+- **Do not** replace this dispatch with the front-end sequential cascade. The cascade is display-only (§5.5).
 
 ### WF-4a · SOS Resolution Receiver (`jeNrf7b7ne3JX2Xu`) — **built (A2.7)**
 - **Trigger:** webhook from Next.js `POST /api/sos/resolve` after the dashboard write commits.
 - Header: `X-ElderWise-Signature`. Body: `{ "sos_event_id": "<uuid>" }`.
-- **Verifies only** — never writes. Stops the nudge loop when `sos_events.status` is already `resolved`. Contract: `.env.example` / A2.7.
+- **Verifies only** — never writes. Stops the nudge loop when `sos_events.status` is already `resolved`. Contract: `.env.example` / A2.7. Does **not** send template 14 — see WF-4c.
+
+### WF-4b · SOS Resolution Handler (`jh2P2gibpCsnyhoy`) — **built 3 August 2026**
+- **Trigger:** sub-workflow from WF-2a on a matching SOS resolution button.
+- Attribute by `context.id` → `sos_notifications.wa_message_id` (see WF-2a). Write resolution fields on `sos_events`. Call **WF-4c**.
+
+### WF-4c · SOS Resolution Broadcast (`Baydb7saYNyAayMC`) — **built 3 August 2026**
+- **Trigger:** sub-workflow (from WF-4b on WhatsApp resolution; also after dashboard resolution so both channels get the broadcast).
+- Sends **template 14** (`elderwise_sos_resolved`) to every recipient that received a **`sent`** alert, on **both** channels. Previously nobody sent it: WF-4a verifies only, and Next.js cannot send WhatsApp (B3).
+- **Known gap (A-18):** template 14 sends cannot be logged under current schema constraints — see §15.
+
+### WF-4d · SOS Nudge Sweep (`EY36qDhdv5FqfL0W`) — **built 3 August 2026**
+- **Trigger:** cron, every minute.
+- Finds open SOS events due for the next nudge round; sends template **13** for `nudge_index` 1–3; increments `nudges_sent` (0–3). Re-reads `sos_events.status` before every send (safety net).
+- **Must guard CTE-based SELECT results** (`Rules.md` §6a) — zero due rows must not run the WhatsApp node.
 
 ### WF-5 · Voice reply → STT — **not yet built**
 - Download the audio from the Meta media endpoint → store in the Supabase Storage bucket → write `voice_replies.audio_path`.
@@ -860,6 +896,9 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 | A-14 | **n8n SOS webhook secret is readable in plaintext in n8n execution history.** | Talal |
 | A-15 | **Elder timezone / number mismatch.** The live elder's WhatsApp number is Pakistani (`+92`) while `elders.timezone` is `Asia/Riyadh`. If the handset is physically in Pakistan, every check-in fires two hours off her actual local time. Decide before building a demo schedule. | Talal |
 | A-16 | **Health and food domains unbuilt.** Templates 3, 4, 6, 7 approved and unused. WF-1 / WF-3a / WF-3b / WF-3c are medication-only. | Talal |
+| A-17 | **Raw doctor share tokens are stored in plaintext in n8n execution history.** WF-4 returns the raw token from Postgres to build the URL, so it is readable by anyone with instance access, who can then open the patient report. Same class as A-14. | Talal |
+| A-18 | **Template 14 sends cannot be logged, so W3 cannot be satisfied for the resolution broadcast.** `sos_notifications` is constrained to `nudge_index` 0–3 for alerts and nudges; `ct_notifications.type` is `interaction \| missed` only. There is no table that can hold a resolution-broadcast send. Needs a schema decision or a recorded acceptance. | Talal |
+| A-19 | **The n8n error workflow forwards raw error content to Telegram and Gmail.** It interpolates `execution.error.message` and `error.messages[0]`, which on the SOS path can carry query parameters including phone numbers and record IDs. X9 requires scrubbing before error reporting is switched on. Raise at Security Gate Pass 2. | Talal |
 
 ---
 
@@ -867,6 +906,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | Date | Version | Change |
 |---|---|---|
+| 3 Aug 2026 | 1.16 | **WF-4 SOS build.** Thirteen-workflow map (WF-4 / 4b / 4c / 4d + existing). Nudge count corrected: alert + 3 nudges (`nudge_index` 0 = alert; `nudges_sent` 0–3). Share-link reuse struck (hash-only). Four resolution labels + `context.id` attribution. Elder ack free-form; template 14 via WF-4c. Sequential ~4 s dispatch observed. A-17/A-18/A-19 opened. Remaining Track B workflow: **WF-5 only**. |
 | 3 Aug 2026 | 1.15 | **Correction pass.** A-10 closed (template 12 approved 2 Aug — all 14). A-9 closed (WF-6 never used `ct_notification`). A-2 resolved (gate decided; prompt is WF-5 build detail). §8 medication-only scope on WF-1/3a/3b/3c; decline normalisation recorded (no TBD). §12.1 monorepo corrected (`src/app/`, specs at repo root incl. `Templates.md`). Team size unified to **10**. A-14 owned by Talal; A-15/A-16 opened. Footer → 3 Aug. |
 | 3 Aug 2026 | 1.14 | **Track B build of 3 Aug — nine-workflow map.** §8 rewritten: WF-0/1/2/2a/3a/3b/3c/4a/6 with n8n IDs; WF-2 thin-router safety rule (API `update_workflow` rotates webhookId); WF-0 claim-then-send; WF-1 dispatch bound to `scheduled_for + escalation_minutes`; *Some of them* list not built (A-12); WF-6 `only_missed` also notifies on `some_of_them` (Talal ruling); period labels closed (A-11). A-13/A-14 opened. WF-4 SOS orchestrator and WF-5 still not built. |
 | 2 Aug 2026 | 1.13 | **B1.5 consent lifecycle + STT decision.** §3 / §2: STT = **OpenAI Whisper** (supersedes Google/ElevenLabs; prior "Whisper is not the choice" withdrawn — Talal, 2 Aug). §5.2 `elders`: `consent_requested_at` / `consent_declined_at` + four-state table; `voice_replies.provider` = `openai_whisper`; `confidence` diagnostic-only. §8: **WF-0** welcome dispatch (cron; set `consent_requested_at` with the send); WF-2 decline → `consent_declined_at` (terminal); WF-1 still gates on `consent_confirmed_at` only; WF-5 re-ask gated on answer-derivation `unclear`, not ASR confidence. §11: WF-0 send failures = P1. A-1 closed; A-2 rewritten. Migration file only — not applied by agents. |
