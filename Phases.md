@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.13 |
+| **Document** | Phases.md — v1.14 |
 | **Date** | 3 August 2026 |
 | **Demo Day** | **Saturday 29 August 2026** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Templates.md` |
@@ -189,15 +189,17 @@ Runs **in parallel with Track A from day one.**
 
 ### B2 · Core workflows *(Sprint 4–5)*
 
-> **Thirteen-workflow map** (`Architecture.md` §8). Built as of 3 Aug: WF-0, WF-1, WF-2 (thin) + WF-2a, WF-3a/3b/3c, **WF-4 / 4a / 4b / 4c / 4d**, WF-6. **WF-1 / WF-3a / WF-3b / WF-3c are medication-only** (health and food unbuilt — A-16). **Remaining Track B workflow: WF-5 (voice → STT) only.**
+> **Fifteen-workflow map** (`Architecture.md` §8). Built as of 3 Aug evening: WF-0, WF-1 / **WF-1b** / **WF-1c**, WF-2 (thin) + WF-2a, WF-3a / **WF-3b (all domains)** / **WF-3c (all domains)** / **WF-3d**, **WF-4 / 4a / 4b / 4c / 4d**, WF-6. **All three care domains verified on real WhatsApp 3 Aug 2026 evening** (health 19:15, food 19:30, `No` → `responded`, CT notice naming "Dinner"). **Remaining Track B workflow: WF-5 (voice → STT) only.**
 
 | # | Workflow | Owner | Status |
 |---|---|---|---|
 | B2.0 | **WF-0 Consent Welcome Dispatch** (`n1EcFnlIDRMB5MEi`) — cron 5 min; claim-then-send | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug |
-| B2.1 | **WF-1 Scheduler** (`sqFa3XkYSEEVgPpC`) — materialise then dispatch; **medication only**; NFR-6 verified (sent 26 s after `scheduled_for`) | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug |
-| B2.2 | **WF-2 Inbound Router** (thin, `oHSNqoskL0nOoOfo`) + **WF-2a** logic (`Ne4rNaezpjn95UMM`) | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug |
-| B2.3 | **WF-3** as **WF-3a** Response Handler / **WF-3b** Reminder Sweep / **WF-3c** Missed Sweep — **medication only** | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug |
-| B2.4 | **WF-6 CT Notification Dispatch** (`6I6OC7qJ5YhhUQxU`) — templates 8 and 9 | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug |
+| B2.1 | **WF-1 Medication Scheduler** (`sqFa3XkYSEEVgPpC`) — materialise + dispatch; honours `days_of_week` | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug (evening pass) |
+| B2.1b | **WF-1b Food Scheduler** (`J0HQ47OKo21whK9G`) | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug evening |
+| B2.1c | **WF-1c Health Scheduler** (`2HgbXGM0Z5XQArf1`) | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug evening |
+| B2.2 | **WF-2 Inbound Router** (thin, `oHSNqoskL0nOoOfo`) + **WF-2a** logic (`Ne4rNaezpjn95UMM`) incl. `food_health_response` | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug (evening pass) |
+| B2.3 | **WF-3a** Response / **WF-3b** Reminder / **WF-3c** Missed (all domains) / **WF-3d** Food & Health Response | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug evening |
+| B2.4 | **WF-6 CT Notification Dispatch** (`6I6OC7qJ5YhhUQxU`) — templates 8 and 9; notify via check-in FKs | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug (evening pass) |
 
 ### B3 · Voice & SOS — the hard parts *(Sprint 5, remaining Track B)*
 
@@ -293,7 +295,8 @@ The proposal was a **second channel (Telegram)** so the demo could run even if t
 | Work | Owner / status |
 |---|---|
 | WF-5 (voice → STT) | **Talal** — **only remaining Track B workflow** |
-| Health + food domains | **Talal** — open product scope (A-16); not a missing SOS workflow |
+| Sentry (error reporting) | **Deferred** until all workflows complete (Talal, 3 Aug) — X9 scrubbing still required before switch-on |
+| SOS nudge exhaustion (`nudges_sent = 3`, event stays `open`) | Assigned to a team member as a **rehearsal test scenario** (I3) |
 | **Action: close PR #2** (Sandy) | **Close, do not merge** — hand-adds `n8n/workflows/*.json`, colliding with the export script that wipes and rewrites that directory |
 | Application wiring (Track A2) | Needs owner — Talal to assign |
 | Most of the 9 screens (Track A1) | Needs owner — Talal to assign |
@@ -301,7 +304,7 @@ The proposal was a **second channel (Telegram)** so the demo could run even if t
 | QA / end-to-end testing | Needs owner — Talal to assign |
 | Demo-day deck + video | Needs owner — Talal to assign |
 
-> **Remaining Track B workflow: WF-5 only.** WF-4 family DONE 3 Aug. WF-1/3a/3b/3c are medication-only. Close other ownership gaps at the next sync.
+> **Remaining Track B workflow: WF-5 only.** All three care domains DONE 3 Aug evening. WF-4 family DONE 3 Aug. Sentry deferred until workflows complete (Talal, 3 Aug). Close other ownership gaps at the next sync.
 
 ---
 
@@ -323,6 +326,7 @@ The proposal was a **second channel (Telegram)** so the demo could run even if t
 
 | Date | Version | Change |
 |---|---|---|
+| 3 Aug 2026 | 1.14 | **All-domain pass DONE (evening).** Health 19:15, food 19:30, `No` → `responded` + CT notice ("Dinner"). Fifteen-workflow map (+WF-1b/1c/3d). A-16 closed. Remaining Track B: **WF-5 only**. Sentry deferred; SOS nudge exhaustion = rehearsal scenario. |
 | 3 Aug 2026 | 1.13 | **WF-4 SOS DONE.** B3.2 built as WF-4/4b/4c/4d (+ WF-4a); E2E proven on real WhatsApp (dispatch, `context.id` attribution, template 14, nudge round 1). Remaining Track B workflow: **WF-5 only**. PR #2 close-not-merge action recorded. |
 | 3 Aug 2026 | 1.12 | **Correction pass.** B2 owners corrected: WF-0–WF-6 built by Claude in-session with Talal approval/test (not Robert). WF-4 and WF-5 owner = Talal (consistent across §5 / §8). Sandy: PR #2 (WF-3/WF-6) pending, will close not merge. §7 channel go/no-go cleared (WhatsApp; all 14 approved 2 Aug). Track B remaining = WF-4, WF-5, health + food; WF-1/3a/3b/3c medication-only. Footer → 3 Aug. |
 | 3 Aug 2026 | 1.11 | **Track B build of 3 Aug.** B1.5 consent **DONE** (real WhatsApp, including decline — closes `Templates.md` OT-7). B2.1–B2.4 **DONE** (WF-1 NFR-6 verified at 26 s; WF-2 thin + WF-2a; WF-3a/3b/3c; WF-6). Remaining Track B: **WF-4** SOS orchestrator and **WF-5** voice → STT. Header date → 3 Aug (~26 days to Demo Day). |

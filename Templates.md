@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · Team Lead: Talal Baig |
-| **Document** | Templates.md — v1.9 |
+| **Document** | Templates.md — v1.10 |
 | **Date** | 3 August 2026 |
 | **Purpose** | Every message ElderWise sends. **Reconciled against the live Meta WABA — this document now records what Meta actually approved, not what was drafted.** |
 | **WABA** | `1495493002256968` · display number **966503330619** |
@@ -126,6 +126,19 @@ Retrieved from Meta **2 August 2026**. All 14 APPROVED.
 
 **Also present in the account:** `hello_world` (Meta's sample, `en_US`). Not ours, not used,
 harmless. Do not delete it — it is Meta's connectivity test message.
+
+### 3.0 Pending submissions — health v2 pair (3 August 2026)
+
+**Submitted to Meta 3 August 2026 — pending review.** New names, not edits. Templates **3** and **6** remain approved and in service until the v2 pair clears. Both keep `Yes` / `No` buttons — no routing change needed.
+
+| Name | Vars | Body |
+|---|---|---|
+| `elderwise_ep_health_checkin_v2` | 2 | Hello {{1}} — it's time for your {{2}}. Are you feeling well today? |
+| `elderwise_ep_health_reminder_v2` | 2 | Hi *{{1}}*, reminder about your health check *{{2}}* earlier — no rush at all. Are you feeling well today? |
+
+**Why (health check-in):** templates 3 and 6 carry only `{{1}}`, so a health check-in cannot name the routine — an elder with two health routines receives identical messages for both. Food does not have this problem; template 4 carries `{{2}} = meal_name`.
+
+**Why (reminder wording differs from the original draft):** Meta classified *"I didn't hear back"* as a re-engagement prompt and therefore **MARKETING** rather than **UTILITY**. The approved phrasing states the fact without the re-engagement framing. **Reusable finding — avoid re-engagement language in UTILITY templates.**
 
 ### 3.1 Variable-count drift from v1.4 — the two that changed
 
@@ -598,6 +611,7 @@ placeholder count not matching the samples · buttons over 20 characters.
 
 | Date | Version | Change |
 |---|---|---|
+| 3 Aug 2026 | **1.10** | **Health v2 pair submitted (pending Meta).** §3.0 records `elderwise_ep_health_checkin_v2` and `_reminder_v2` — two vars, routine name in body; reminder wording avoids re-engagement MARKETING classification. Templates 3 and 6 remain in service. **No §4–6 body edits.** |
 | 3 Aug 2026 | **1.9** | **Round 2 doc pass.** §1 WABA verification date restored to 28 Jul (re-verified 2 Aug). §13 nudge numbering aligned to `nudge_index` 1–3 (alert = 0). |
 | 3 Aug 2026 | **1.8** | **WF-4 SOS docs.** §3.2 callout names all four resolution labels + apostrophe-strip order. §3.4 reuse-before-mint struck (always mint). §7.3 elder acknowledgement rewritten as four variants with no `NA` (T3); pending Sama sign-off. |
 | 3 Aug 2026 | **1.7** | **Track B build of 3 Aug.** OT-7 closed (decline path live). OT-9 closed (period labels implemented; Sama wording sign-off pending). §7.1 medicine list marked **not built** (Talal scope reduction); *Some of them* records `some_of_them` + CT notify only. |

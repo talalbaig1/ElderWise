@@ -250,6 +250,8 @@ export interface CheckinRow {
   id: string;
   elder_id: string;
   domain: "medication" | "health" | "food";
+  food_routine_id: string | null;
+  health_routine_id: string | null;
   scheduled_for: string;
   sent_at: string | null;
   status: DbCheckInStatus;
@@ -268,10 +270,17 @@ export function checkInFromRow(row: CheckinRow): CheckInResponse {
       : row.response_channel === "button"
         ? "whatsapp"
         : "manual";
+  const routineId =
+    row.domain === "food"
+      ? (row.food_routine_id ?? undefined)
+      : row.domain === "health"
+        ? (row.health_routine_id ?? undefined)
+        : undefined;
+
   return {
     id: row.id,
     lovedOneId: row.elder_id,
-    routineId: row.elder_id,
+    ...(routineId ? { routineId } : {}),
     routineKind: row.domain === "food" ? "food" : row.domain,
     scheduledAt: row.scheduled_for,
     respondedAt: row.responded_at ?? undefined,

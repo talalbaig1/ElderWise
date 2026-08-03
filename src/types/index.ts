@@ -249,7 +249,8 @@ export interface HealthRoutine {
 export interface CheckInResponse {
   id: ID;
   lovedOneId: ID;
-  routineId: ID;
+  /** Set for food/health (1:1 routine FK). Omitted for medication — aggregated check-in. */
+  routineId?: ID;
   routineKind: "medication" | "food" | "health";
   scheduledAt: string;
   respondedAt?: string;

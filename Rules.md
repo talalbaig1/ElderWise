@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.10 |
+| **Document** | Rules.md — v1.11 |
 | **Date** | 3 August 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
@@ -134,6 +134,8 @@ From `Architecture.md` §1 (P1). These are the walls that let ten people work in
 - [ ] **Act on your own validity flags.** If a parser sets `parsed: false`, the next node must not run.
 - [ ] **Delivery-status callbacks** (`statuses`, no `messages`) are normal inbound traffic and must be handled, not treated as errors.
 - [ ] **A sub-workflow called from another sub-workflow must be published before it can execute.** A first-level call from a manual execution resolves the draft, but a second-level call goes through `getPublishedWorkflowData` and fails with *"Workflow is not active and cannot be executed."* This is broader than the known rule that a parent cannot be published until its children are. Production chains are three deep — WF-2 → WF-2a → WF-4b → WF-4c — so every workflow below WF-2a must be published. Failure mode observed 3 August: the resolution was written to the database and then the broadcast call failed, leaving an SOS marked resolved with nobody told, and the only trace an execution marked `error`. Architecture §11 classes this as **P0**.
+- [ ] **Verify enum values before using them.** `checkins.response_channel` is `button | voice` — **not** `whatsapp`. It does not mirror `sos_events.resolved_channel`. Reasoning by analogy between similarly-named enums produces a runtime failure.
+- [ ] **One writer per state transition.** A status change that triggers a notification must have exactly one workflow that performs it. Three workflows once marked check-ins `missed`; only one notified, and they raced.
 
 
 ## 7. Security rules
@@ -310,6 +312,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 3 Aug 2026 | 1.11 | **§6a — enum verification + one writer per state transition.** From all-domain pass debugging: `checkins.response_channel` is `button|voice` not `whatsapp`; missed transition must have a single owner (WF-3c). |
 | 3 Aug 2026 | 1.10 | **§6a corrected.** Postgres guard applies to reads as well as writes — CTE-based SELECTs also return `{success: true}` on zero rows. Nested sub-workflows must be published to execute. `autoAssignedCredentials: []` on update means no new assignments, not dropped bindings. Team size → 10. |
 | 3 Aug 2026 | 1.9 | **§6a n8n implementation rules** — pre-merge checklist from 3 Aug Track B debugging (webhookId rotation / UI-only; guard Postgres writes; empty `queryReplacement`; verify credentials; honour `parsed: false`; delivery-status callbacks). |
 | 27 Jul 2026 | 1.8 | **D13** — applied migrations are immutable; corrections ship as new forward migrations only. |
