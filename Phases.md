@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.10 |
-| **Date** | 2 August 2026 |
+| **Document** | Phases.md — v1.11 |
+| **Date** | 3 August 2026 |
 | **Demo Day** | **Saturday 29 August 2026** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Templates.md` |
 
@@ -58,7 +58,7 @@ The two tracks cannot block each other — that is the entire reason the archite
 | **Sprint 5** | 3 – 16 August | Integration · auth · end-to-end |
 | **Sprint 6** | 17 – 29 August | **Security gate** · hardening · rehearsal · **Demo Day 29 Aug** |
 
-**Today is 2 August 2026 — Sprint 4 ends today; Sprint 5 (integration · auth · end-to-end) begins 3 August. Demo Day is 29 August (~27 days left).**
+**Today is 3 August 2026 — Sprint 5 (integration · auth · end-to-end). Demo Day is 29 August (~26 days left).**
 
 ---
 
@@ -185,26 +185,26 @@ Runs **in parallel with Track A from day one.**
 | B1.2 | Copy reviewed against `Rules.md` §9 (tone) — **read every string aloud imagining your own parent receiving it at 8am** | Sama + Reema |
 | B1.3 | **Submit templates to Meta** — one by one, tracking status | Talal |
 | B1.4 | Meta Cloud API connected to n8n; webhook receiving; **signature verification** (X3) | Robert + Talal |
-| B1.5 | **Consent flow built** — welcome message → elder confirms / declines / stays silent. Schema: `consent_requested_at` / `consent_declined_at` (migration file on `main`; Talal applies). **WF-1 gates on `consent_confirmed_at`.** This blocks every other check-in; build it first. | TBD |
+| B1.5 | **Consent flow built** — **DONE 3 August 2026.** Verified on real WhatsApp, including the decline path (closes `Templates.md` OT-7). Schema: `consent_requested_at` / `consent_declined_at`. **WF-1 gates on `consent_confirmed_at`.** | Robert + Talal |
 
-### B2 · Core workflows *(Sprint 4, by ~2 Aug)*
+### B2 · Core workflows *(Sprint 4–5)*
 
-> **WF-0 exists** (`Architecture.md` §8 — Consent / welcome dispatch). **Build order:** **WF-0 → WF-2 consent branch (confirm / decline) → WF-1**. Do not schedule check-ins until the welcome lifecycle can suppress re-sends (`consent_requested_at`) and record declines (`consent_declined_at`).
+> **Nine-workflow map** (`Architecture.md` §8, v1.14). Built as of 3 Aug: WF-0, WF-1, WF-2 (thin) + WF-2a, WF-3a/3b/3c, WF-4a, WF-6. **Remaining Track B:** WF-4 (SOS orchestrator) and WF-5 (voice → STT).
 
-| # | Workflow | Owner |
-|---|---|---|
-| B2.0 | **WF-0 Consent / welcome dispatch** — cron; select pending elders; send welcome; set `consent_requested_at` with the send | Robert |
-| B2.1 | **WF-1 Scheduler** — cron, elder-timezone-aware, materialise check-ins, dispatch (±5 min, NFR-6). Still gates on `consent_confirmed_at` only. | Robert |
-| B2.2 | **WF-2 Inbound router** — button / dropdown / voice / SOS / SOS-resolution · **consent confirm + decline branches** | Robert |
-| B2.3 | **WF-3 Response, reminder & escalation** — 30-min resend → missed → escalate **to CT only** | TBD |
-| B2.4 | **WF-6 CT notification dispatch** — `every_interaction` \| `only_missed` | TBD |
+| # | Workflow | Owner | Status |
+|---|---|---|---|
+| B2.0 | **WF-0 Consent Welcome Dispatch** (`n1EcFnlIDRMB5MEi`) — cron 5 min; claim-then-send | Robert | **DONE** 3 Aug |
+| B2.1 | **WF-1 Scheduler** (`sqFa3XkYSEEVgPpC`) — materialise then dispatch; NFR-6 verified (sent 26 s after `scheduled_for`) | Robert | **DONE** 3 Aug |
+| B2.2 | **WF-2 Inbound Router** (thin, `oHSNqoskL0nOoOfo`) + **WF-2a** logic (`Ne4rNaezpjn95UMM`) | Robert | **DONE** 3 Aug |
+| B2.3 | **WF-3** as **WF-3a** Response Handler / **WF-3b** Reminder Sweep / **WF-3c** Missed Sweep | Robert | **DONE** 3 Aug |
+| B2.4 | **WF-6 CT Notification Dispatch** (`6I6OC7qJ5YhhUQxU`) — templates 8 and 9 | Robert | **DONE** 3 Aug |
 
-### B3 · Voice & SOS — the hard parts *(Sprint 4 → Sprint 5, by ~10 Aug)*
+### B3 · Voice & SOS — the hard parts *(Sprint 5, remaining Track B)*
 
 | # | Workflow | Owner | Note |
 |---|---|---|---|
-| B3.1 | **WF-5 Voice → STT** — download audio → Storage → **OpenAI Whisper** → derive `{"answer":"yes"|"no"|"unclear"}` → **treat clean yes/no exactly as a button tap** | TBD | **Never guess** (N3). `unclear` → re-ask once → then missed. Do not gate on ASR confidence. |
-| B3.2 | **WF-4 SOS orchestrator** — immediate dispatch → 4 nudges, 2 min apart → resolve via WhatsApp **or** dashboard → status re-check before every nudge | Robert + Talal | **The most important code in the repo (N2).** |
+| B3.1 | **WF-5 Voice → STT** — download audio → Storage → **OpenAI Whisper** → derive `{"answer":"yes"|"no"|"unclear"}` → **treat clean yes/no exactly as a button tap** | TBD | **Never guess** (N3). `unclear` → re-ask once → then missed. Do not gate on ASR confidence. **Not built.** |
+| B3.2 | **WF-4 SOS orchestrator** — immediate dispatch → 4 nudges, 2 min apart → resolve via WhatsApp **or** dashboard → status re-check before every nudge | Robert + Talal | **The most important code in the repo (N2).** **Not built.** WF-4a resolution receiver is already live (A2.7). |
 
 **🚪 GATE B.** An elder confirms consent and only then begins receiving check-ins. A real WhatsApp number receives a real check-in, a Yes/No button reply is recorded, a voice reply is transcribed and recorded, a missed check-in escalates to the CT, and an SOS reaches all three recipients and can be resolved from **both** channels.
 
@@ -292,16 +292,15 @@ The proposal is a **second channel (Telegram)** so the demo can run even if temp
 
 | Work | Status |
 |---|---|
-| WF-3 (response, reminder, escalation) | **Unowned** |
-| WF-5 (voice → STT) | **Unowned** |
-| WF-6 (CT notifications) | **Unowned** |
+| WF-4 (SOS orchestrator) | **Unowned / remaining** |
+| WF-5 (voice → STT) | **Unowned / remaining** |
 | Application wiring (Track A2) | **Unowned** |
 | Most of the 9 screens (Track A1) | **Unowned** |
 | Sentry setup + PII scrubbing | **Unowned** |
 | QA / end-to-end testing | **Unowned** |
 | Demo-day deck + video | **Unowned** |
 
-> **This table is the most important thing in this document.** Five of ten members are unassigned and eight significant pieces of work have no owner. On a 46-day clock, work without an owner is work that does not happen. **Close this at the next sync.**
+> **This table is the most important thing in this document.** WF-3 / WF-6 are done (3 Aug). Remaining Track B critical path: **WF-4** and **WF-5**. Close ownership gaps at the next sync.
 
 ---
 
@@ -323,6 +322,7 @@ The proposal is a **second channel (Telegram)** so the demo can run even if temp
 
 | Date | Version | Change |
 |---|---|---|
+| 3 Aug 2026 | 1.11 | **Track B build of 3 Aug.** B1.5 consent **DONE** (real WhatsApp, including decline — closes `Templates.md` OT-7). B2.1–B2.4 **DONE** (WF-1 NFR-6 verified at 26 s; WF-2 thin + WF-2a; WF-3a/3b/3c; WF-6). Remaining Track B: **WF-4** SOS orchestrator and **WF-5** voice → STT. Header date → 3 Aug (~26 days to Demo Day). |
 | 2 Aug 2026 | 1.10 | **A2.7 DONE** — n8n WF-4a receiver `jeNrf7b7ne3JX2Xu` + `src/app/api/sos/resolve/route.ts`, E2E in production 2 Aug 2026. **GATE A2 fully met.** §0.8 STT = OpenAI Whisper (2 Aug). §5 B2: **WF-0** recorded; build order **WF-0 → WF-2 consent branch → WF-1**. Stale "Today is 14 July" header replaced. B1.5 points at consent_requested/declined migration (file only; Talal applies). |
 | 27 Jul 2026 | 1.9 | **GATE A4 PASSED** (27 Jul 2026): all six checklist items ticked; evidence recorded (7 scripts, 48 pairwise RLS checks, seed applied/read back). GATE A3 **re-earned** 27 Jul (replaces invalidated 24 Jul evidence). `rls-cross-tenant` coverage clarification: 48 checks are pairwise A↔B and do not scale with tenant count. A4.5 seed backlog: `sos_notifications` row with `status = skipped`, `skip_reason = no_whatsapp_number`. |
 | 27 Jul 2026 | 1.8 | A4.3: Care Circle one-draft RPC error must surface as resume-or-discard UI (not toast). |

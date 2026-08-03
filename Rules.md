@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.8 |
-| **Date** | 26 July 2026 |
+| **Document** | Rules.md — v1.9 |
+| **Date** | 3 August 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
 
@@ -120,6 +120,19 @@ From `Architecture.md` §1 (P1). These are the walls that let eleven people work
 | **W4** | **Credentials live in n8n's credential store**, never hardcoded in a node, never in a committed JSON export. **Scrub credentials before exporting.** |
 | **W5** | **Dev and prod workflows are separate** inside the single n8n instance and point at different Supabase projects. Never test against prod. |
 | **W6** | **n8n uses the service-role key and therefore bypasses RLS.** This is deliberate — n8n is trusted infrastructure. It also means an n8n bug can touch *any* family's data. Write these workflows accordingly. |
+
+---
+
+## 6a. n8n implementation rules (pre-merge checklist)
+
+> Every item below cost real debugging time on **3 August 2026**. Check each before merging a workflow change.
+
+- [ ] **Never edit a workflow that contains a webhook trigger via the API.** `update_workflow` rotates the trigger node's `webhookId`. That changes the Meta callback URL and silently stops all inbound WhatsApp. **UI only** for webhook-bearing workflows (WF-2, WF-4a). Sub-workflows without a webhook are safe to update programmatically.
+- [ ] **Guard every node that consumes a Postgres write.** An `INSERT`/`UPDATE` matching zero rows returns `{success: true}`, not an empty set — downstream runs with junk. A plain `SELECT` returns `[]` and correctly halts.
+- [ ] **Guard every parameterised query's input.** An empty `queryReplacement` sends no parameters: there is no parameter `$1`.
+- [ ] **Verify which credential n8n actually bound**, after every create and every update. It has bound the wrong one, dropped one, and silently corrected one.
+- [ ] **Act on your own validity flags.** If a parser sets `parsed: false`, the next node must not run.
+- [ ] **Delivery-status callbacks** (`statuses`, no `messages`) are normal inbound traffic and must be handled, not treated as errors.
 
 ---
 
@@ -297,6 +310,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 3 Aug 2026 | 1.9 | **§6a n8n implementation rules** — pre-merge checklist from 3 Aug Track B debugging (webhookId rotation / UI-only; guard Postgres writes; empty `queryReplacement`; verify credentials; honour `parsed: false`; delivery-status callbacks). |
 | 27 Jul 2026 | 1.8 | **D13** — applied migrations are immutable; corrections ship as new forward migrations only. |
 | 26 Jul 2026 | 1.7 | D12 CHECK expression corrected to `cardinality(times) = 1` (aligned with Architecture v1.9 / A4.1 migration). |
 | 26 Jul 2026 | 1.6 | **A4.** D12 — one time per medication row. W3 clarified: intentional non-sends (SOS skip rows; `not_required` mute) are logged/configured, not silent failures. No other rule changes. |

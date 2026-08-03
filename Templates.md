@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · Team Lead: Talal Baig |
-| **Document** | Templates.md — v1.6 |
-| **Date** | 2 August 2026 |
+| **Document** | Templates.md — v1.7 |
+| **Date** | 3 August 2026 |
 | **Purpose** | Every message ElderWise sends. **Reconciled against the live Meta WABA — this document now records what Meta actually approved, not what was drafted.** |
 | **WABA** | `1495493002256968` · display number **966503330619** |
 | **Owner** | Talal (submission) · Sama + Reema (copy & tone) |
@@ -280,10 +280,10 @@ protected by the §7.3 click-through gate against WhatsApp's link-preview crawle
 > drive display. Doctor-facing timestamps render in the **elder's** IANA zone, matching the
 > share page and PDF convention (`Architecture.md` §10).
 
-> **Period label (B-3) — new derivation, owned by Track B.** Templates 5 and 8 need
-> `Morning` / `Afternoon` / `Evening` / `Night`. **No column stores this.** WF-3/WF-6 derive
-> it from the routine's local time in the elder's zone. Suggested cut points: `< 12:00`
-> Morning, `< 17:00` Afternoon, `< 21:00` Evening, else Night. Confirm with Sama for tone.
+> **Period label (B-3) — implemented 3 Aug 2026.** Templates 5 and 8 need
+> `Morning` / `Afternoon` / `Evening` / `Night`. **No column stores this.** WF-6 derives
+> it from the routine's local time in the elder's zone: `< 12:00` Morning, `< 17:00`
+> Afternoon, `< 21:00` Evening, else Night. **Sama has not signed off the wording.**
 
 ---
 
@@ -301,7 +301,7 @@ protected by the §7.3 click-through gate against WhatsApp's link-preview crawle
 
 **🔒 This message is the consent gate (M16b).**
 - `Yes, that's fine` → set `consent_confirmed_at`. **Only now** may check-ins be scheduled.
-- `No, thank you` → **never messaged again**, CT informed. Build this path (OT-7).
+- `No, thank you` → **never messaged again**, CT informed. **Built** (OT-7 closed 3 Aug 2026).
 - **No response** → nothing further is ever sent. Not a reminder, not a second welcome.
 
 ---
@@ -315,7 +315,7 @@ protected by the §7.3 click-through gate against WhatsApp's link-preview crawle
 **Buttons:** `Yes, All` · `Some of them` · `Not Yet`
 
 - `Yes, All` → every medicine in `{{3}}` recorded taken. One tap. The common path.
-- `Some of them` → 24-hour window open → send the free-form list (§7.1).
+- `Some of them` → recorded as `response_value = 'some_of_them'`, status responded; CT notified. **MVP scope reduction (Talal, 3 Aug 2026):** free-form interactive list (§7.1) is **not built** — which medicines were taken is not captured.
 - `Not Yet` → recorded not taken; the reminder is armed at `escalation_minutes`.
 
 ---
@@ -498,8 +498,10 @@ failure (W3).
 
 Sent inside the 24-hour window. Not templates. Not submitted. Not on the critical path.
 
-### 7.1 Medication list picker *(interactive list)*
-Sent after the elder taps **`Some of them`** or **`Not Yet`**.
+### 7.1 Medication list picker *(interactive list)* — **NOT BUILT (MVP)**
+**Scope reduction, ruled by Talal 3 August 2026.** Spec retained for a future path. Live behaviour: *Some of them* → `response_value = 'some_of_them'`, `status = responded`, CT notified; which medicines were taken is not captured (`Architecture.md` A-12). Reason: native WhatsApp node has no interactive-list type; raw Graph HTTP ruled out.
+
+Was intended after the elder taps **`Some of them`** (or historically **`Not Yet`**):
 
 > Which ones did you take, {{name}}?
 > *(multi-select list, one row per medicine)*
@@ -542,8 +544,8 @@ Sent immediately when the elder triggers an SOS — she must not be left in sile
 | # | Item | Severity | Owner |
 |---|---|---|---|
 | ~~OT-8~~ | ~~`elderwise_sos_alert_doctor` PENDING~~ — **CLOSED 2 Aug 2026. Approved unchanged.** All 14 templates now approved. | Closed | Talal |
-| **OT-7** | **The "No, thank you" path must actually be built.** An elder who declines is never messaged again and the CT is told. Not an edge case — it is the basis of her consent being real. | Medium | Robert / Sandy |
-| **OT-9** | **Period label derivation (B-3)** — `Morning`/`Afternoon`/`Evening`/`Night` for templates 5 and 8. No column stores it. Confirm cut points and wording. | Medium | Sandy + Sama |
+| ~~OT-7~~ | ~~The "No, thank you" path must actually be built.~~ — **CLOSED 3 Aug 2026.** Decline path verified on real WhatsApp (Phases B1.5). | Closed | Robert / Sandy |
+| ~~OT-9~~ | ~~Period label derivation (B-3)~~ — **CLOSED 3 Aug 2026 (implemented):** `< 12:00 Morning`, `< 17:00 Afternoon`, `< 21:00 Evening`, else `Night`. **Sama has not signed off the wording.** | Closed (wording: Sama) | Sandy + Sama |
 | **OT-4** | Language of the elder's WhatsApp — MVP is English only. Cosmetic for the demo; real for the product. | Medium | Team |
 | **OT-5** | Telegram equivalents — parked. Telegram needs no approval, so copy lifts directly from here. | Parked | Talal |
 | **OT-6** | ~~Emoji usage~~ — **CLOSED by default 28 Jul.** Emoji shipped in approved templates (🚨 ✅ 👍 💚 👋). Revisit for v2. | Closed | Sama |
@@ -578,6 +580,7 @@ placeholder count not matching the samples · buttons over 20 characters.
 
 | Date | Version | Change |
 |---|---|---|
+| 3 Aug 2026 | **1.7** | **Track B build of 3 Aug.** OT-7 closed (decline path live). OT-9 closed (period labels implemented; Sama wording sign-off pending). §7.1 medicine list marked **not built** (Talal scope reduction); *Some of them* records `some_of_them` + CT notify only. |
 | 2 Aug 2026 | **1.6** | **All 14 templates APPROVED** — `elderwise_sos_alert_doctor` cleared Meta review on 2 Aug, unchanged from submission (same body, seven variables, `Acknowledge` button). Registry, §6 heading, §8 OT-8 and §9 submission table updated. Template-12 rejection contingency removed as moot; the `skipped` path remains for the real case (no doctor / no number). Re-verified against the live WABA via Graph API. **No body text, variable, or button changed anywhere in this revision** — §3.2, §3.3, §3.4 and §3.5 stand exactly as written in v1.5. | 
 | 28 Jul 2026 | **1.5** | **Reconciled against the live Meta WABA `1495493002256968`** (Graph API, 28 Jul). Registry rewritten with real statuses (13 APPROVED / 1 PENDING) and Meta template IDs. **§4–6 bodies replaced with the verbatim approved text** — all 14 gained TEXT headers; several were reworded during submission. **Two structural drifts recorded:** `sos_alert_lct` 3→5 vars (+Doctor, +Clinic), `sos_alert_doctor` 3→7 vars (+report link, +Buddy name/number, +CP name/number). **New §3.2** exact button labels + case-insensitive matching rule (B-1); food buttons are `Yes`/`No`, not `Yes`/`Not yet`. **New §3.3** NA substitution at send time, DB untouched (ruling: Talal, 28 Jul). **New §3.4** SOS share-link mint-or-reuse by n8n, fail-open to NA. **New §3.5** variable→source map incl. doctor-timezone rule (B-2) and period-label derivation (B-3). **New §2.1** known accepted copy defects ("Hay", trailing 👍) — accepted for demo. `language` is `en`, never `en_US`. OT-6 closed; OT-8/OT-9 opened. |
 | 26 Jul 2026 | 1.4 | **A4 contract notes.** Dosage = quantity; strength in medicine name — Meta `{{3}}` bodies unchanged. Free-form picker rows show name + quantity + unit. Templates 8/9 keyed off per-routine `notify_care_partner` incl. never send on `not_required`. Template 12: skip + log when doctor has no WhatsApp. |
