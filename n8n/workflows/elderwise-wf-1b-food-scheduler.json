@@ -1,12 +1,12 @@
 {
-  "activeVersionId": "ecf967f1-9dfc-4fc1-aa4e-2b7cdda779dd",
+  "activeVersionId": "9d703de7-0227-4157-ae56-72561a42f1f2",
   "connections": {
     "Any Due?": {
       "main": [
         [
           {
             "index": 0,
-            "node": "Send Medication Check-in",
+            "node": "Send Food Check-in",
             "type": "main"
           }
         ],
@@ -24,13 +24,13 @@
         [
           {
             "index": 0,
-            "node": "Materialise Due Check-ins",
+            "node": "Materialise Due Food Check-ins",
             "type": "main"
           }
         ]
       ]
     },
-    "Find Due Check-ins": {
+    "Find Due Food Check-ins": {
       "main": [
         [
           {
@@ -46,13 +46,13 @@
         [
           {
             "index": 0,
-            "node": "Find Due Check-ins",
+            "node": "Find Due Food Check-ins",
             "type": "main"
           }
         ]
       ]
     },
-    "Materialise Due Check-ins": {
+    "Materialise Due Food Check-ins": {
       "main": [
         [
           {
@@ -63,7 +63,7 @@
         ]
       ]
     },
-    "Send Medication Check-in": {
+    "Send Food Check-in": {
       "main": [
         [
           {
@@ -75,16 +75,16 @@
       ]
     }
   },
-  "description": "WF-1 scheduler, medication only. Now honours days_of_week in all three queries (materialise, escalation lookup, send). Empty array means every day. Locale-independent day mapping.",
-  "id": "sqFa3XkYSEEVgPpC",
+  "description": "WF-1b food scheduler. Materialise-then-dispatch per food_routine via the new FK. Honours days_of_week. Template 4, two variables.",
+  "id": "J0HQ47OKo21whK9G",
   "meta": {
     "aiBuilderAssisted": true,
     "builderVariant": "mcp"
   },
-  "name": "ElderWise WF-1 - Scheduler",
+  "name": "ElderWise WF-1b - Food Scheduler",
   "nodes": [
     {
-      "id": "a8388873-483f-4b88-a857-9e0b2b302fe2",
+      "id": "be0ceecb-37c8-464d-a504-4a774bf60bf4",
       "name": "Every Minute",
       "parameters": {
         "rule": {
@@ -110,14 +110,14 @@
           "name": "ElderWise Supabase (Postgres)"
         }
       },
-      "id": "514d845b-55d1-4456-a9ac-f77faa700f8c",
-      "name": "Materialise Due Check-ins",
+      "id": "2553c8e1-8d5f-428d-84f4-7a56fd54ca25",
+      "name": "Materialise Due Food Check-ins",
       "parameters": {
         "operation": "executeQuery",
         "options": {
           "connectionTimeout": 10
         },
-        "query": "WITH ins AS (INSERT INTO checkins (elder_id, domain, scheduled_for, status) SELECT DISTINCT e.id, 'medication'::care_domain, sf.scheduled_for, 'scheduled'::checkin_status FROM elders e JOIN medications m ON m.elder_id = e.id AND m.enabled AND m.active CROSS JOIN LATERAL (SELECT (((now() AT TIME ZONE e.timezone)::date + t::time) AT TIME ZONE e.timezone) AS scheduled_for FROM unnest(m.times) AS t) sf WHERE e.active AND e.consent_confirmed_at IS NOT NULL AND m.start_date <= (now() AT TIME ZONE e.timezone)::date AND (m.end_date IS NULL OR m.end_date >= (now() AT TIME ZONE e.timezone)::date) AND (cardinality(m.days_of_week) = 0 OR (ARRAY['sunday','monday','tuesday','wednesday','thursday','friday','saturday'])[extract(dow from (now() AT TIME ZONE e.timezone)::date)::int + 1] = ANY(m.days_of_week)) AND NOT EXISTS (SELECT 1 FROM checkins c WHERE c.elder_id = e.id AND c.domain = 'medication' AND c.scheduled_for = sf.scheduled_for) RETURNING 1) SELECT count(*)::int AS materialised FROM ins",
+        "query": "WITH ins AS (INSERT INTO checkins (elder_id, domain, food_routine_id, scheduled_for, status) SELECT e.id, 'food'::care_domain, f.id, (((now() AT TIME ZONE e.timezone)::date + f.check_in_time) AT TIME ZONE e.timezone), 'scheduled'::checkin_status FROM elders e JOIN food_routines f ON f.elder_id = e.id AND f.enabled WHERE e.active AND e.consent_confirmed_at IS NOT NULL AND f.start_date <= (now() AT TIME ZONE e.timezone)::date AND (f.end_date IS NULL OR f.end_date >= (now() AT TIME ZONE e.timezone)::date) AND (cardinality(f.days_of_week) = 0 OR (ARRAY['sunday','monday','tuesday','wednesday','thursday','friday','saturday'])[extract(dow from (now() AT TIME ZONE e.timezone)::date)::int + 1] = ANY(f.days_of_week)) AND NOT EXISTS (SELECT 1 FROM checkins c WHERE c.food_routine_id = f.id AND c.scheduled_for = (((now() AT TIME ZONE e.timezone)::date + f.check_in_time) AT TIME ZONE e.timezone)) RETURNING 1) SELECT count(*)::int AS materialised FROM ins",
         "resource": "database"
       },
       "position": [
@@ -134,14 +134,14 @@
           "name": "ElderWise Supabase (Postgres)"
         }
       },
-      "id": "54258c56-dd57-4d2f-9a04-678f4f9eb69c",
+      "id": "a950ac7f-a0a4-479a-81ed-1547cbaf83e7",
       "name": "Mark Overdue As Missed",
       "parameters": {
         "operation": "executeQuery",
         "options": {
           "connectionTimeout": 10
         },
-        "query": "WITH overdue AS (SELECT c.id, c.scheduled_for, COALESCE(MIN(m.escalation_minutes), 30) AS esc FROM checkins c JOIN elders e ON e.id = c.elder_id LEFT JOIN medications m ON m.elder_id = e.id AND m.enabled AND m.active AND to_char(c.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) AND (cardinality(m.days_of_week) = 0 OR (ARRAY['sunday','monday','tuesday','wednesday','thursday','friday','saturday'])[extract(dow from (c.scheduled_for AT TIME ZONE e.timezone)::date)::int + 1] = ANY(m.days_of_week)) WHERE c.status = 'scheduled' AND c.domain = 'medication' GROUP BY c.id, c.scheduled_for HAVING now() > c.scheduled_for + make_interval(mins => COALESCE(MIN(m.escalation_minutes), 30))), upd AS (UPDATE checkins c SET status = 'missed', missed_at = now() FROM overdue o WHERE c.id = o.id RETURNING 1) SELECT count(*)::int AS marked_missed FROM upd",
+        "query": "WITH upd AS (UPDATE checkins c SET status = 'missed', missed_at = now() FROM food_routines f WHERE c.food_routine_id = f.id AND c.domain = 'food' AND c.status = 'scheduled' AND now() > c.scheduled_for + make_interval(mins => f.escalation_minutes) RETURNING 1) SELECT count(*)::int AS marked_missed FROM upd",
         "resource": "database"
       },
       "position": [
@@ -158,14 +158,14 @@
           "name": "ElderWise Supabase (Postgres)"
         }
       },
-      "id": "68b4470e-a3ef-4d3b-943b-a9976782919e",
-      "name": "Find Due Check-ins",
+      "id": "17e8225a-b306-4fb4-a7c5-e2d1d9d6c0f8",
+      "name": "Find Due Food Check-ins",
       "parameters": {
         "operation": "executeQuery",
         "options": {
           "connectionTimeout": 10
         },
-        "query": "SELECT c.id AS checkin_id, e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp, to_char(c.scheduled_for AT TIME ZONE e.timezone, 'FMHH12:MI AM') AS scheduled_label, string_agg(m.name, ', ' ORDER BY m.name) AS medicine_list FROM checkins c JOIN elders e ON e.id = c.elder_id JOIN medications m ON m.elder_id = e.id AND m.enabled AND m.active AND to_char(c.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) AND (cardinality(m.days_of_week) = 0 OR (ARRAY['sunday','monday','tuesday','wednesday','thursday','friday','saturday'])[extract(dow from (c.scheduled_for AT TIME ZONE e.timezone)::date)::int + 1] = ANY(m.days_of_week)) WHERE c.status = 'scheduled' AND c.domain = 'medication' AND e.active AND e.consent_confirmed_at IS NOT NULL AND c.scheduled_for <= now() GROUP BY c.id, e.first_name, e.whatsapp_number, c.scheduled_for, e.timezone HAVING now() <= c.scheduled_for + make_interval(mins => MIN(m.escalation_minutes)) ORDER BY c.scheduled_for LIMIT 10",
+        "query": "SELECT c.id AS checkin_id, e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp, f.meal_name FROM checkins c JOIN elders e ON e.id = c.elder_id JOIN food_routines f ON f.id = c.food_routine_id AND f.enabled WHERE c.status = 'scheduled' AND c.domain = 'food' AND e.active AND e.consent_confirmed_at IS NOT NULL AND c.scheduled_for <= now() AND now() <= c.scheduled_for + make_interval(mins => f.escalation_minutes) ORDER BY c.scheduled_for LIMIT 10",
         "resource": "database"
       },
       "position": [
@@ -176,7 +176,7 @@
       "typeVersion": 2.6
     },
     {
-      "id": "0c001d77-13dd-4a4f-bd12-ac426d588cec",
+      "id": "1a48b789-ba4b-4e75-8403-41a35cca5755",
       "name": "Any Due?",
       "parameters": {
         "conditions": {
@@ -212,8 +212,8 @@
           "name": "WhatsApp 966503330619"
         }
       },
-      "id": "ab2c827c-d50c-498c-8c37-57b7357d6f16",
-      "name": "Send Medication Check-in",
+      "id": "075943cc-a7a7-4779-a039-6658fd1ad774",
+      "name": "Send Food Check-in",
       "parameters": {
         "components": {
           "component": [
@@ -225,11 +225,7 @@
                     "type": "text"
                   },
                   {
-                    "text": "={{ $json.scheduled_label }}",
-                    "type": "text"
-                  },
-                  {
-                    "text": "={{ $json.medicine_list }}",
+                    "text": "={{ $json.meal_name }}",
                     "type": "text"
                   }
                 ]
@@ -242,15 +238,16 @@
         "phoneNumberId": "1084405194760141",
         "recipientPhoneNumber": "={{ $json.elder_whatsapp }}",
         "resource": "message",
-        "template": "elderwise_ep_medication_checkin|en"
+        "template": "elderwise_ep_food_checkin|en"
       },
       "position": [
         1120,
         0
       ],
+      "retryOnFail": true,
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1.1,
-      "webhookId": "16e05611-7199-479b-bd9e-e470246cd6be"
+      "webhookId": "5f290566-b5b9-4085-b9b1-e193ebe8a404"
     },
     {
       "credentials": {
@@ -259,13 +256,13 @@
           "name": "ElderWise Supabase (Postgres)"
         }
       },
-      "id": "22d34db1-cd6b-4a45-819c-d2eb056d552d",
+      "id": "924b2eb7-ae70-400f-a3ec-72237373671d",
       "name": "Mark Sent",
       "parameters": {
         "operation": "executeQuery",
         "options": {
           "connectionTimeout": 10,
-          "queryReplacement": "={{ $('Find Due Check-ins').item.json.checkin_id }},{{ $json.messages[0].id }}"
+          "queryReplacement": "={{ $('Find Due Food Check-ins').item.json.checkin_id }},{{ $json.messages[0].id }}"
         },
         "query": "UPDATE checkins SET status = 'sent', sent_at = now(), wa_message_id = $2::text WHERE id = $1::uuid AND status = 'scheduled' RETURNING id AS checkin_id, status, sent_at, wa_message_id",
         "resource": "database"
@@ -278,7 +275,7 @@
       "typeVersion": 2.6
     },
     {
-      "id": "0a6c97d7-89a7-4849-be8f-75230de0ed5b",
+      "id": "cb56d3d6-2e7e-4f9c-83c2-cb71e10c035e",
       "name": "Nothing Due",
       "parameters": {},
       "position": [

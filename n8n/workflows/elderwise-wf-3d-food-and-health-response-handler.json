@@ -1,0 +1,208 @@
+{
+  "activeVersionId": "eab02fe0-c1fc-409a-b180-cff17c7a61c2",
+  "connections": {
+    "Attribute And Record Response": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Response Written?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Called By WF-2a": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Valid context_wamid?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Response Written?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Recorded - WF-6 Picks It Up",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "No Open Check-in For This Reply",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Valid context_wamid?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Attribute And Record Response",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "No context_wamid - Cannot Attribute",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "description": "WF-3d food and health response handler. Attributes a Yes/No reply by context.id against checkins.wa_message_id, records responded. Guarded against zero-row writes.",
+  "id": "Mx035ogWEoY1MEdU",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "name": "ElderWise WF-3d - Food and Health Response Handler",
+  "nodes": [
+    {
+      "id": "0f633284-d949-40f3-a424-72952c452b95",
+      "name": "Called By WF-2a",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        192
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "be0900f2-c50d-46b3-991b-f0d3a01314b2",
+      "name": "Valid context_wamid?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.context_wamid }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          }
+        }
+      },
+      "position": [
+        224,
+        192
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "89a56d9d-be85-4a24-b60c-bf6f8b0a6f44",
+      "name": "Attribute And Record Response",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $json.context_wamid }},{{ $json.button_norm }}"
+        },
+        "query": "WITH target AS (SELECT c.id FROM checkins c WHERE c.wa_message_id = $1::text AND c.domain IN ('food','health') AND c.status IN ('sent','reminded') LIMIT 1) UPDATE checkins c SET status = 'responded'::checkin_status, responded_at = now(), response_value = $2::text, response_channel = 'button'::response_channel FROM target t WHERE c.id = t.id RETURNING c.id AS checkin_id, c.elder_id, c.domain::text AS domain, c.response_value, c.status::text AS status, c.responded_at",
+        "resource": "database"
+      },
+      "position": [
+        448,
+        96
+      ],
+      "retryOnFail": true,
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "e8e222ee-e79d-462c-bdd2-14f73ade0c30",
+      "name": "Response Written?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.checkin_id }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          }
+        }
+      },
+      "position": [
+        672,
+        96
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "id": "7395e220-1937-4aa1-a5a1-dfa82b072b58",
+      "name": "Recorded - WF-6 Picks It Up",
+      "parameters": {},
+      "position": [
+        896,
+        0
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
+      "id": "8412d07f-b251-4b73-a723-52e31c583f00",
+      "name": "No Open Check-in For This Reply",
+      "parameters": {},
+      "position": [
+        896,
+        192
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
+      "id": "d6a80d9d-3432-43f3-a3a2-c3a5f1076cf9",
+      "name": "No context_wamid - Cannot Attribute",
+      "parameters": {},
+      "position": [
+        448,
+        288
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null
+}
