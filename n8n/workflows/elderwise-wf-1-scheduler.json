@@ -1,0 +1,300 @@
+{
+  "activeVersionId": "6ec71ad5-988b-45cf-afba-f69483ff3253",
+  "connections": {
+    "Any Due?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send Medication Check-in",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Nothing Due",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Every Minute": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Materialise Due Check-ins",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Find Due Check-ins": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Any Due?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Mark Overdue As Missed": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Find Due Check-ins",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Materialise Due Check-ins": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Mark Overdue As Missed",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Send Medication Check-in": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Mark Sent",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "description": "WF-1 scheduler. Materialise then dispatch, so a restart cannot lose a check-in. Consent-gated, elder-timezone aware, bounded by escalation_minutes; overdue rows become missed. Built inactive.",
+  "id": "sqFa3XkYSEEVgPpC",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "name": "ElderWise WF-1 - Scheduler",
+  "nodes": [
+    {
+      "id": "f11db9a1-5609-4f7a-9531-205a16c419ff",
+      "name": "Every Minute",
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        96
+      ],
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "0078f449-8107-44ee-bbb7-e846fe175042",
+      "name": "Materialise Due Check-ins",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10
+        },
+        "query": "WITH ins AS (INSERT INTO checkins (elder_id, domain, scheduled_for, status) SELECT DISTINCT e.id, 'medication'::care_domain, sf.scheduled_for, 'scheduled'::checkin_status FROM elders e JOIN medications m ON m.elder_id = e.id AND m.enabled AND m.active CROSS JOIN LATERAL (SELECT (((now() AT TIME ZONE e.timezone)::date + t::time) AT TIME ZONE e.timezone) AS scheduled_for FROM unnest(m.times) AS t) sf WHERE e.active AND e.consent_confirmed_at IS NOT NULL AND m.start_date <= (now() AT TIME ZONE e.timezone)::date AND (m.end_date IS NULL OR m.end_date >= (now() AT TIME ZONE e.timezone)::date) AND NOT EXISTS (SELECT 1 FROM checkins c WHERE c.elder_id = e.id AND c.domain = 'medication' AND c.scheduled_for = sf.scheduled_for) RETURNING 1) SELECT count(*)::int AS materialised FROM ins",
+        "resource": "database"
+      },
+      "position": [
+        224,
+        96
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "cecda91d-8a25-4e38-8c65-2cd207608151",
+      "name": "Mark Overdue As Missed",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10
+        },
+        "query": "WITH overdue AS (SELECT c.id, c.scheduled_for, COALESCE(MIN(m.escalation_minutes), 30) AS esc FROM checkins c JOIN elders e ON e.id = c.elder_id LEFT JOIN medications m ON m.elder_id = e.id AND m.enabled AND m.active AND to_char(c.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) WHERE c.status = 'scheduled' AND c.domain = 'medication' GROUP BY c.id, c.scheduled_for HAVING now() > c.scheduled_for + make_interval(mins => COALESCE(MIN(m.escalation_minutes), 30))), upd AS (UPDATE checkins c SET status = 'missed', missed_at = now() FROM overdue o WHERE c.id = o.id RETURNING 1) SELECT count(*)::int AS marked_missed FROM upd",
+        "resource": "database"
+      },
+      "position": [
+        448,
+        96
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "91639a10-bb72-4220-8b06-c1f573d63663",
+      "name": "Find Due Check-ins",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10
+        },
+        "query": "SELECT c.id AS checkin_id, e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp, to_char(c.scheduled_for AT TIME ZONE e.timezone, 'FMHH12:MI AM') AS scheduled_label, string_agg(m.name, ', ' ORDER BY m.name) AS medicine_list FROM checkins c JOIN elders e ON e.id = c.elder_id JOIN medications m ON m.elder_id = e.id AND m.enabled AND m.active AND to_char(c.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) WHERE c.status = 'scheduled' AND c.domain = 'medication' AND e.active AND e.consent_confirmed_at IS NOT NULL AND c.scheduled_for <= now() GROUP BY c.id, e.first_name, e.whatsapp_number, c.scheduled_for, e.timezone HAVING now() <= c.scheduled_for + make_interval(mins => MIN(m.escalation_minutes)) ORDER BY c.scheduled_for LIMIT 10",
+        "resource": "database"
+      },
+      "position": [
+        672,
+        96
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "42f79af8-50de-4d24-bc01-01198521fdd6",
+      "name": "Any Due?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.checkin_id }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          }
+        }
+      },
+      "position": [
+        896,
+        96
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Khl54gAdR4rvZaUO",
+          "name": "WhatsApp 966503330619"
+        }
+      },
+      "id": "12790ad6-f610-4d23-9b31-eabbd1f4972c",
+      "name": "Send Medication Check-in",
+      "parameters": {
+        "components": {
+          "component": [
+            {
+              "bodyParameters": {
+                "parameter": [
+                  {
+                    "text": "={{ $json.elder_first_name }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.scheduled_label }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.medicine_list }}",
+                    "type": "text"
+                  }
+                ]
+              },
+              "type": "body"
+            }
+          ]
+        },
+        "operation": "sendTemplate",
+        "phoneNumberId": "1084405194760141",
+        "recipientPhoneNumber": "={{ $json.elder_whatsapp }}",
+        "resource": "message",
+        "template": "elderwise_ep_medication_checkin|en"
+      },
+      "position": [
+        1120,
+        0
+      ],
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "webhookId": "27b4b91b-cb61-40e2-98c0-3324b592af6e"
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "e686f825-c871-4733-a177-709a81dca39f",
+      "name": "Mark Sent",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $('Find Due Check-ins').item.json.checkin_id }},{{ $json.messages[0].id }}"
+        },
+        "query": "UPDATE checkins SET status = 'sent', sent_at = now(), wa_message_id = $2::text WHERE id = $1::uuid AND status = 'scheduled' RETURNING id AS checkin_id, status, sent_at, wa_message_id",
+        "resource": "database"
+      },
+      "position": [
+        1344,
+        0
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "921f545b-3cf2-43cd-b16b-5adf0adb3f63",
+      "name": "Nothing Due",
+      "parameters": {},
+      "position": [
+        1120,
+        192
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": {
+    "node:Every Minute": {
+      "recurrenceRules": []
+    }
+  }
+}

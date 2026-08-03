@@ -1,0 +1,440 @@
+{
+  "activeVersionId": "6db329ec-1628-4a33-9a2f-086d9ea7ebda",
+  "connections": {
+    "Called With checkin_id": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Valid checkin_id?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Load Notification Context": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Should We Notify?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Missed Or Interaction?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send Missed Notice",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Send Interaction Notice",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Send Interaction Notice": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Log CT Notification (Interaction)",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Send Missed Notice": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Log CT Notification (Missed)",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Send Notification?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Missed Or Interaction?",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Muted - No CT Push",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Should We Notify?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send Notification?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Valid checkin_id?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Load Notification Context",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "No checkin_id - Nothing To Notify",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "description": "Adds a defensive checkin_id guard at the entry point, since WF-6 is now called from both WF-3a and WF-3c and a zero-row caller can hand it junk.",
+  "id": "6I6OC7qJ5YhhUQxU",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "name": "ElderWise WF-6 - CT Notification Dispatch",
+  "nodes": [
+    {
+      "id": "e3c0ff4e-37d1-4948-8353-b0f3047225f2",
+      "name": "Called With checkin_id",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        288
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "af67c1b4-8560-443d-a6b2-26db4f328792",
+      "name": "Valid checkin_id?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.checkin_id }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          }
+        }
+      },
+      "position": [
+        224,
+        288
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "9cf5b92f-7fbb-4589-b5f5-712e4350726f",
+      "name": "Load Notification Context",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $json.checkin_id }}"
+        },
+        "query": "SELECT c.id AS checkin_id, c.domain::text AS domain, c.status::text AS checkin_status, c.response_value, e.id AS elder_id, e.first_name AS elder_first_name, cp.id AS care_partner_id, cp.whatsapp_number AS cp_whatsapp, COALESCE(MIN(m.notify_care_partner::text), 'every_time') AS notify_mode, to_char(c.scheduled_for AT TIME ZONE cp.timezone, 'FMHH12:MI am') AS scheduled_label_cp, to_char(COALESCE(c.responded_at, now()) AT TIME ZONE cp.timezone, 'FMHH12:MI AM, FMDD Mon') AS responded_label_cp, CASE WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 12 THEN 'Morning' WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 17 THEN 'Afternoon' WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 21 THEN 'Evening' ELSE 'Night' END AS period_label, CASE c.response_value WHEN 'yes_all' THEN 'Taken' WHEN 'not_yet' THEN 'Not taken yet' WHEN 'some_of_them' THEN 'Partially taken' ELSE 'Recorded' END AS status_label FROM checkins c JOIN elders e ON e.id = c.elder_id JOIN care_partners cp ON cp.id = e.care_partner_id LEFT JOIN medications m ON m.elder_id = e.id AND m.enabled AND m.active AND to_char(c.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) WHERE c.id = $1::uuid GROUP BY c.id, c.domain, c.status, c.response_value, c.scheduled_for, c.responded_at, e.id, e.first_name, e.timezone, cp.id, cp.whatsapp_number, cp.timezone",
+        "resource": "database"
+      },
+      "position": [
+        448,
+        192
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "54f3d670-27b6-4d60-bef0-faeb6734e62d",
+      "name": "Should We Notify?",
+      "parameters": {
+        "jsCode": "const db = $input.first().json;\nconst called = $('Called With checkin_id').first().json;\n\nconst type = String(called.notification_type ?? 'interaction');\nconst mode = String(db.notify_mode ?? 'every_time');\n\n// Architecture 8 / WF-6: the OWNING ROUTINE's notify_care_partner is\n// authoritative. domain_configs.ct_notification is derived/deprecated (A-9).\n// not_required = total silence: no confirmation and no missed push. The miss\n// is still recorded in the DB and visible on the dashboard.\nlet shouldSend = false;\nif (mode !== 'not_required') {\n  if (type === 'missed') {\n    shouldSend = true;\n  } else if (mode === 'every_time') {\n    shouldSend = true;\n  } else if (mode === 'only_missed' && db.response_value === 'some_of_them') {\n    // Ruled by Talal 3 Aug 2026: a partial dose is closer to a miss than to a\n    // clean yes, so only_missed still notifies. Deliberate deviation from the\n    // literal reading of only_missed - do not 'fix' it back.\n    shouldSend = true;\n  }\n}\n\nconst domainLabel = db.domain === 'medication' ? 'Medication' : String(db.domain);\n\nreturn [{ json: Object.assign({}, db, { notification_type: type, should_send: shouldSend, is_missed: type === 'missed', routine_label_missed: db.period_label + ' ' + domainLabel, routine_label_interaction: domainLabel + ' (' + db.period_label + ')' }) }];",
+        "language": "javaScript",
+        "mode": "runOnceForAllItems"
+      },
+      "position": [
+        672,
+        192
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "dfb6f8c7-2a13-4af0-9ea0-6d30a5090928",
+      "name": "Send Notification?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.should_send }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          }
+        }
+      },
+      "position": [
+        896,
+        192
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "id": "5d4ed4bf-13f0-42d7-818f-d1e3161adb2f",
+      "name": "Missed Or Interaction?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.is_missed }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          }
+        }
+      },
+      "position": [
+        1120,
+        96
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Khl54gAdR4rvZaUO",
+          "name": "WhatsApp 966503330619"
+        }
+      },
+      "id": "fd8d8bd2-5abc-42ef-b069-30c5a94edd2d",
+      "name": "Send Missed Notice",
+      "parameters": {
+        "components": {
+          "component": [
+            {
+              "bodyParameters": {
+                "parameter": [
+                  {
+                    "text": "={{ $json.elder_first_name }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.routine_label_missed }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.scheduled_label_cp }}",
+                    "type": "text"
+                  }
+                ]
+              },
+              "type": "body"
+            }
+          ]
+        },
+        "operation": "sendTemplate",
+        "phoneNumberId": "1084405194760141",
+        "recipientPhoneNumber": "={{ $json.cp_whatsapp }}",
+        "resource": "message",
+        "template": "elderwise_ct_missed_notice|en"
+      },
+      "position": [
+        1344,
+        0
+      ],
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "webhookId": "36ad50d3-5626-491b-a5f3-0a5809b4af4e"
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "5ecc1cfb-2848-44c1-bda0-38be621ff367",
+      "name": "Log CT Notification (Missed)",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $('Should We Notify?').item.json.elder_id }},{{ $('Should We Notify?').item.json.care_partner_id }},{{ $('Should We Notify?').item.json.checkin_id }},{{ $json.messages[0].id }}"
+        },
+        "query": "INSERT INTO ct_notifications (elder_id, care_partner_id, type, checkin_id, wa_message_id, sent_at) VALUES ($1::uuid, $2::uuid, 'missed'::ct_notification_type, $3::uuid, $4::text, now()) RETURNING id, type::text AS type_text, wa_message_id",
+        "resource": "database"
+      },
+      "position": [
+        1568,
+        0
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Khl54gAdR4rvZaUO",
+          "name": "WhatsApp 966503330619"
+        }
+      },
+      "id": "3fb6691f-837b-4303-8a73-3e5c74e687e0",
+      "name": "Send Interaction Notice",
+      "parameters": {
+        "components": {
+          "component": [
+            {
+              "bodyParameters": {
+                "parameter": [
+                  {
+                    "text": "={{ $json.elder_first_name }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.routine_label_interaction }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.status_label }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.responded_label_cp }}",
+                    "type": "text"
+                  }
+                ]
+              },
+              "type": "body"
+            }
+          ]
+        },
+        "operation": "sendTemplate",
+        "phoneNumberId": "1084405194760141",
+        "recipientPhoneNumber": "={{ $json.cp_whatsapp }}",
+        "resource": "message",
+        "template": "elderwise_ct_interaction_notice|en"
+      },
+      "position": [
+        1344,
+        192
+      ],
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "webhookId": "569d3ab8-e623-4b3d-90f6-ce5318f451a1"
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "ab45862d-a14a-4e80-8d05-251f3d9db111",
+      "name": "Log CT Notification (Interaction)",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $('Should We Notify?').item.json.elder_id }},{{ $('Should We Notify?').item.json.care_partner_id }},{{ $('Should We Notify?').item.json.checkin_id }},{{ $json.messages[0].id }}"
+        },
+        "query": "INSERT INTO ct_notifications (elder_id, care_partner_id, type, checkin_id, wa_message_id, sent_at) VALUES ($1::uuid, $2::uuid, 'interaction'::ct_notification_type, $3::uuid, $4::text, now()) RETURNING id, type::text AS type_text, wa_message_id",
+        "resource": "database"
+      },
+      "position": [
+        1568,
+        192
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "a8cf8768-04be-4989-9e1c-ca49d90bf301",
+      "name": "Muted - No CT Push",
+      "parameters": {},
+      "position": [
+        1120,
+        288
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
+      "id": "30439b79-a47f-49b3-832e-f9b8af52c1a8",
+      "name": "No checkin_id - Nothing To Notify",
+      "parameters": {},
+      "position": [
+        448,
+        384
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null
+}

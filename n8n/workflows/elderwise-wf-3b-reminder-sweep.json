@@ -1,0 +1,171 @@
+{
+  "activeVersionId": "53aed425-31ce-4a87-a599-ce527844761e",
+  "connections": {
+    "Every Minute": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Find Due Reminders",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Find Due Reminders": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send Medication Reminder",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Send Medication Reminder": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Mark Reminded",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "description": "WF-3b reminder sweep. Sends exactly one reminder per check-in once escalation_minutes has elapsed since sent_at, then moves status to reminded. Not Yet replies stay sent so they are still reminded.",
+  "id": "5P19E5CPhA14K6fo",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "name": "ElderWise WF-3b - Reminder Sweep",
+  "nodes": [
+    {
+      "id": "d15d90eb-c2fe-4688-b0e4-023c56910d51",
+      "name": "Every Minute",
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        0
+      ],
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "7a62dce6-c69c-4b0a-b937-0e83d6e3e671",
+      "name": "Find Due Reminders",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10
+        },
+        "query": "SELECT c.id AS checkin_id, e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp, string_agg(m.name, ', ' ORDER BY m.name) AS medicine_list, CASE WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 12 THEN 'Morning' WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 17 THEN 'Afternoon' WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 21 THEN 'Evening' ELSE 'Night' END AS period_label FROM checkins c JOIN elders e ON e.id = c.elder_id JOIN medications m ON m.elder_id = e.id AND m.enabled AND m.active AND to_char(c.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) WHERE c.status = 'sent' AND c.domain = 'medication' AND e.active AND e.consent_confirmed_at IS NOT NULL AND c.sent_at IS NOT NULL GROUP BY c.id, c.sent_at, c.scheduled_for, e.first_name, e.whatsapp_number, e.timezone HAVING now() > c.sent_at + make_interval(mins => MIN(m.escalation_minutes)) ORDER BY c.scheduled_for LIMIT 10",
+        "resource": "database"
+      },
+      "position": [
+        224,
+        0
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Khl54gAdR4rvZaUO",
+          "name": "WhatsApp 966503330619"
+        }
+      },
+      "id": "eb668ca9-5b3d-48f3-8d2d-603957afd173",
+      "name": "Send Medication Reminder",
+      "parameters": {
+        "components": {
+          "component": [
+            {
+              "bodyParameters": {
+                "parameter": [
+                  {
+                    "text": "={{ $json.elder_first_name }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.period_label }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.medicine_list }}",
+                    "type": "text"
+                  }
+                ]
+              },
+              "type": "body"
+            }
+          ]
+        },
+        "operation": "sendTemplate",
+        "phoneNumberId": "1084405194760141",
+        "recipientPhoneNumber": "={{ $json.elder_whatsapp }}",
+        "resource": "message",
+        "template": "elderwise_ep_medication_reminder|en"
+      },
+      "position": [
+        448,
+        0
+      ],
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "webhookId": "0950c27d-c951-482a-872f-cf43b1e799cf"
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "90821a7f-7ff8-4f40-b6f1-ad25e2c15dec",
+      "name": "Mark Reminded",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $('Find Due Reminders').item.json.checkin_id }}"
+        },
+        "query": "UPDATE checkins SET status = 'reminded', reminder_sent_at = now() WHERE id = $1::uuid AND status = 'sent' RETURNING id AS checkin_id, status::text AS status_text, reminder_sent_at",
+        "resource": "database"
+      },
+      "position": [
+        672,
+        0
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": {
+    "node:Every Minute": {
+      "recurrenceRules": []
+    }
+  }
+}

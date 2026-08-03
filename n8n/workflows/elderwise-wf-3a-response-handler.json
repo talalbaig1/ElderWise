@@ -1,0 +1,195 @@
+{
+  "activeVersionId": "cf27d2b6-8b51-4f8b-b502-4b275b00accd",
+  "connections": {
+    "Called By WF-2a": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Find Open Check-in",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Find Open Check-in": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Open Check-in Found?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Open Check-in Found?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Record Response",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "No Open Check-in - Ignored",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Record Response": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Notify Care Partner (WF-6)",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "description": "WF-3a simplified to one mapped write covering all three medication buttons, then WF-6 decides whether the Care Partner hears about it. Not Yet keeps status sent so the reminder still arms.",
+  "id": "j0CWtHYyzplmad09",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "name": "ElderWise WF-3a - Response Handler",
+  "nodes": [
+    {
+      "id": "af8a5cf8-465b-4e6a-a151-375a6d33b18f",
+      "name": "Called By WF-2a",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        96
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "7bbdb58e-1617-4bce-b3d6-35632b4f88e3",
+      "name": "Find Open Check-in",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $json.sender_e164 }}"
+        },
+        "query": "SELECT (x.checkin_id IS NOT NULL) AS found, x.checkin_id, x.elder_id, x.status_text, x.scheduled_for FROM (SELECT 1) AS probe LEFT JOIN LATERAL (SELECT c.id AS checkin_id, c.elder_id, c.status::text AS status_text, c.scheduled_for FROM checkins c JOIN elders e ON e.id = c.elder_id WHERE e.whatsapp_number = $1::text AND e.active AND c.domain = 'medication' AND c.status IN ('sent','reminded') ORDER BY c.scheduled_for DESC LIMIT 1) x ON true",
+        "resource": "database"
+      },
+      "position": [
+        224,
+        96
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "5e115d0e-ce8b-4256-bb30-bc42cb7e64e3",
+      "name": "Open Check-in Found?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.checkin_id }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          }
+        }
+      },
+      "position": [
+        448,
+        96
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "24606f42-8ee2-4c6d-bced-11d3bab25da7",
+      "name": "Record Response",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $json.checkin_id }},{{ $('Called By WF-2a').first().json.button_norm }}"
+        },
+        "query": "WITH mapped AS (SELECT $1::uuid AS cid, CASE $2::text WHEN 'yes all' THEN 'yes_all' WHEN 'some of them' THEN 'some_of_them' WHEN 'not yet' THEN 'not_yet' ELSE 'unknown' END AS rv), upd AS (UPDATE checkins c SET response_channel = 'button', response_value = mapped.rv, responded_at = now(), status = CASE WHEN mapped.rv = 'not_yet' THEN c.status ELSE 'responded'::checkin_status END FROM mapped WHERE c.id = mapped.cid AND c.status IN ('sent','reminded') RETURNING c.id, c.elder_id, c.scheduled_for, c.response_value, c.status::text AS status_text), items AS (INSERT INTO checkin_medication_items (checkin_id, medication_id, taken) SELECT u.id, m.id, true FROM upd u JOIN elders e ON e.id = u.elder_id JOIN medications m ON m.elder_id = e.id AND m.enabled AND m.active AND to_char(u.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) WHERE u.response_value = 'yes_all' RETURNING 1) SELECT (SELECT id FROM upd) AS checkin_id, (SELECT response_value FROM upd) AS response_value, (SELECT status_text FROM upd) AS status_text, (SELECT count(*)::int FROM items) AS medicines_recorded, 'interaction' AS notification_type",
+        "resource": "database"
+      },
+      "position": [
+        672,
+        0
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "6a43f98e-3c7b-4064-a794-a8ab180f6bcd",
+      "name": "Notify Care Partner (WF-6)",
+      "parameters": {
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "6I6OC7qJ5YhhUQxU"
+        }
+      },
+      "position": [
+        896,
+        0
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3
+    },
+    {
+      "id": "1b8cbbf2-5b3f-49c9-ab34-994e918a0be6",
+      "name": "No Open Check-in - Ignored",
+      "parameters": {},
+      "position": [
+        672,
+        192
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null
+}
