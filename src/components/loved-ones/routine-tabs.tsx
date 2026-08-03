@@ -3,7 +3,7 @@
 import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { NotRequiredWarning, SegmentedNotify } from "@/components/onboarding/fields";
+import { NotRequiredWarning, NOTIFY_SELECT_OPTIONS } from "@/components/onboarding/fields";
 import { TimePicker } from "@/components/shared/time-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { DOSAGE_UNITS } from "@/lib/onboarding";
+import { DOSAGE_UNITS, type NotifyCarePartnerMode } from "@/lib/onboarding";
 import { createBlankFood, createBlankHealth, createBlankMedication } from "@/lib/loved-ones";
 import { useDomainStore } from "@/components/data/app-data-provider";
 import {
@@ -40,6 +40,30 @@ import {
 import { labelElderLocalTime } from "@/lib/time/display";
 import type { FoodRoutine, HealthRoutine, Medication, MedicationTiming } from "@/types";
 import { useRouter } from "next/navigation";
+
+/** Same control as onboarding Wellness Details — fits a 3-column row. */
+function NotifySelect({
+  value,
+  onChange,
+}: {
+  value: NotifyCarePartnerMode;
+  onChange: (value: NotifyCarePartnerMode) => void;
+}) {
+  return (
+    <Select value={value} onValueChange={(v) => onChange(v as NotifyCarePartnerMode)}>
+      <SelectTrigger>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {NOTIFY_SELECT_OPTIONS.map((opt) => (
+          <SelectItem key={opt.value} value={opt.value}>
+            {opt.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 export function MedicationTab({
   lovedOneId,
@@ -241,7 +265,7 @@ export function MedicationTab({
                     </Select>
                   </Field>
                   <Field label="Notify Care Partner">
-                    <SegmentedNotify
+                    <NotifySelect
                       value={editing.notifyCarePartner}
                       onChange={(notifyCarePartner) =>
                         setEditing({ ...editing, notifyCarePartner })
@@ -389,7 +413,7 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
                   onChange={(checkInTime) => setEditing({ ...editing, checkInTime })}
                 />
                 <Field label="Notify Care Partner">
-                  <SegmentedNotify
+                  <NotifySelect
                     value={editing.notifyCarePartner}
                     onChange={(notifyCarePartner) =>
                       setEditing({ ...editing, notifyCarePartner })
@@ -518,7 +542,7 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
                   onChange={(time) => setEditing({ ...editing, time })}
                 />
                 <Field label="Notify Care Partner">
-                  <SegmentedNotify
+                  <NotifySelect
                     value={editing.notifyCarePartner}
                     onChange={(notifyCarePartner) =>
                       setEditing({ ...editing, notifyCarePartner })
