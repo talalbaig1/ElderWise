@@ -1,0 +1,863 @@
+{
+  "activeVersionId": null,
+  "connections": {
+    "Build Dispatch Parameters": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send SOS Alert To CT",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Has Buddy?",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Doctor Sendable?",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Send Elder Acknowledgement",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Called By WF-2a": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Valid elder_id?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Care Circle Loaded?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Mint Doctor Share Link",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Care Circle Missing",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Doctor On Record?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Log Doctor Skip",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "No Doctor On Record",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Doctor Sendable?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send SOS Alert To Doctor",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Doctor On Record?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Has Buddy?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send SOS Alert To Buddy",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "No Buddy On Record",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Have SOS Event?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Load Care Circle",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "SOS Event Not Created",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Load Care Circle": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Care Circle Loaded?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Mint Doctor Share Link": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Build Dispatch Parameters",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Open Or Create SOS Event": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Have SOS Event?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Send SOS Alert To Buddy": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Log SOS Notification (Buddy)",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Send SOS Alert To CT": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Log SOS Notification (CT)",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Send SOS Alert To Doctor": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Log SOS Notification (Doctor)",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Valid elder_id?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Open Or Create SOS Event",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "No elder_id - Nothing To Dispatch",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "description": "WF-4 SOS orchestrator. Creates or reuses the open sos_event, loads the care circle, mints a doctor share link (fail-open to NA), dispatches templates 10/11/12 in parallel at nudge_index 0, logs every send and skip, and acknowledges the elder.",
+  "id": "HSEp1YhQFHjga9qa",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "name": "ElderWise WF-4 - SOS Orchestrator",
+  "nodes": [
+    {
+      "id": "c649e18f-5ffb-4ed5-8699-dd57e05bc037",
+      "name": "Called By WF-2a",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        864
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "3bfb99df-1327-46d4-8fca-f4c4afd0f910",
+      "name": "Valid elder_id?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.elder_id }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          }
+        }
+      },
+      "position": [
+        224,
+        864
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "4d9962b6-a8a5-4d1b-9b26-ffa5b118a13c",
+      "name": "Open Or Create SOS Event",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $json.elder_id }}"
+        },
+        "query": "WITH existing AS (SELECT id FROM sos_events WHERE elder_id = $1::uuid AND status = 'open' ORDER BY triggered_at DESC LIMIT 1), inserted AS (INSERT INTO sos_events (elder_id, triggered_at, status, nudges_sent) SELECT $1::uuid, now(), 'open'::sos_status, 0 WHERE NOT EXISTS (SELECT 1 FROM existing) RETURNING id) SELECT COALESCE((SELECT id FROM existing), (SELECT id FROM inserted)) AS sos_event_id, ((SELECT id FROM existing) IS NOT NULL) AS reused",
+        "resource": "database"
+      },
+      "position": [
+        448,
+        768
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "f2d22318-d6ca-4dfc-90ae-93a5310364c8",
+      "name": "Have SOS Event?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.sos_event_id }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          }
+        }
+      },
+      "position": [
+        672,
+        768
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "8ee7ce26-5153-4dd8-aa46-23b7a7fab5f1",
+      "name": "Load Care Circle",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $json.sos_event_id }}"
+        },
+        "query": "SELECT s.id AS sos_event_id, e.id AS elder_id, e.first_name AS elder_first_name, e.first_name || ' ' || e.last_name AS elder_full_name, e.whatsapp_number AS elder_whatsapp, e.address AS elder_address, cp.id AS ct_id, cp.first_name || ' ' || cp.last_name AS ct_full_name, cp.whatsapp_number AS ct_number, lc.id AS lct_id, lc.first_name AS lct_first_name, lc.whatsapp_number AS lct_number, COALESCE(lc.first_name || ' ' || lc.last_name, 'NA') AS lct_name_na, COALESCE(lc.whatsapp_number, 'NA') AS lct_number_na, d.id AS dr_id, d.whatsapp_number AS dr_number, COALESCE(d.first_name || ' ' || d.last_name, 'NA') AS dr_name_na, COALESCE(d.clinic_name, 'NA') AS dr_clinic_na, (lc.id IS NOT NULL) AS has_lct, (d.id IS NOT NULL) AS has_dr, (d.id IS NOT NULL AND d.whatsapp_number IS NOT NULL) AS dr_sendable, to_char(s.triggered_at AT TIME ZONE cp.timezone, 'FMHH12:MI AM') AS triggered_label_ct, to_char(s.triggered_at AT TIME ZONE e.timezone, 'FMHH12:MI AM') AS triggered_label_elder FROM sos_events s JOIN elders e ON e.id = s.elder_id JOIN care_partners cp ON cp.id = e.care_partner_id LEFT JOIN local_caregivers lc ON lc.elder_id = e.id LEFT JOIN doctors d ON d.elder_id = e.id WHERE s.id = $1::uuid",
+        "resource": "database"
+      },
+      "position": [
+        896,
+        672
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "b11e52eb-b593-4bde-9ea0-49bd640f348b",
+      "name": "Care Circle Loaded?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.ct_number }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          }
+        }
+      },
+      "position": [
+        1120,
+        672
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "d1a61f51-48e3-4b03-ac0e-67cff4e6793e",
+      "name": "Mint Doctor Share Link",
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $json.elder_id }}"
+        },
+        "query": "WITH circle AS (SELECT d.id AS dr_id, e.care_partner_id FROM elders e JOIN doctors d ON d.elder_id = e.id WHERE e.id = $1::uuid AND d.whatsapp_number IS NOT NULL), t AS (SELECT encode(extensions.gen_random_bytes(32), 'hex') AS raw FROM circle), ins AS (INSERT INTO doctor_share_links (elder_id, token_hash, created_by, expires_at) SELECT $1::uuid, encode(extensions.digest(t.raw, 'sha256'), 'hex'), circle.care_partner_id, now() + interval '30 days' FROM t, circle RETURNING id) SELECT (SELECT raw FROM t) AS raw_token, (SELECT id FROM ins) AS share_link_id",
+        "resource": "database"
+      },
+      "position": [
+        1344,
+        576
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "641fc61b-ad16-4059-acbc-d511aabba204",
+      "name": "Build Dispatch Parameters",
+      "parameters": {
+        "jsCode": "const c = $('Load Care Circle').first().json;\n\nlet rawToken = '';\ntry { rawToken = $('Mint Doctor Share Link').first().json.raw_token || ''; } catch (e) { rawToken = ''; }\n\nconst reportLink = rawToken ? 'https://elder-wise-seven.vercel.app/share/' + rawToken : 'NA';\n\nconst buddyFirst = c.lct_first_name || '';\nlet who = \"I've let your family know right away.\";\nif (c.has_lct === true && c.dr_sendable === true) { who = \"I've let your family know, and \" + buddyFirst + \" and your doctor as well.\"; }\nelse if (c.has_lct === true) { who = \"I've let your family know, and \" + buddyFirst + \" as well.\"; }\nelse if (c.dr_sendable === true) { who = \"I've let your family know, and your doctor as well.\"; }\n\nconst ackText = c.elder_first_name + ', ' + who + \" Help is on the way. Stay where you are \\u2014 you're not alone.\";\n\nreturn [{ json: Object.assign({}, c, { report_link: reportLink, share_link_minted: rawToken.length > 0, elder_ack_text: ackText }) }];",
+        "language": "javaScript",
+        "mode": "runOnceForAllItems"
+      },
+      "position": [
+        1568,
+        576
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "1dc9202a-4053-4a3a-9eb0-8bcb9db0356a",
+      "name": "Care Circle Missing",
+      "parameters": {},
+      "position": [
+        1344,
+        768
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
+      "id": "3490ff93-0753-452f-a21e-971a1bac57b4",
+      "name": "SOS Event Not Created",
+      "parameters": {},
+      "position": [
+        896,
+        864
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
+      "id": "d1bca41e-64b0-499f-9b0e-1166e9bfca8a",
+      "name": "No elder_id - Nothing To Dispatch",
+      "parameters": {},
+      "position": [
+        448,
+        960
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Khl54gAdR4rvZaUO",
+          "name": "WhatsApp 966503330619"
+        }
+      },
+      "id": "14baefa7-d7cd-408d-ab82-5a14a9d33cb0",
+      "name": "Send SOS Alert To CT",
+      "parameters": {
+        "components": {
+          "component": [
+            {
+              "bodyParameters": {
+                "parameter": [
+                  {
+                    "text": "={{ $json.elder_first_name }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.triggered_label_ct }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.lct_name_na }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.dr_name_na }}",
+                    "type": "text"
+                  }
+                ]
+              },
+              "type": "body"
+            }
+          ]
+        },
+        "operation": "sendTemplate",
+        "phoneNumberId": "1084405194760141",
+        "recipientPhoneNumber": "={{ $json.ct_number }}",
+        "resource": "message",
+        "template": "elderwise_sos_alert_ct|en"
+      },
+      "position": [
+        1792,
+        0
+      ],
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "webhookId": "6daf49df-1622-4a6e-8803-01fa9131b9e3"
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "5f137b26-8427-4cd9-9bbf-7f1d610f39f6",
+      "name": "Log SOS Notification (CT)",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $('Build Dispatch Parameters').item.json.sos_event_id }},{{ $('Build Dispatch Parameters').item.json.ct_id }},{{ $json.messages[0].id }}"
+        },
+        "query": "INSERT INTO sos_notifications (sos_event_id, recipient_role, recipient_id, nudge_index, status, wa_message_id, sent_at) VALUES ($1::uuid, 'care_partner'::sos_recipient_role, $2::uuid, 0, 'sent'::sos_notification_status, $3::text, now()) RETURNING id, recipient_role::text AS role, wa_message_id",
+        "resource": "database"
+      },
+      "position": [
+        2016,
+        0
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "8ea25b17-757e-4605-a5ee-9e1c7dc8775b",
+      "name": "Has Buddy?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.has_lct }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          }
+        }
+      },
+      "position": [
+        1792,
+        288
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Khl54gAdR4rvZaUO",
+          "name": "WhatsApp 966503330619"
+        }
+      },
+      "id": "5d9e20a4-7e89-460e-ab76-ab9fd9c0d3f7",
+      "name": "Send SOS Alert To Buddy",
+      "parameters": {
+        "components": {
+          "component": [
+            {
+              "bodyParameters": {
+                "parameter": [
+                  {
+                    "text": "={{ $json.elder_first_name }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.triggered_label_elder }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.elder_address }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.dr_name_na }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.dr_clinic_na }}",
+                    "type": "text"
+                  }
+                ]
+              },
+              "type": "body"
+            }
+          ]
+        },
+        "operation": "sendTemplate",
+        "phoneNumberId": "1084405194760141",
+        "recipientPhoneNumber": "={{ $json.lct_number }}",
+        "resource": "message",
+        "template": "elderwise_sos_alert_lct|en"
+      },
+      "position": [
+        2016,
+        192
+      ],
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "webhookId": "36fafa3d-4d10-490d-b9bb-46465f397236"
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "f532a056-9575-4ab0-a086-50ccb68a2e14",
+      "name": "Log SOS Notification (Buddy)",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $('Build Dispatch Parameters').item.json.sos_event_id }},{{ $('Build Dispatch Parameters').item.json.lct_id }},{{ $json.messages[0].id }}"
+        },
+        "query": "INSERT INTO sos_notifications (sos_event_id, recipient_role, recipient_id, nudge_index, status, wa_message_id, sent_at) VALUES ($1::uuid, 'local_caregiver'::sos_recipient_role, $2::uuid, 0, 'sent'::sos_notification_status, $3::text, now()) RETURNING id, recipient_role::text AS role, wa_message_id",
+        "resource": "database"
+      },
+      "position": [
+        2240,
+        192
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "733153ef-f501-4b4d-ac7b-636108d87ad2",
+      "name": "No Buddy On Record",
+      "parameters": {},
+      "position": [
+        2016,
+        384
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
+      "id": "a1269c07-1075-492f-baec-6fbf3bea2ae7",
+      "name": "Doctor Sendable?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.dr_sendable }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          }
+        }
+      },
+      "position": [
+        1792,
+        768
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Khl54gAdR4rvZaUO",
+          "name": "WhatsApp 966503330619"
+        }
+      },
+      "id": "ad54f365-38af-4a70-9752-d5652217019c",
+      "name": "Send SOS Alert To Doctor",
+      "parameters": {
+        "components": {
+          "component": [
+            {
+              "bodyParameters": {
+                "parameter": [
+                  {
+                    "text": "={{ $json.elder_full_name }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.triggered_label_elder }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.report_link }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.lct_name_na }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.lct_number_na }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.ct_full_name }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.ct_number }}",
+                    "type": "text"
+                  }
+                ]
+              },
+              "type": "body"
+            }
+          ]
+        },
+        "operation": "sendTemplate",
+        "phoneNumberId": "1084405194760141",
+        "recipientPhoneNumber": "={{ $json.dr_number }}",
+        "resource": "message",
+        "template": "elderwise_sos_alert_doctor|en"
+      },
+      "position": [
+        2016,
+        576
+      ],
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "webhookId": "a4cccce9-a084-4568-8fb6-4bc20783e3c2"
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "d9eea305-d914-4ea8-b0e2-9d6d3454e222",
+      "name": "Log SOS Notification (Doctor)",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $('Build Dispatch Parameters').item.json.sos_event_id }},{{ $('Build Dispatch Parameters').item.json.dr_id }},{{ $json.messages[0].id }}"
+        },
+        "query": "INSERT INTO sos_notifications (sos_event_id, recipient_role, recipient_id, nudge_index, status, wa_message_id, sent_at) VALUES ($1::uuid, 'doctor'::sos_recipient_role, $2::uuid, 0, 'sent'::sos_notification_status, $3::text, now()) RETURNING id, recipient_role::text AS role, wa_message_id",
+        "resource": "database"
+      },
+      "position": [
+        2240,
+        576
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "7ef72262-d7c0-4545-aa9f-1eff1538e30d",
+      "name": "Doctor On Record?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.has_dr }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          }
+        }
+      },
+      "position": [
+        2016,
+        864
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "3ced3372-6c1a-4eb4-9abe-d6097afc7c80",
+      "name": "Log Doctor Skip",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $('Build Dispatch Parameters').item.json.sos_event_id }},{{ $('Build Dispatch Parameters').item.json.dr_id }}"
+        },
+        "query": "INSERT INTO sos_notifications (sos_event_id, recipient_role, recipient_id, nudge_index, status, skip_reason) VALUES ($1::uuid, 'doctor'::sos_recipient_role, $2::uuid, 0, 'skipped'::sos_notification_status, 'no_whatsapp_number') RETURNING id, status::text AS status_text, skip_reason",
+        "resource": "database"
+      },
+      "position": [
+        2240,
+        768
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "c9b7248e-20dd-4753-93b8-e6f4416af575",
+      "name": "No Doctor On Record",
+      "parameters": {},
+      "position": [
+        2240,
+        960
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Khl54gAdR4rvZaUO",
+          "name": "WhatsApp 966503330619"
+        }
+      },
+      "id": "743f81b3-2ad0-4b01-8f23-56363d776cb6",
+      "name": "Send Elder Acknowledgement",
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "messageType": "text",
+        "operation": "send",
+        "phoneNumberId": "1084405194760141",
+        "recipientPhoneNumber": "={{ $json.elder_whatsapp }}",
+        "resource": "message",
+        "textBody": "={{ $json.elder_ack_text }}"
+      },
+      "position": [
+        1792,
+        960
+      ],
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "webhookId": "698db8b7-2bd6-44f4-9577-5d02dd1c2567"
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null
+}

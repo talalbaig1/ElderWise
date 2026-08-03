@@ -1,0 +1,87 @@
+{
+  "activeVersionId": null,
+  "connections": {
+    "Run Test SOS": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Supply elder_id",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Supply elder_id": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Call WF-4 SOS Orchestrator",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "description": "Throwaway manual-trigger harness that calls WF-4 with the live elder_id. Delete before demo.",
+  "id": "ds6KxuwoK6YOPKpU",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "name": "ElderWise - ZZ WF-4 Test Harness (delete me)",
+  "nodes": [
+    {
+      "id": "ac8d359b-f1d9-4a90-b6d3-b2a4aebe656d",
+      "name": "Run Test SOS",
+      "position": [
+        0,
+        0
+      ],
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1
+    },
+    {
+      "id": "63e69a7a-c1ff-4970-8af5-e5b50baf6c61",
+      "name": "Supply elder_id",
+      "parameters": {
+        "jsCode": "return [{ json: { elder_id: 'f1d624f1-38c4-41dd-920a-9f65aa967ebf' } }];",
+        "language": "javaScript",
+        "mode": "runOnceForAllItems"
+      },
+      "position": [
+        224,
+        0
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "c04671cc-f698-4e5c-9d6b-e39c674b456d",
+      "name": "Call WF-4 SOS Orchestrator",
+      "parameters": {
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "HSEp1YhQFHjga9qa"
+        }
+      },
+      "position": [
+        448,
+        0
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null
+}
