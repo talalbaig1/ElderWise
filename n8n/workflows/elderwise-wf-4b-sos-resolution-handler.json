@@ -1,0 +1,224 @@
+{
+  "activeVersionId": "cee0db77-4a4c-4654-a7d7-497bc8d1c04c",
+  "connections": {
+    "Attribute And Resolve": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Resolution Written?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Called By WF-2a": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Valid context_wamid?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Resolution Written?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Call WF-4c Resolution Broadcast",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "No Open SOS For This Reply",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Valid context_wamid?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Attribute And Resolve",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "No context_wamid - Cannot Attribute",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "description": "WF-4b SOS resolution handler. Attributes by context.id, writes the resolution, calls WF-4c. Retry 3x on the DB write and the broadcast call; failures propagate loudly so the Error Workflow fires.",
+  "id": "jh2P2gibpCsnyhoy",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "name": "ElderWise WF-4b - SOS Resolution Handler",
+  "nodes": [
+    {
+      "id": "936d037a-eaba-4c5a-9ff6-74074695a935",
+      "name": "Called By WF-2a",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        192
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "40747f66-8faf-430a-83fd-fdfc481e0613",
+      "name": "Valid context_wamid?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.context_wamid }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          }
+        }
+      },
+      "position": [
+        224,
+        192
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "1e872578-5e15-4f45-9d7e-f4f3040c9d1d",
+      "name": "Attribute And Resolve",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $json.context_wamid }}"
+        },
+        "query": "WITH target AS (SELECT n.sos_event_id, n.recipient_role, n.recipient_id, n.nudge_index FROM sos_notifications n WHERE n.wa_message_id = $1::text AND n.status = 'sent' LIMIT 1) UPDATE sos_events s SET status = 'resolved'::sos_status, resolved_by_role = t.recipient_role::text::sos_resolver_role, resolved_by_id = t.recipient_id, resolved_channel = 'whatsapp'::sos_resolve_channel, resolved_at = now() FROM target t WHERE s.id = t.sos_event_id AND s.status = 'open' RETURNING s.id AS sos_event_id, s.elder_id, s.resolved_by_role::text AS resolved_by_role, s.resolved_by_id, s.resolved_channel::text AS resolved_channel, s.resolved_at, t.nudge_index AS answered_nudge_index",
+        "resource": "database"
+      },
+      "position": [
+        448,
+        96
+      ],
+      "retryOnFail": true,
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "108b0a83-c702-48ca-bccb-462f728f8518",
+      "name": "Resolution Written?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.sos_event_id }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          }
+        }
+      },
+      "position": [
+        672,
+        96
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "id": "c329ef7a-cbf4-4e67-8b12-ca3cb7f0a8e5",
+      "name": "Call WF-4c Resolution Broadcast",
+      "parameters": {
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Baydb7saYNyAayMC"
+        }
+      },
+      "position": [
+        896,
+        0
+      ],
+      "retryOnFail": true,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3
+    },
+    {
+      "id": "ca1934f2-f654-4d04-8a13-49532af29dbf",
+      "name": "No Open SOS For This Reply",
+      "parameters": {},
+      "position": [
+        896,
+        192
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
+      "id": "0debc648-f8d0-464e-b7d8-ac78a65e2e1b",
+      "name": "No context_wamid - Cannot Attribute",
+      "parameters": {},
+      "position": [
+        448,
+        288
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    }
+  ],
+  "settings": {
+    "binaryMode": "separate",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "uvBstI6J42nNhIYz",
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed"
+  },
+  "staticData": null
+}

@@ -1,0 +1,249 @@
+{
+  "activeVersionId": "f5e6e0f9-b169-4774-b0fe-f46925983487",
+  "connections": {
+    "Any Recipients To Notify?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send SOS Resolved Notice",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Nothing To Broadcast",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Called With sos_event_id": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Valid sos_event_id?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Load Broadcast Recipients": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Any Recipients To Notify?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Valid sos_event_id?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Load Broadcast Recipients",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "No sos_event_id - Nothing To Broadcast",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "description": "WF-4c SOS resolution broadcast. Sends template 14 to every recipient of a sent alert. Guarded: a CTE SELECT returning zero rows emits success:true, so an explicit gate sits before the send.",
+  "id": "Baydb7saYNyAayMC",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "name": "ElderWise WF-4c - SOS Resolution Broadcast",
+  "nodes": [
+    {
+      "id": "e292076b-d801-4602-b1a4-2edb6ccccd33",
+      "name": "Called With sos_event_id",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        192
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "da59e261-52e9-44b8-bdd9-53bc414292df",
+      "name": "Valid sos_event_id?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.sos_event_id }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          }
+        }
+      },
+      "position": [
+        224,
+        192
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "65601ae7-e2de-409d-82c0-86461603ddc0",
+      "name": "Load Broadcast Recipients",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $json.sos_event_id }}"
+        },
+        "query": "WITH ev AS (SELECT s.id, s.elder_id, s.resolved_at, s.resolved_by_role, s.resolved_by_id FROM sos_events s WHERE s.id = $1::uuid AND s.status = 'resolved'), resolver AS (SELECT COALESCE(rcp.first_name, rlc.first_name, rd.first_name, 'Someone') AS resolver_first_name FROM ev LEFT JOIN care_partners rcp ON ev.resolved_by_role = 'care_partner' AND rcp.id = ev.resolved_by_id LEFT JOIN local_caregivers rlc ON ev.resolved_by_role = 'local_caregiver' AND rlc.id = ev.resolved_by_id LEFT JOIN doctors rd ON ev.resolved_by_role = 'doctor' AND rd.id = ev.resolved_by_id), recips AS (SELECT DISTINCT n.recipient_role, n.recipient_id FROM sos_notifications n JOIN ev ON n.sos_event_id = ev.id WHERE n.status = 'sent') SELECT ev.id AS sos_event_id, e.first_name AS elder_first_name, r.recipient_role::text AS recipient_role, r.recipient_id, CASE r.recipient_role WHEN 'care_partner' THEN cp.whatsapp_number WHEN 'local_caregiver' THEN lc.whatsapp_number WHEN 'doctor' THEN d.whatsapp_number END AS recipient_number, resolver.resolver_first_name, to_char(ev.resolved_at AT TIME ZONE (CASE r.recipient_role WHEN 'care_partner' THEN cp.timezone ELSE e.timezone END), 'FMHH12:MI AM') AS resolved_label FROM recips r CROSS JOIN ev CROSS JOIN resolver JOIN elders e ON e.id = ev.elder_id LEFT JOIN care_partners cp ON cp.id = r.recipient_id AND r.recipient_role = 'care_partner' LEFT JOIN local_caregivers lc ON lc.id = r.recipient_id AND r.recipient_role = 'local_caregiver' LEFT JOIN doctors d ON d.id = r.recipient_id AND r.recipient_role = 'doctor'",
+        "resource": "database"
+      },
+      "position": [
+        448,
+        96
+      ],
+      "retryOnFail": true,
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "dbd0054c-71d3-47ae-a8e4-301a202ed553",
+      "name": "Any Recipients To Notify?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.recipient_number }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          }
+        }
+      },
+      "position": [
+        672,
+        96
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Khl54gAdR4rvZaUO",
+          "name": "WhatsApp 966503330619"
+        }
+      },
+      "id": "ed94c464-9278-42ea-b910-111f9b09a28a",
+      "name": "Send SOS Resolved Notice",
+      "parameters": {
+        "components": {
+          "component": [
+            {
+              "bodyParameters": {
+                "parameter": [
+                  {
+                    "text": "={{ $json.elder_first_name }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.resolver_first_name }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.resolved_label }}",
+                    "type": "text"
+                  }
+                ]
+              },
+              "type": "body"
+            }
+          ]
+        },
+        "operation": "sendTemplate",
+        "phoneNumberId": "1084405194760141",
+        "recipientPhoneNumber": "={{ $json.recipient_number }}",
+        "resource": "message",
+        "template": "elderwise_sos_resolved|en"
+      },
+      "position": [
+        896,
+        0
+      ],
+      "retryOnFail": true,
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "webhookId": "83506007-fbb5-4062-a5a2-848308706beb"
+    },
+    {
+      "id": "06fc0d77-0d72-4ff4-bd01-98f55d5cfc6d",
+      "name": "Nothing To Broadcast",
+      "parameters": {},
+      "position": [
+        896,
+        192
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
+      "id": "8423e32f-1225-46e3-984a-ef4ebac469c5",
+      "name": "No sos_event_id - Nothing To Broadcast",
+      "parameters": {},
+      "position": [
+        448,
+        288
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    }
+  ],
+  "settings": {
+    "binaryMode": "separate",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "uvBstI6J42nNhIYz",
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed"
+  },
+  "staticData": null
+}

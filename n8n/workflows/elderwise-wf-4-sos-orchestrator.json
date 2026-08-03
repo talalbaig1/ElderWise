@@ -1,5 +1,5 @@
 {
-  "activeVersionId": null,
+  "activeVersionId": "d2add561-4e0b-4455-bced-6c5d27232494",
   "connections": {
     "Build Dispatch Parameters": {
       "main": [
@@ -857,7 +857,11 @@
     }
   ],
   "settings": {
-    "executionOrder": "v1"
+    "binaryMode": "separate",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "uvBstI6J42nNhIYz",
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed"
   },
   "staticData": null
 }

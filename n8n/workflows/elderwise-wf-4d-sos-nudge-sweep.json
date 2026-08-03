@@ -1,0 +1,264 @@
+{
+  "activeVersionId": "6c5d654e-8666-49c9-b862-b81835e16bb4",
+  "connections": {
+    "Any Nudge Due?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send SOS Nudge",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "No Nudge Due This Minute",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Every Minute": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Find Due Nudge Recipients",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Find Due Nudge Recipients": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Any Nudge Due?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Log Nudge Notification": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Increment Nudges Sent",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Send SOS Nudge": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Log Nudge Notification",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "description": "WF-4d SOS nudge sweep, cron 1 min. Guarded: a CTE SELECT returning zero rows emits success:true, not an empty set, so an explicit gate sits before the send.",
+  "id": "EY36qDhdv5FqfL0W",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "name": "ElderWise WF-4d - SOS Nudge Sweep",
+  "nodes": [
+    {
+      "id": "92e92c56-1c6e-4294-b327-0578d20ec7af",
+      "name": "Every Minute",
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        96
+      ],
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "0f1ab52d-1962-40f5-b554-e3594bdd0285",
+      "name": "Find Due Nudge Recipients",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10
+        },
+        "query": "WITH due AS (SELECT s.id, s.elder_id, s.triggered_at, s.nudges_sent + 1 AS next_nudge_index FROM sos_events s WHERE s.status = 'open' AND s.nudges_sent < 3 AND now() > (SELECT MAX(n.sent_at) FROM sos_notifications n WHERE n.sos_event_id = s.id AND n.status = 'sent') + interval '2 minutes' ORDER BY s.triggered_at LIMIT 1), recips AS (SELECT DISTINCT n.recipient_role, n.recipient_id FROM sos_notifications n JOIN due ON n.sos_event_id = due.id WHERE n.status = 'sent') SELECT due.id AS sos_event_id, due.next_nudge_index, e.first_name AS elder_first_name, r.recipient_role::text AS recipient_role, r.recipient_id, CASE r.recipient_role WHEN 'care_partner' THEN cp.whatsapp_number WHEN 'local_caregiver' THEN lc.whatsapp_number WHEN 'doctor' THEN d.whatsapp_number END AS recipient_number, to_char(due.triggered_at AT TIME ZONE (CASE r.recipient_role WHEN 'care_partner' THEN cp.timezone ELSE e.timezone END), 'FMHH12:MI AM') AS triggered_label FROM recips r CROSS JOIN due JOIN elders e ON e.id = due.elder_id LEFT JOIN care_partners cp ON cp.id = r.recipient_id AND r.recipient_role = 'care_partner' LEFT JOIN local_caregivers lc ON lc.id = r.recipient_id AND r.recipient_role = 'local_caregiver' LEFT JOIN doctors d ON d.id = r.recipient_id AND r.recipient_role = 'doctor'",
+        "resource": "database"
+      },
+      "position": [
+        224,
+        96
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "41824204-94c5-44bd-b6ad-e927ceb800ff",
+      "name": "Any Nudge Due?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.recipient_number }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          }
+        }
+      },
+      "position": [
+        448,
+        96
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Khl54gAdR4rvZaUO",
+          "name": "WhatsApp 966503330619"
+        }
+      },
+      "id": "6790103f-7c84-4a58-a3a1-5727a86c8107",
+      "name": "Send SOS Nudge",
+      "parameters": {
+        "components": {
+          "component": [
+            {
+              "bodyParameters": {
+                "parameter": [
+                  {
+                    "text": "={{ $json.elder_first_name }}",
+                    "type": "text"
+                  },
+                  {
+                    "text": "={{ $json.triggered_label }}",
+                    "type": "text"
+                  }
+                ]
+              },
+              "type": "body"
+            }
+          ]
+        },
+        "operation": "sendTemplate",
+        "phoneNumberId": "1084405194760141",
+        "recipientPhoneNumber": "={{ $json.recipient_number }}",
+        "resource": "message",
+        "template": "elderwise_sos_nudge|en"
+      },
+      "position": [
+        672,
+        0
+      ],
+      "retryOnFail": true,
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "webhookId": "4acc3b7a-8527-4948-91d2-749d6e4026fb"
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "e9cc1438-a79a-4469-a419-1b5ed0e99ef6",
+      "name": "Log Nudge Notification",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $('Any Nudge Due?').item.json.sos_event_id }},{{ $('Any Nudge Due?').item.json.recipient_role }},{{ $('Any Nudge Due?').item.json.recipient_id }},{{ $('Any Nudge Due?').item.json.next_nudge_index }},{{ $json.messages[0].id }}"
+        },
+        "query": "INSERT INTO sos_notifications (sos_event_id, recipient_role, recipient_id, nudge_index, status, wa_message_id, sent_at) VALUES ($1::uuid, $2::sos_recipient_role, $3::uuid, $4::int, 'sent'::sos_notification_status, $5::text, now()) RETURNING id, nudge_index, recipient_role::text AS role",
+        "resource": "database"
+      },
+      "position": [
+        896,
+        0
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "executeOnce": true,
+      "id": "87d4db5f-be55-486d-b7af-97ea478d8080",
+      "name": "Increment Nudges Sent",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $('Any Nudge Due?').first().json.sos_event_id }}"
+        },
+        "query": "UPDATE sos_events SET nudges_sent = nudges_sent + 1 WHERE id = $1::uuid AND status = 'open' AND nudges_sent < 3 RETURNING id AS sos_event_id, nudges_sent, status::text AS status",
+        "resource": "database"
+      },
+      "position": [
+        1120,
+        0
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "07f8d94b-4079-4d0b-9cf3-699a590822c5",
+      "name": "No Nudge Due This Minute",
+      "parameters": {},
+      "position": [
+        672,
+        192
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": {
+    "node:Every Minute": {
+      "recurrenceRules": []
+    }
+  }
+}

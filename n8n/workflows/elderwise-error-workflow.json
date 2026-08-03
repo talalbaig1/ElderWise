@@ -1,0 +1,101 @@
+{
+  "activeVersionId": "9fd3eb6e-8a26-4ca0-ad15-5a3b186bc660",
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send a text message",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Send a message",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "description": null,
+  "id": "uvBstI6J42nNhIYz",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "ElderWise Error Workflow",
+  "nodes": [
+    {
+      "id": "b488ee28-88b5-47f9-8ed5-a970e51bd5e5",
+      "name": "Error Trigger",
+      "parameters": {},
+      "position": [
+        0,
+        0
+      ],
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "telegramApi": {
+          "id": "kKnHoYC1CAK381fa",
+          "name": "Laila_neversleeps_bot"
+        }
+      },
+      "id": "13ae37a4-3ce9-4589-8a53-dbf058ab8bd5",
+      "name": "Send a text message",
+      "parameters": {
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        },
+        "chatId": "776765063",
+        "text": "=There is an error in your workflow : \n\nAddress: {{ $json.execution.url }}\n\nWorkflow: {{ $json.workflow.name }}\n\nError: \n{{ $json.execution.error.message }}\n<code>{{ JSON.stringify($json.execution.error.messages[0]) }}</code>\n\nNode: \n{{ $json.execution.error.node.type }}\n{{ $json.execution.lastNodeExecuted }}\n\nMode: {{ $json.execution.mode }}"
+      },
+      "position": [
+        208,
+        0
+      ],
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "webhookId": "e85a08fd-1cc2-4c69-b9c3-cd70006e868b"
+    },
+    {
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "trL46GcpmkGxJNnm",
+          "name": "Gmail talalbaig@gmail.com"
+        }
+      },
+      "id": "3b06a0a7-85f8-4e67-9aa5-5f64785a869c",
+      "name": "Send a message",
+      "parameters": {
+        "emailType": "text",
+        "message": "=There is an error in your workflow : \n\nAddress: {{ $json.execution.url }}\n\nWorkflow: {{ $json.workflow.name }}\n\nError: \n{{ $json.execution.error.message }}\n{{ $json.execution.error.messages[0] }}\n\nNode: \n{{ $json.execution.error.node.type }}\n{{ $json.execution.lastNodeExecuted }}\n\nMode: {{ $json.execution.mode }}",
+        "options": {
+          "appendAttribution": false
+        },
+        "sendTo": "talalbaig@gmail.com",
+        "subject": "Error in your workflow"
+      },
+      "position": [
+        224,
+        192
+      ],
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "webhookId": "8e3275e1-89dc-4cac-a055-042a33a2186d"
+    }
+  ],
+  "settings": {
+    "binaryMode": "separate",
+    "executionOrder": "v1"
+  },
+  "staticData": null
+}
