@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.11 |
+| **Document** | Phases.md — v1.12 |
 | **Date** | 3 August 2026 |
 | **Demo Day** | **Saturday 29 August 2026** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Templates.md` |
@@ -160,7 +160,7 @@ Because RLS and `auth.uid()` already exist, this is **UI work, not a security re
 | A4.4 | Post-login alignment — Settings, Care Circle tab, Loved One detail, `routine-tabs`, reports loader, doctor share page (`load-share-data.ts` → elder timezone), mappers, seed. |
 | A4.5 | **Rebuild demo seed data** against the new schema (`supabase/seed.sql` + any demo fixtures) so Demo Day tenants match A4 columns and enums. Explicit deliverable — not optional cleanup. |
 | A4.6 | Privacy/Terms rewrite **content** (supplied for approval — not drafted by agents) landed on `/privacy` and `/terms` so Review consent is honest. Must follow `PRD.md` §12.4 (no registered entity; demo/capstone disclosures; dated `consent_terms_version`). |
-| A4.7 | Track B handoff — Robert implements WF-6 per-routine `notify_care_partner` (incl. `not_required`) and WF-4 doctor skip logging (`Architecture.md` A-9 / WF-4). |
+| A4.7 | Track B handoff — ~~Robert implements WF-6 per-routine `notify_care_partner`~~ — **discharged 3 Aug** (WF-6 built on `notify_care_partner`; A-9 closed). WF-4 doctor skip logging remains part of the WF-4 build (owner: Talal). |
 
 **🚪 GATE A4 — PASSED 27 July 2026.** All of the following:
 
@@ -189,22 +189,22 @@ Runs **in parallel with Track A from day one.**
 
 ### B2 · Core workflows *(Sprint 4–5)*
 
-> **Nine-workflow map** (`Architecture.md` §8, v1.14). Built as of 3 Aug: WF-0, WF-1, WF-2 (thin) + WF-2a, WF-3a/3b/3c, WF-4a, WF-6. **Remaining Track B:** WF-4 (SOS orchestrator) and WF-5 (voice → STT).
+> **Nine-workflow map** (`Architecture.md` §8, v1.15). Built as of 3 Aug: WF-0, WF-1, WF-2 (thin) + WF-2a, WF-3a/3b/3c, WF-4a, WF-6. **WF-1 / WF-3a / WF-3b / WF-3c are medication-only** (health and food unbuilt — A-16). **Remaining Track B:** WF-4 (SOS orchestrator), WF-5 (voice → STT), and health + food domains.
 
 | # | Workflow | Owner | Status |
 |---|---|---|---|
-| B2.0 | **WF-0 Consent Welcome Dispatch** (`n1EcFnlIDRMB5MEi`) — cron 5 min; claim-then-send | Robert | **DONE** 3 Aug |
-| B2.1 | **WF-1 Scheduler** (`sqFa3XkYSEEVgPpC`) — materialise then dispatch; NFR-6 verified (sent 26 s after `scheduled_for`) | Robert | **DONE** 3 Aug |
-| B2.2 | **WF-2 Inbound Router** (thin, `oHSNqoskL0nOoOfo`) + **WF-2a** logic (`Ne4rNaezpjn95UMM`) | Robert | **DONE** 3 Aug |
-| B2.3 | **WF-3** as **WF-3a** Response Handler / **WF-3b** Reminder Sweep / **WF-3c** Missed Sweep | Robert | **DONE** 3 Aug |
-| B2.4 | **WF-6 CT Notification Dispatch** (`6I6OC7qJ5YhhUQxU`) — templates 8 and 9 | Robert | **DONE** 3 Aug |
+| B2.0 | **WF-0 Consent Welcome Dispatch** (`n1EcFnlIDRMB5MEi`) — cron 5 min; claim-then-send | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug |
+| B2.1 | **WF-1 Scheduler** (`sqFa3XkYSEEVgPpC`) — materialise then dispatch; **medication only**; NFR-6 verified (sent 26 s after `scheduled_for`) | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug |
+| B2.2 | **WF-2 Inbound Router** (thin, `oHSNqoskL0nOoOfo`) + **WF-2a** logic (`Ne4rNaezpjn95UMM`) | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug |
+| B2.3 | **WF-3** as **WF-3a** Response Handler / **WF-3b** Reminder Sweep / **WF-3c** Missed Sweep — **medication only** | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug |
+| B2.4 | **WF-6 CT Notification Dispatch** (`6I6OC7qJ5YhhUQxU`) — templates 8 and 9 | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug |
 
 ### B3 · Voice & SOS — the hard parts *(Sprint 5, remaining Track B)*
 
 | # | Workflow | Owner | Note |
 |---|---|---|---|
-| B3.1 | **WF-5 Voice → STT** — download audio → Storage → **OpenAI Whisper** → derive `{"answer":"yes"|"no"|"unclear"}` → **treat clean yes/no exactly as a button tap** | TBD | **Never guess** (N3). `unclear` → re-ask once → then missed. Do not gate on ASR confidence. **Not built.** |
-| B3.2 | **WF-4 SOS orchestrator** — immediate dispatch → 4 nudges, 2 min apart → resolve via WhatsApp **or** dashboard → status re-check before every nudge | Robert + Talal | **The most important code in the repo (N2).** **Not built.** WF-4a resolution receiver is already live (A2.7). |
+| B3.1 | **WF-5 Voice → STT** — download audio → Storage → **OpenAI Whisper** → derive `{"answer":"yes"|"no"|"unclear"}` → **treat clean yes/no exactly as a button tap** | Talal | **Never guess** (N3). `unclear` → re-ask once → then missed. Do not gate on ASR confidence. **Not built.** |
+| B3.2 | **WF-4 SOS orchestrator** — immediate dispatch → 4 nudges, 2 min apart → resolve via WhatsApp **or** dashboard → status re-check before every nudge | Talal | **The most important code in the repo (N2).** **Not built.** WF-4a resolution receiver is already live (A2.7). |
 
 **🚪 GATE B.** An elder confirms consent and only then begins receiving check-ins. A real WhatsApp number receives a real check-in, a Yes/No button reply is recorded, a voice reply is transcribed and recorded, a missed check-in escalates to the CT, and an SOS reaches all three recipients and can be resolved from **both** channels.
 
@@ -241,33 +241,33 @@ Fix security findings · **full end-to-end rehearsal on a real phone** · demo s
 
 ## 7. 🔴 The critical path: Meta template approval
 
-**This is the single most dangerous item in the entire plan.** Every EP-facing message is a Meta-approved template. Templates get **rejected**, and resubmission costs calendar days.
+**Cleared early (2 August 2026).** Every EP-facing message is a Meta-approved template. All **14** templates are approved (`Templates.md` §9 — "Cleared early"). The 9 August channel go/no-go is **resolved: WhatsApp as planned**; Telegram fallback is moot.
 
-If templates are still unapproved in late August, Group 7 demos a product that cannot send a single message.
+Historical risk (kept for context): templates get **rejected**, and resubmission costs calendar days. That risk no longer blocks the demo channel.
 
 | Date | Milestone |
 |---|---|
 | **By 19 July** | `Templates.md` complete; **first submissions with Meta** |
-| **By 2 August** | All templates submitted; rejections resubmitted |
-| **🚦 9 August — CHANNEL GO / NO-GO** | If core templates are approved → **WhatsApp, as planned.** If approval is at serious risk → trigger the fallback below. |
-| **By 16 August** | All templates approved, or the fallback is fully in flight |
+| ~~**By 2 August**~~ | ~~All templates submitted; rejections resubmitted~~ — **DONE.** All 14 approved 2 August 2026 (`Templates.md` §9 — "Cleared early"). |
+| ~~**🚦 9 August — CHANNEL GO / NO-GO**~~ | **RESOLVED:** WhatsApp as planned. All 14 templates approved 2 Aug. Telegram fallback is moot. |
+| **By 16 August** | All templates approved — **met early (2 Aug).** |
 
 ### 7.1 The fallback — and an honest warning about it
 
-The proposal is a **second channel (Telegram)** so the demo can run even if templates fail.
+The proposal was a **second channel (Telegram)** so the demo could run even if templates failed.
 
-**Two things must be checked before committing to this:**
+**Status (3 Aug 2026):** the 9 August channel go/no-go is **cleared**. WhatsApp is the channel. Telegram fallback is **moot**.
 
-1. **⚠️ Telegram may be banned in India** — flagged by this team earlier (Sama). **Demo Day is the India Demo Day.** If that ban is real, Telegram is the *worst* possible fallback for this specific audience: the room may not be able to see it work. **Verify this first, before a single hour is spent building it.** *(Owner: Talal. Verify by 20 July.)*
+**Historical note — two things that had to be checked before committing to Telegram:**
+
+1. **⚠️ Telegram may be banned in India** — flagged by this team earlier (Sama). **Demo Day is the India Demo Day.** If that ban is real, Telegram is the *worst* possible fallback for this specific audience: the room may not be able to see it work. *(Owner was Talal. Verify-by-20-July item is superseded by the cleared go/no-go.)*
 2. **A second channel costs real build time** in a 46-day window, and the message path is already the harder half of the product.
 
-**Cheaper insurance, available today:**
-- **Submit templates in Sprint 3** (this is 0.7 — it buys weeks of rejection-and-resubmit headroom, and it is free).
-- **Record a working demo video** in Sprint 5, while everything works. If the live demo fails on stage for *any* reason — templates, network, a paused Supabase project — you still show a working product.
+**Cheaper insurance (still useful):**
+- **Submit templates early** — done; all 14 approved 2 Aug.
+- **Record a working demo video** in Sprint 5, while everything works. If the live demo fails on stage for *any* reason — network, a paused Supabase project — you still show a working product.
 
-**Recommendation:** do both of the cheap things now. Treat Telegram as a **decision to be taken at the 9 August go/no-go**, informed by (1), not as a commitment made today. If the ban is real, drop Telegram and rely on early submission + the recorded demo.
-
-> If the team does adopt Telegram, `Architecture.md` gains a channel-abstraction layer (one send/receive interface, two adapters) so WF-1…WF-6 don't fork. **That is a design change, not a config change** — which is exactly why the decision needs a date and a deadline rather than drifting.
+> If the team ever re-opens a second channel, `Architecture.md` would need a channel-abstraction layer (one send/receive interface, two adapters) so workflows don't fork. **That is a design change, not a config change.**
 
 ---
 
@@ -277,30 +277,31 @@ The proposal is a **second channel (Telegram)** so the demo can run even if temp
 
 | Member | Role |
 |---|---|
-| **Talal Baig** | Team Lead · WhatsApp Business API + Meta templates · security gate owner · repo |
+| **Talal Baig** | Team Lead · WhatsApp Business API + Meta templates · security gate owner · repo · **WF-4 (SOS orchestrator)** · **WF-5 (voice → STT)** |
 | **Mirza Ferdous Ohid** | Database schema lead · Supabase migrations + RLS |
 | **Sama Quraishi** | UI/UX lead · design system · message copy & tone |
-| **Robert Nadra** | n8n infrastructure · WF-1, WF-2, WF-4 (SOS) |
+| **Robert Nadra** | n8n infrastructure · Meta webhook / channel ops |
 | **Bharathkumar Kasinathan** | Screens · repo support |
-| **Reema Akhtar** | `[TBD]` — proposed: copy review + QA |
-| **Sandhya "Sandy" Babu Kunadian** | `[TBD]` — strongest engineering background on the team (Head of Development & AI); currently unassigned |
-| **Aimé Habimana** | `[TBD]` |
-| **Anil Kumar B** | `[TBD]` |
-| **Jaimin Patel** | `[TBD]` |
+| **Reema Akhtar** | Copy review + QA (proposed) — owner: Reema to confirm role |
+| **Sandhya "Sandy" Babu Kunadian** | Submitted **PR #2** (WF-3 and WF-6, 24 July) — pending review; will be **closed rather than merged**, with the work re-imported to the shared n8n instance |
+| **Aimé Habimana** | Role to be confirmed — owner: Aimé / Talal |
+| **Anil Kumar B** | Role to be confirmed — owner: Anil / Talal |
+| **Jaimin Patel** | Role to be confirmed — owner: Jaimin / Talal |
 
-### Unowned work — needs an owner at the next sync
+### Remaining ownership gaps
 
-| Work | Status |
+| Work | Owner / status |
 |---|---|
-| WF-4 (SOS orchestrator) | **Unowned / remaining** |
-| WF-5 (voice → STT) | **Unowned / remaining** |
-| Application wiring (Track A2) | **Unowned** |
-| Most of the 9 screens (Track A1) | **Unowned** |
-| Sentry setup + PII scrubbing | **Unowned** |
-| QA / end-to-end testing | **Unowned** |
-| Demo-day deck + video | **Unowned** |
+| WF-4 (SOS orchestrator) | **Talal** — remaining |
+| WF-5 (voice → STT) | **Talal** — remaining |
+| Health + food domains (Track B) | **Talal** — remaining (A-16) |
+| Application wiring (Track A2) | Needs owner — Talal to assign |
+| Most of the 9 screens (Track A1) | Needs owner — Talal to assign |
+| Sentry setup + PII scrubbing | Needs owner — Talal to assign |
+| QA / end-to-end testing | Needs owner — Talal to assign |
+| Demo-day deck + video | Needs owner — Talal to assign |
 
-> **This table is the most important thing in this document.** WF-3 / WF-6 are done (3 Aug). Remaining Track B critical path: **WF-4** and **WF-5**. Close ownership gaps at the next sync.
+> **Remaining Track B critical path:** **WF-4**, **WF-5**, and **health + food domains**. WF-1/3a/3b/3c are medication-only as of 3 Aug. Close other ownership gaps at the next sync.
 
 ---
 
@@ -322,6 +323,7 @@ The proposal is a **second channel (Telegram)** so the demo can run even if temp
 
 | Date | Version | Change |
 |---|---|---|
+| 3 Aug 2026 | 1.12 | **Correction pass.** B2 owners corrected: WF-0–WF-6 built by Claude in-session with Talal approval/test (not Robert). WF-4 and WF-5 owner = Talal (consistent across §5 / §8). Sandy: PR #2 (WF-3/WF-6) pending, will close not merge. §7 channel go/no-go cleared (WhatsApp; all 14 approved 2 Aug). Track B remaining = WF-4, WF-5, health + food; WF-1/3a/3b/3c medication-only. Footer → 3 Aug. |
 | 3 Aug 2026 | 1.11 | **Track B build of 3 Aug.** B1.5 consent **DONE** (real WhatsApp, including decline — closes `Templates.md` OT-7). B2.1–B2.4 **DONE** (WF-1 NFR-6 verified at 26 s; WF-2 thin + WF-2a; WF-3a/3b/3c; WF-6). Remaining Track B: **WF-4** SOS orchestrator and **WF-5** voice → STT. Header date → 3 Aug (~26 days to Demo Day). |
 | 2 Aug 2026 | 1.10 | **A2.7 DONE** — n8n WF-4a receiver `jeNrf7b7ne3JX2Xu` + `src/app/api/sos/resolve/route.ts`, E2E in production 2 Aug 2026. **GATE A2 fully met.** §0.8 STT = OpenAI Whisper (2 Aug). §5 B2: **WF-0** recorded; build order **WF-0 → WF-2 consent branch → WF-1**. Stale "Today is 14 July" header replaced. B1.5 points at consent_requested/declined migration (file only; Talal applies). |
 | 27 Jul 2026 | 1.9 | **GATE A4 PASSED** (27 Jul 2026): all six checklist items ticked; evidence recorded (7 scripts, 48 pairwise RLS checks, seed applied/read back). GATE A3 **re-earned** 27 Jul (replaces invalidated 24 Jul evidence). `rls-cross-tenant` coverage clarification: 48 checks are pairwise A↔B and do not scale with tenant count. A4.5 seed backlog: `sos_notifications` row with `status = skipped`, `skip_reason = no_whatsapp_number`. |
@@ -337,4 +339,4 @@ The proposal is a **second channel (Telegram)** so the demo can run even if temp
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 26 July 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 3 August 2026.*

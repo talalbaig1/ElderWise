@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
-| **Team** | Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.14 |
+| **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
+| **Document** | Architecture.md — v1.15 |
 | **Date** | 3 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
@@ -24,7 +24,7 @@ Five rules govern every decision below. They are not negotiable without a decisi
 | **P2** | **The SOS path is sacred.** It is the highest-reliability path in the system. It never queues behind routine reminder traffic, and a failure in it is the most severe class of defect in this codebase. |
 | **P3** | **Never guess on behalf of an elderly person.** If the system cannot determine an answer with confidence, it asks again in plain language. It does not infer, assume, or default. |
 | **P4** | **Data isolation is enforced at the database, not in application code.** Row-Level Security is the boundary. Application bugs must not be able to leak one family's data to another. |
-| **P5** | **Build the simplest thing that satisfies the PRD.** ElderWise is an 11-person team on a 6-week clock. Every layer of indirection is a layer someone has to debug at 2am in a different timezone. |
+| **P5** | **Build the simplest thing that satisfies the PRD.** ElderWise is a 10-person team on a 6-week clock. Every layer of indirection is a layer someone has to debug at 2am in a different timezone. |
 
 ---
 
@@ -64,7 +64,7 @@ Five rules govern every decision below. They are not negotiable without a decisi
                                            └──────────────────────────┘
 ```
 
-**The critical read:** n8n and Next.js **never call each other**. Both talk to Supabase. This means the message-path team and the dashboard team can work in parallel without blocking, which is the whole point given 11 distributed people and a hard deadline.
+**The critical read:** n8n and Next.js **never call each other**. Both talk to Supabase. This means the message-path team and the dashboard team can work in parallel without blocking, which is the whole point given 10 distributed people and a hard deadline.
 
 ---
 
@@ -91,7 +91,7 @@ What actually happens is: given an EP's WhatsApp number, look up their care circ
 
 **Therefore, in the MVP there is: no pgvector, no vector store, no embedding pipeline, no RAG.**
 
-This is written down explicitly because a team of 11 reading "RAG" in the flow diagram will otherwise go and build one. Do not build one. If a genuine semantic-retrieval need appears later (e.g. searching a corpus of voice-journal entries — a Could-have), it will be introduced deliberately, not by accident.
+This is written down explicitly because a team of 10 reading "RAG" in the flow diagram will otherwise go and build one. Do not build one. If a genuine semantic-retrieval need appears later (e.g. searching a corpus of voice-journal entries — a Could-have), it will be introduced deliberately, not by accident.
 
 ---
 
@@ -253,10 +253,10 @@ care_partners ──┐
 | `domain` | enum(`medication`,`health`,`food`) | UNIQUE with `elder_id` |
 | `enabled` | boolean | the Enable toggle |
 | `frequency` | jsonb | **Derived field** — the sorted union of times from routines that are both active (medications) / enabled and whose domain is enabled, refreshed on every routine write. Direct edits are overwritten on the next routine save. Shape e.g. `{"times": ["08:00","20:00"]}` (local times in the elder's tz). No fixed 3×/day (FR-ON-4). |
-| `ct_notification` | enum(`every_interaction`,`only_missed`,`not_required`) | **Derived / deprecated (A4).** Not authoritative for Track B. Kept in sync from routine rows for backward compatibility until Robert removes the WF-6 dependency — see Track B action below. |
+| `ct_notification` | enum(`every_interaction`,`only_missed`,`not_required`) | **Derived / deprecated (A4).** Not authoritative for Track B. May still be mirrored from routine rows for backward compatibility; **WF-6 does not read it** (built 3 Aug on per-routine `notify_care_partner` — A-9 closed). |
 | `escalate_to` | enum(`care_partner`) | Only the CT escalates. LCT/Doctor are SOS-only. Enum kept for v2 headroom. |
 
-> **A4 resolution — notify authority:** For medication, food, and health, **`notify_care_partner` on the routine row is authoritative** (`every_time` \| `only_missed` \| `not_required`). `domain_configs.ct_notification` is **derived/deprecated** — application may mirror a summary value, but n8n **must not** use it as the send decision. **Track B action (Robert):** update WF-6 (and any related branches) to read the owning routine's `notify_care_partner`, including `not_required` = total silence (no confirmation and no missed push; miss still recorded on the dashboard).
+> **A4 resolution — notify authority:** For medication, food, and health, **`notify_care_partner` on the routine row is authoritative** (`every_time` \| `only_missed` \| `not_required`). `domain_configs.ct_notification` is **derived/deprecated** — application may mirror a summary value, but n8n **must not** use it as the send decision. **Done:** WF-6 (`6I6OC7qJ5YhhUQxU`, built 3 Aug 2026) reads the owning routine's `notify_care_partner` from the start, including `not_required` = total silence (no confirmation and no missed push; miss still recorded on the dashboard). A-9 closed.
 
 > **Enum migration ordering (Postgres):** `ALTER TYPE … ADD VALUE 'not_required'` **cannot** be used in the same transaction that references the new value. Enum additions for `notify_care_partner_mode` and `ct_notification_mode` **must** ship in their **own migration file(s), ahead of** any migration that writes or checks `not_required`.
 
@@ -552,16 +552,18 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 | Workflow | n8n ID | Trigger | Role |
 |---|---|---|---|
 | **WF-0** Consent Welcome Dispatch | `n1EcFnlIDRMB5MEi` | cron 5 min | Claims one elder awaiting welcome; sends `elderwise_ep_welcome` |
-| **WF-1** Scheduler | `sqFa3XkYSEEVgPpC` | cron 1 min | Materialise then dispatch |
+| **WF-1** Scheduler | `sqFa3XkYSEEVgPpC` | cron 1 min | Materialise then dispatch — **medication only** |
 | **WF-2** Inbound Router | `oHSNqoskL0nOoOfo` | Meta webhook | **Thin router** — one Execute Sub-workflow node. Owns the Meta callback. |
 | **WF-2a** Inbound Router (logic) | `Ne4rNaezpjn95UMM` | sub-workflow | All routing logic |
-| **WF-3a** Response Handler | `j0CWtHYyzplmad09` | sub-workflow | Records medication button replies |
-| **WF-3b** Reminder Sweep | `5P19E5CPhA14K6fo` | cron 1 min | One reminder after `escalation_minutes` |
-| **WF-3c** Missed Sweep | `A3Z7yjrxLRZ6pI5r` | cron 1 min | Marks missed; escalates to WF-6 |
+| **WF-3a** Response Handler | `j0CWtHYyzplmad09` | sub-workflow | Records medication button replies — **medication only** |
+| **WF-3b** Reminder Sweep | `5P19E5CPhA14K6fo` | cron 1 min | One reminder after `escalation_minutes` — **medication only** |
+| **WF-3c** Missed Sweep | `A3Z7yjrxLRZ6pI5r` | cron 1 min | Marks missed; escalates to WF-6 — **medication only** |
 | **WF-4a** SOS Resolution Receiver | `jeNrf7b7ne3JX2Xu` | webhook | A2.7 dashboard → n8n stop-nudges |
 | **WF-6** CT Notification Dispatch | `6I6OC7qJ5YhhUQxU` | sub-workflow | Templates 8 and 9 |
 
-**Not yet built (Track B remaining):** **WF-4** SOS orchestrator (dispatch + nudges) · **WF-5** voice → STT. Specs below still describe intended behaviour.
+**Not yet built (Track B remaining):** **WF-4** SOS orchestrator (dispatch + nudges) · **WF-5** voice → STT · **health and food domains** (templates 3, 4, 6, 7 approved and unused — A-16). Specs below for WF-4/WF-5 still describe intended behaviour.
+
+> **⚠️ SCOPE — medication only (as built, 3 Aug 2026).** WF-1, WF-3a, WF-3b and WF-3c handle `domain = 'medication'` **only**. Health and food check-ins are **not built**, though templates 3, 4, 6 and 7 are Meta-approved and unused. Related cause: the live elder has **one** `domain_configs` row, not the three §5.2 requires (A-13). Do not assume all three domains work.
 
 > **⚠️ SAFETY RULE — Why WF-2 is thin.** `update_workflow` via the n8n API **rotates a trigger node's `webhookId` on every call**. Editing WF-2 through the API would change the Meta callback URL and **silently stop all inbound WhatsApp**. **WF-2 is edited in the n8n UI only.** All routing logic lives in **sub-workflows** (WF-2a and downstream), which have no webhook and are safe to update programmatically. See `Rules.md` §6a.
 
@@ -573,9 +575,10 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 - **WF-1 is unchanged** and still gates only on `consent_confirmed_at`. WF-0 does not schedule check-ins.
 
 ### WF-1 · Scheduler (`sqFa3XkYSEEVgPpC`)
+- **Scope (as built):** `domain = 'medication'` **only**. Health and food are not scheduled (A-16). Related: live elder has one `domain_configs` row, not three (A-13).
 - **Trigger:** cron, every minute.
 - **Consent gate — the first check, before anything else:** skip any elder whose `consent_confirmed_at` is NULL. **An elder who has not confirmed in-channel is never sent a check-in.** A Meta opt-in requirement, and an ethical one (§9). Unchanged by B1.5 / WF-0.
-- Reads `domain_configs` where `enabled = true`, computes the next due occurrence per elder per domain **in the elder's IANA timezone**, and materialises a `checkins` row (`status = scheduled`).
+- Reads `domain_configs` where `enabled = true` **and `domain = 'medication'`**, computes the next due occurrence per elder **in the elder's IANA timezone**, and materialises a `checkins` row (`status = scheduled`).
 - Dispatches the WhatsApp template, sets `status = sent`, `sent_at`, `wa_message_id`.
 - **Dispatch bound:** send only while `now() <= scheduled_for + escalation_minutes`. Beyond that window the check-in is written **`missed`** rather than sent — template 2 embeds the scheduled time, and a late send would read as "it's 10:00 AM, time for your medicines" at 5pm (**T4/T5**).
 - **Restart-safety** comes from the `scheduled` → `sent` state machine, **not** a catch-up window that would send stale templates.
@@ -591,8 +594,8 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 - Resolves the sender's number → `elders.whatsapp_number` (indexed).
 - Routes on payload type:
   - **Welcome confirmation** → set `elders.consent_confirmed_at`. Until this exists, nothing else is ever sent.
-  - **Welcome decline** → set `elders.consent_declined_at`. **Terminal:** never schedule, never re-ask. [TBD — Talal] exact button / payload match for decline if not already locked in the live workflow.
-  - **Button reply** (health / food Yes-No; medication *Yes, All* / *Some of them* / *Not Yet*) → **WF-3a**
+  - **Welcome decline** → set `elders.consent_declined_at`. **Terminal:** never schedule, never re-ask. Proven on real WhatsApp **3 August 2026:** button `No, thank you` normalises to `no thank you` (lowercase, strip apostrophes and punctuation, collapse whitespace) and sets `consent_declined_at`.
+  - **Button reply** (medication *Yes, All* / *Some of them* / *Not Yet*) → **WF-3a**. Health / food Yes-No routing is **not built** (A-16).
   - **Medication = "Some of them"** — **scope reduction, ruled by Talal 3 August 2026:** the free-form interactive medicine list (`Templates.md` §7.1) is **not built**. The reply is recorded as `response_value = 'some_of_them'`, `status = responded`, and the Care Partner is notified (via WF-6 — see below). **Known gap:** we do **not** capture which medicines were taken — `checkin_medication_items` is populated only on *Yes, All*. Reason: the native WhatsApp node has no interactive-list message type; delivering one requires raw HTTP to the Graph API, which the team has ruled against. See open item **A-12**.
   - **Voice note** → WF-5 (STT) — **not built yet**
   - **SOS trigger** → WF-4 — **checked first and short-circuits everything else** (P2) — **orchestrator not built yet**; resolution path uses **WF-4a**
@@ -603,18 +606,21 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 - **A `No` on a food or health check-in is a recorded negative response** (backend `responded`), **not** a missed check-in. Do not route it down the missed path.
 
 ### WF-3a · Response Handler (`j0CWtHYyzplmad09`)
+- **Scope (as built):** `domain = 'medication'` **only**. Health and food response handling is not built (A-16).
 - **Trigger:** sub-workflow (from WF-2a).
-- **On response:** write to `checkins` (+ `checkin_medication_items` for medication when *Yes, All*), set `status = responded`.
+- **On response:** write to `checkins` (+ `checkin_medication_items` when *Yes, All*), set `status = responded`.
 - Fire **WF-6** when the owning routine's `notify_care_partner` requires a CT notice (see WF-6).
 
 ### WF-3b · Reminder Sweep (`5P19E5CPhA14K6fo`)
+- **Scope (as built):** `domain = 'medication'` **only**. Health and food reminders are not built (A-16).
 - **Trigger:** cron, every minute.
-- Find `checkins` where `status = sent` and `now() > sent_at + escalation_minutes` (read from the **routine** that owns the check-in — per-medicine / per-food / per-health, default 30/45/60).
+- Find medication `checkins` where `status = sent` and `now() > sent_at + escalation_minutes` (read from the **medication** routine that owns the check-in, default 30).
 - Send **exactly one** reminder → `status = reminded`, set `reminder_sent_at`. Skip CT push paths when `notify_care_partner = not_required`.
 
 ### WF-3c · Missed Sweep (`A3Z7yjrxLRZ6pI5r`)
+- **Scope (as built):** `domain = 'medication'` **only**. Health and food missed escalation is not built (A-16).
 - **Trigger:** cron, every minute.
-- Find `checkins` where `status = reminded` and the delay has elapsed again → `status = missed`, set `missed_at`.
+- Find medication `checkins` where `status = reminded` and the delay has elapsed again → `status = missed`, set `missed_at`.
 - If `notify_care_partner ≠ not_required`, escalate to the **CT only** (LCT and Doctor are never contacted on a missed check-in) → fire **WF-6**. If `not_required`, record the miss and send nothing.
 
 ### WF-4 · SOS orchestrator — **the critical path (P2)** — **not yet built**
@@ -666,7 +672,7 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 ### WF-5 · Voice reply → STT — **not yet built**
 - Download the audio from the Meta media endpoint → store in the Supabase Storage bucket → write `voice_replies.audio_path`.
 - Transcribe via **OpenAI Whisper** (OpenAI transcription API) → store `transcript`, `provider = openai_whisper`. Optional: store Whisper `avg_logprob` in `confidence` as a **diagnostic only**.
-- **Answer derivation (OpenAI):** return `{"answer": "yes"|"no"|"unclear"}` (medication multi-select path superseded by A-12 scope reduction — [TBD — Talal] for voice medication answers). **Any value other than a clean yes/no triggers the single re-ask (P3).** Do **not** gate on ASR confidence — OpenAI transcription does not return a usable confidence threshold for this purpose (A-2).
+- **Answer derivation (OpenAI):** return `{"answer": "yes"|"no"|"unclear"}`. Medication multi-select path superseded by A-12 scope reduction; voice medication answer mapping is a WF-5 build-time detail (owner: Talal). **Any value other than a clean yes/no triggers the single re-ask (P3).** Do **not** gate on ASR confidence — OpenAI transcription does not return a usable confidence threshold for this purpose (A-2 resolved).
 - **Hand a clean yes/no to WF-3a and treat it exactly as a button tap.** A voice reply is a first-class response (M4a).
 - **Unclear → do not guess (P3).** Re-ask once, in plain language (`reask_count` → 1). If the second attempt also fails, the check-in follows the normal missed path. **Never infer "yes" on a medication question from muddy audio.**
 
@@ -674,10 +680,10 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 - **Trigger:** sub-workflow (from WF-3a / WF-3c).
 - **Authoritative setting:** the owning routine's `notify_care_partner` (`every_time` | `only_missed` | `not_required`) on `medications` / `food_routines` / `health_routines`.
 - **`not_required`:** send **nothing** — no confirmation and no missed-routine WhatsApp. The check-in miss is still written to the DB and visible on the dashboard. Do not escalate a mute into a silent workflow failure.
-- **`every_time`:** send template 8 (`elderwise_ct_interaction_notice`) on a recorded response. [TBD — Talal] exact when interaction vs missed templates fire for every domain.
+- **`every_time`:** send template 8 (`elderwise_ct_interaction_notice`) on a recorded response. Exact interaction-vs-missed template choice per domain is owned by Talal when health/food are built (A-16).
 - **`only_missed`:** send on miss (template 9). **Deviation, ruled by Talal 3 August 2026:** `only_missed` **also** notifies when `response_value = 'some_of_them'`, on the grounds that a partial dose is closer to a miss than to a clean yes. **This departs from the literal reading of `only_missed`.** Do not "fix" it back without a new ruling.
 - **Period labels** for template `{{2}}` (`Morning` / `Afternoon` / `Evening` / `Night`): derived from the routine's local time in the elder's zone — **< 12:00 Morning**, **< 17:00 Afternoon**, **< 21:00 Evening**, else **Night**. Implemented 3 Aug 2026; **Sama has not signed off the wording** (A-11 closed as implemented, wording pending).
-- **`domain_configs.ct_notification` is derived/deprecated** — do not use it as the send decision.
+- **`domain_configs.ct_notification` is derived/deprecated** — do not use it as the send decision. WF-6 never depended on it (A-9 closed).
 - On send: write `ct_notifications` with `wa_message_id`. Templates **8** and **9** only in this workflow.
 - **WhatsApp only** in the MVP. SMS / email / push are Could-have (C8).
 
@@ -743,31 +749,33 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 
 ```
 elderwise/
-├── app/                     # Next.js (App Router) — dashboard + onboarding
-│   ├── (auth)/              # landing, signup, signin
-│   ├── (dashboard)/         # dashboard, care circle, SOS history,
-│   │                        # voice journal, reports, settings
-│   ├── share/[token]/       # doctor read-only view (server-side only)
-│   └── api/                 # route handlers
+├── src/
+│   └── app/                 # Next.js (App Router) — dashboard + onboarding
+│       ├── (public)/        # marketing, sign-in, sign-up
+│       ├── (app)/           # dashboard, care circle, SOS, voice journal,
+│       │                    # reports, settings, profile
+│       ├── onboarding/      # onboarding wizard
+│       ├── share/[token]/   # doctor read-only view (server-side only)
+│       └── api/             # route handlers (incl. SOS resolve / trigger)
 ├── supabase/
 │   ├── migrations/          # SQL — schema + RLS policies
 │   └── seed.sql
 ├── n8n/
-│   └── workflows/           # Exported JSON (nine live workflows + remaining) — version-controlled; export script owns this tree
-├── docs/
-│   ├── PRD.md
-│   ├── Architecture.md
-│   ├── Rules.md
-│   └── Phases.md
+│   └── workflows/           # Exported JSON — version-controlled; export script owns this tree
+├── PRD.md                   # Spec — repository root (not docs/)
+├── Architecture.md
+├── Rules.md
+├── Phases.md
+├── Templates.md
 ├── .cursor/
-│   └── rules/               # shared Cursor rules — all 11 build to one standard
+│   └── rules/               # shared Cursor rules — all 10 build to one standard
 └── README.md
 ```
 
 **n8n workflows are exported to JSON and committed.** A workflow that exists only in one person's n8n UI is not part of the product.
 
 ### 12.2 Branching
-Branch per member → PR → merge to a stable `main` (Akhil's directive). `main` is always demo-able. **Prerequisite: all 11 members need GitHub accounts** (open item OQ-7).
+Branch per member → PR → merge to a stable `main` (Akhil's directive). `main` is always demo-able. **Prerequisite: all 10 members need GitHub accounts** (open item A-6).
 
 ### 12.3 Environments
 
@@ -824,7 +832,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 | R2 | **Meta template approval lead time** | Blocks all EP messaging | Submit in Sprint 3. Owner: Talal. |
 | R3 | **STT accuracy on elderly speech** — accents, background noise, frailty | A voice reply is a Must-have; misreads are dangerous | P3: never guess; re-ask once on `unclear` from answer derivation; fall through to missed. Provider = OpenAI Whisper (A-1 closed 2 Aug 2026). |
 | R4 | **SOS reliability** | The most severe failure class in the system | P2; Sentry P0; explicit error branches; SOS never queues behind routine traffic. |
-| R5 | **11 distributed contributors, 6 weeks** | Merge chaos, inconsistent quality | Branch-per-member; shared `.cursor/rules`; the n8n/Next.js split (P1) lets both halves proceed in parallel. |
+| R5 | **10 distributed contributors, 6 weeks** | Merge chaos, inconsistent quality | Branch-per-member; shared `.cursor/rules`; the n8n/Next.js split (P1) lets both halves proceed in parallel. |
 | R6 | **Timezone bugs** | Reminders fire at the wrong hour — a silent, humiliating failure in a demo | §10. IANA only, UTC storage, elder-tz scheduling. |
 | R7 | **Scope creep** | Both mentors flagged feature overload as this team's main risk | Must-have only. Should/Could do not enter the MVP without a team-lead decision. |
 | R8 | **Leaked-password protection is a Pro-plan feature** | Security advisor shows a permanent `auth_leaked_password_protection` WARN on free tier | **Knowingly accepted for MVP** (Dev and Prod free tier). Compensating control: password length and complexity configured in Auth settings. |
@@ -837,19 +845,21 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 | # | Item | Owner |
 |---|---|---|
 | A-1 | ~~**STT provider** — Google Speech-to-Text vs ElevenLabs.~~ — **CLOSED 2 August 2026 by Talal:** **OpenAI Whisper** (OpenAI transcription API). Rationale in §3. | Closed |
-| A-2 | **Re-ask gate (FR-RH-2a) — rewritten 2 Aug 2026.** Not an ASR confidence threshold (OpenAI transcription does not return one). WF-5's OpenAI answer-derivation step must return `{"answer": "yes"|"no"|"unclear"}`; any value other than a clean yes/no triggers the single re-ask (P3). `voice_replies.confidence` may hold `avg_logprob` as a diagnostic but **must not** be the gate. Exact derivation prompt / schema details: [TBD — Talal]. | Talal / Ferdous |
+| A-2 | ~~**Re-ask gate (FR-RH-2a).**~~ — **RESOLVED 3 August 2026.** Gate is decided: WF-5's OpenAI answer-derivation step returns `{"answer": "yes"|"no"|"unclear"}`; anything other than a clean yes/no triggers the single re-ask (P3). `voice_replies.confidence` may hold `avg_logprob` as a diagnostic but **must not** be the gate. Exact prompt text is a build-time detail for WF-5, not an open architectural decision — write it during the WF-5 build. | Resolved (prompt: Talal during WF-5) |
 | A-3 | **Demo-day readiness checklist** (replaces the old "availability target"): Meta templates approved · n8n instance up · **Supabase project not paused** (free-tier projects auto-pause after inactivity — this alone can kill the demo) · WhatsApp account healthy · full end-to-end rehearsal · a rehearsed fallback if a live message does not land on stage. | Talal |
 | A-4 | ~~How WF-4 observes a dashboard-side SOS resolution~~ — **RESOLVED 14 Jul: authenticated webhook from the Next.js route handler → n8n** (fast path), **plus a status re-check before every nudge** (safety net). No polling, no Realtime subscription. | Closed |
 | A-5 | **WhatsApp backup account** — R1 is currently unmitigated. | Talal |
-| A-6 | Confirm all 11 members have GitHub accounts (blocks branch assignment). | Talal |
+| A-6 | Confirm all 10 members have GitHub accounts (blocks branch assignment). | Talal |
 | A-7 | ~~**Dev project test accounts** — clean up before Demo Day.~~ — **CLOSED 26 Jul 2026.** Discharged by **Phases.md A4.0** (full public-table + Auth wipe at the start of the A4 migration window), which supersedes ad-hoc account cleanup. | Closed |
 | A-8 | **A3.5 rate limiting is implemented but INACTIVE** — `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` are not configured on Vercel, so the limiter no-ops in Production. Fail-open by design, so nothing appears broken. | Talal |
-| A-9 | **Track B — WF-6 notify authority** — Robert: stop reading `domain_configs.ct_notification`; honour per-routine `notify_care_partner` including `not_required`. | Robert |
-| A-10 | **Template 12 `elderwise_sos_alert_doctor` is PENDING with Meta.** The only unapproved template and the demo's SOS story depends on it. Check daily. If rejected, the SOS demo still runs on templates 10/11/13/14 with the doctor leg shown as a logged `skipped` row. | Talal |
+| A-9 | ~~**Track B — WF-6 notify authority**~~ — **CLOSED 3 August 2026.** WF-6 (`6I6OC7qJ5YhhUQxU`) was built fresh reading the owning routine's `notify_care_partner` from the start. The `domain_configs.ct_notification` dependency never existed in the built system. | Closed |
+| A-10 | ~~**Template 12 `elderwise_sos_alert_doctor` PENDING.**~~ — **CLOSED 2 August 2026.** Approved by Meta, verified via Graph API; recorded in `Templates.md` v1.6 (OT-8 closed). **All 14 templates approved.** | Closed |
 | A-11 | ~~**Period label derivation (B-3)**~~ — **CLOSED 3 August 2026 (implemented):** `< 12:00 Morning`, `< 17:00 Afternoon`, `< 21:00 Evening`, else `Night`, derived from the routine's local time in the elder's zone (WF-6). **Sama has not signed off the wording.** | Closed (wording: Sama) |
 | A-12 | **Some of them does not capture which medicines were taken** — scope reduction 3 Aug 2026. Reply = `response_value = 'some_of_them'`, `status = responded`, CT notified. `checkin_medication_items` populated only on *Yes, All*. Native WhatsApp node has no interactive-list type; raw Graph HTTP ruled out. | Talal |
-| A-13 | **`domain_configs` currently holds one row for the live elder, not the three §5.2 requires** — whatever creates them is not creating all three. | [TBD — Talal] |
-| A-14 | **n8n SOS webhook secret is readable in plaintext in n8n execution history.** | [TBD — Talal] |
+| A-13 | **`domain_configs` currently holds one row for the live elder, not the three §5.2 requires** — whatever creates them is not creating all three. Contributes to medication-only Track B scope. | Talal |
+| A-14 | **n8n SOS webhook secret is readable in plaintext in n8n execution history.** | Talal |
+| A-15 | **Elder timezone / number mismatch.** The live elder's WhatsApp number is Pakistani (`+92`) while `elders.timezone` is `Asia/Riyadh`. If the handset is physically in Pakistan, every check-in fires two hours off her actual local time. Decide before building a demo schedule. | Talal |
+| A-16 | **Health and food domains unbuilt.** Templates 3, 4, 6, 7 approved and unused. WF-1 / WF-3a / WF-3b / WF-3c are medication-only. | Talal |
 
 ---
 
@@ -857,6 +867,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | Date | Version | Change |
 |---|---|---|
+| 3 Aug 2026 | 1.15 | **Correction pass.** A-10 closed (template 12 approved 2 Aug — all 14). A-9 closed (WF-6 never used `ct_notification`). A-2 resolved (gate decided; prompt is WF-5 build detail). §8 medication-only scope on WF-1/3a/3b/3c; decline normalisation recorded (no TBD). §12.1 monorepo corrected (`src/app/`, specs at repo root incl. `Templates.md`). Team size unified to **10**. A-14 owned by Talal; A-15/A-16 opened. Footer → 3 Aug. |
 | 3 Aug 2026 | 1.14 | **Track B build of 3 Aug — nine-workflow map.** §8 rewritten: WF-0/1/2/2a/3a/3b/3c/4a/6 with n8n IDs; WF-2 thin-router safety rule (API `update_workflow` rotates webhookId); WF-0 claim-then-send; WF-1 dispatch bound to `scheduled_for + escalation_minutes`; *Some of them* list not built (A-12); WF-6 `only_missed` also notifies on `some_of_them` (Talal ruling); period labels closed (A-11). A-13/A-14 opened. WF-4 SOS orchestrator and WF-5 still not built. |
 | 2 Aug 2026 | 1.13 | **B1.5 consent lifecycle + STT decision.** §3 / §2: STT = **OpenAI Whisper** (supersedes Google/ElevenLabs; prior "Whisper is not the choice" withdrawn — Talal, 2 Aug). §5.2 `elders`: `consent_requested_at` / `consent_declined_at` + four-state table; `voice_replies.provider` = `openai_whisper`; `confidence` diagnostic-only. §8: **WF-0** welcome dispatch (cron; set `consent_requested_at` with the send); WF-2 decline → `consent_declined_at` (terminal); WF-1 still gates on `consent_confirmed_at` only; WF-5 re-ask gated on answer-derivation `unclear`, not ASR confidence. §11: WF-0 send failures = P1. A-1 closed; A-2 rewritten. Migration file only — not applied by agents. |
 | 28 Jul 2026 | 1.12 | **SOS path reconciled to the templates Meta approved** (WABA `1495493002256968`, Graph API 28 Jul). §7.3 doctor allowlist **rescoped to the share page only**; the SOS channel deliberately carries CT/Buddy names and WhatsApp numbers to the doctor, and the Doctor's name/clinic to the Buddy — ruled 28 Jul, covered by `consent_data_sharing_at`. §8 WF-4 gains **`NA` send-time substitution** for absent Doctor/Buddy (DB never written with placeholder rows — explicitly rejected) and the **SOS share-link reuse-or-mint** path with fail-open-to-`NA` (P2: never block the alert). §8 WF-2 gains **case- and punctuation-insensitive button matching** (`I Am Responding` vs `I'm Responding`; food buttons are `Yes`/`No`). §10 states doctor/buddy/CT message timezones explicitly. A-10 (template 12 pending), A-11 (period label) opened. |
@@ -875,4 +886,4 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 27 July 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 3 August 2026.*
