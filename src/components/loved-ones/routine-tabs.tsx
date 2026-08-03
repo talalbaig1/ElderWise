@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { NotRequiredWarning, SegmentedNotify } from "@/components/onboarding/fields";
 import { TimePicker } from "@/components/shared/time-picker";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
