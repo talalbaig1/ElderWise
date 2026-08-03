@@ -315,7 +315,7 @@ The proposal was a **second channel (Telegram)** so the demo could run even if t
 | **R4** | **Scope creep** — both mentors' stated concern about this team | Must-have only. Rules.md S1. |
 | **R5** | **Security findings surfacing late** | Gate is scheduled (17–22 Aug), not left to the end. X1/X2 block release. |
 | **R6** | **Supabase free-tier auto-pause** on Demo Day morning | On the readiness checklist. Touch Prod weekly through August. |
-| **R7** | **A second channel (Telegram) eats the schedule** — or is unusable in the demo venue | Verify the India ban by 20 July. Decide 9 Aug. Don't drift. |
+| **R7** | ~~**A second channel (Telegram) eats the schedule**~~ — **moot.** Channel go/no-go cleared 2 Aug (WhatsApp; all 14 approved). | Closed |
 
 ---
 
