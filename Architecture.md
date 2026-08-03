@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.16 |
+| **Document** | Architecture.md — v1.17 |
 | **Date** | 3 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
@@ -350,6 +350,8 @@ Index: `(elder_id, domain, scheduled_for)` and `(status, scheduled_for)` — the
 | `resolved_by_id` | uuid | nullable |
 | `resolved_channel` | enum(`whatsapp`,`dashboard`) | **Both paths must work** (M14b) |
 | `resolved_at` | timestamptz | |
+
+> **Round numbering — do not confuse the two columns.** `sos_notifications.nudge_index` is `0–3`, where `0` is the initial alert and `1–3` are the nudges. `sos_events.nudges_sent` is `0–3` and counts **nudges only**, never the alert. An event that has dispatched its alert and nothing else has `nudges_sent = 0` and one `sos_notifications` row per recipient at `nudge_index = 0`. Enforced by migration `20260803100000`.
 
 **`sos_notifications`** — one row per (recipient × nudge), including **intentional skips**.
 
@@ -906,6 +908,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | Date | Version | Change |
 |---|---|---|
+| 3 Aug 2026 | 1.17 | **Round 2 doc pass.** §5.2 round-numbering note (`nudge_index` vs `nudges_sent`). Migration `20260803100000` (file only) tightens `nudges_sent` bound 0–3. |
 | 3 Aug 2026 | 1.16 | **WF-4 SOS build.** Thirteen-workflow map (WF-4 / 4b / 4c / 4d + existing). Nudge count corrected: alert + 3 nudges (`nudge_index` 0 = alert; `nudges_sent` 0–3). Share-link reuse struck (hash-only). Four resolution labels + `context.id` attribution. Elder ack free-form; template 14 via WF-4c. Sequential ~4 s dispatch observed. A-17/A-18/A-19 opened. Remaining Track B workflow: **WF-5 only**. |
 | 3 Aug 2026 | 1.15 | **Correction pass.** A-10 closed (template 12 approved 2 Aug — all 14). A-9 closed (WF-6 never used `ct_notification`). A-2 resolved (gate decided; prompt is WF-5 build detail). §8 medication-only scope on WF-1/3a/3b/3c; decline normalisation recorded (no TBD). §12.1 monorepo corrected (`src/app/`, specs at repo root incl. `Templates.md`). Team size unified to **10**. A-14 owned by Talal; A-15/A-16 opened. Footer → 3 Aug. |
 | 3 Aug 2026 | 1.14 | **Track B build of 3 Aug — nine-workflow map.** §8 rewritten: WF-0/1/2/2a/3a/3b/3c/4a/6 with n8n IDs; WF-2 thin-router safety rule (API `update_workflow` rotates webhookId); WF-0 claim-then-send; WF-1 dispatch bound to `scheduled_for + escalation_minutes`; *Some of them* list not built (A-12); WF-6 `only_missed` also notifies on `some_of_them` (Talal ruling); period labels closed (A-11). A-13/A-14 opened. WF-4 SOS orchestrator and WF-5 still not built. |

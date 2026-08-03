@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · Team Lead: Talal Baig |
-| **Document** | Templates.md — v1.8 |
+| **Document** | Templates.md — v1.9 |
 | **Date** | 3 August 2026 |
 | **Purpose** | Every message ElderWise sends. **Reconciled against the live Meta WABA — this document now records what Meta actually approved, not what was drafted.** |
 | **WABA** | `1495493002256968` · display number **966503330619** |
@@ -23,7 +23,7 @@
 ## 1. Read this first — platform findings
 
 > ✅ Verified against Meta's live WhatsApp Business Platform documentation on 14 July 2026
-> (via Context7), and against the live WABA on 3 August 2026. Meta changes these rules;
+> (via Context7), and against the live WABA on **28 July 2026** (statuses re-verified 2 August 2026). Meta changes these rules;
 > re-verify before submitting anything new.
 
 ### 1.1 The medication dropdown cannot be a template — RESOLVED, and it held up
@@ -474,7 +474,7 @@ failure (W3).
 ---
 
 ### 13 · `elderwise_sos_nudge` — ✅ APPROVED
-**Header:** `SOS ALERT` · **Sent:** nudges 2, 3 and 4 — **2 minutes apart** — to every recipient who has not resolved **and** has a sendable channel.
+**Header:** `SOS ALERT` · **Sent:** the three nudge rounds — `nudge_index` **1, 2 and 3** — **2 minutes apart** — to every recipient who has not resolved **and** has a sendable channel. The initial alert is `nudge_index 0` and is **not** a nudge. See `Architecture.md` §8 WF-4.
 
 > 🚨 *SOS STILL UNRESOLVED* 🚨
 > *{{1}}*'s SOS from *{{2}}*.
@@ -598,6 +598,7 @@ placeholder count not matching the samples · buttons over 20 characters.
 
 | Date | Version | Change |
 |---|---|---|
+| 3 Aug 2026 | **1.9** | **Round 2 doc pass.** §1 WABA verification date restored to 28 Jul (re-verified 2 Aug). §13 nudge numbering aligned to `nudge_index` 1–3 (alert = 0). |
 | 3 Aug 2026 | **1.8** | **WF-4 SOS docs.** §3.2 callout names all four resolution labels + apostrophe-strip order. §3.4 reuse-before-mint struck (always mint). §7.3 elder acknowledgement rewritten as four variants with no `NA` (T3); pending Sama sign-off. |
 | 3 Aug 2026 | **1.7** | **Track B build of 3 Aug.** OT-7 closed (decline path live). OT-9 closed (period labels implemented; Sama wording sign-off pending). §7.1 medicine list marked **not built** (Talal scope reduction); *Some of them* records `some_of_them` + CT notify only. |
 | 2 Aug 2026 | **1.6** | **All 14 templates APPROVED** — `elderwise_sos_alert_doctor` cleared Meta review on 2 Aug, unchanged from submission (same body, seven variables, `Acknowledge` button). Registry, §6 heading, §8 OT-8 and §9 submission table updated. Template-12 rejection contingency removed as moot; the `skipped` path remains for the real case (no doctor / no number). Re-verified against the live WABA via Graph API. **No body text, variable, or button changed anywhere in this revision** — §3.2, §3.3, §3.4 and §3.5 stand exactly as written in v1.5. | 
