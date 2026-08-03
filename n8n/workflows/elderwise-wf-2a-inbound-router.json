@@ -1,0 +1,344 @@
+{
+  "activeVersionId": "e789ba0f-93d0-40c7-9fc1-b97ff26f2880",
+  "connections": {
+    "Called By WF-2": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Parse Inbound Message",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Consent Confirmed?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Write Consent Confirmed",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Consent Declined?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Consent Declined?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Write Consent Declined",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Not A Consent Reply - Future Branches Here",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Decide Route": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Consent Confirmed?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Is A Real Message?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Resolve Elder",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Delivery Status - Ignored",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Parse Inbound Message": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Is A Real Message?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Resolve Elder": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Decide Route",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "description": "Adds a parsed-guard so delivery-status callbacks stop at a NoOp instead of hitting Postgres with an empty parameter. Also refuses to proceed when a message has no usable sender.",
+  "id": "Ne4rNaezpjn95UMM",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "name": "ElderWise WF-2a - Inbound Router",
+  "nodes": [
+    {
+      "id": "441d2f45-ac69-494b-a7a8-87b8aacd53aa",
+      "name": "Called By WF-2",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        192
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "dadfb5fa-b792-48f5-8804-3c4e70ca1b80",
+      "name": "Parse Inbound Message",
+      "parameters": {
+        "jsCode": "// Payload may arrive as the WhatsApp Trigger output, the raw Meta envelope,\n// or wrapped under .body. Try every plausible shape rather than assuming one.\nconst first = $input.first()?.json ?? {};\nconst candidates = [first, first.body, first.body?.entry?.[0]?.changes?.[0]?.value, first.entry?.[0]?.changes?.[0]?.value].filter(Boolean);\n\nlet value = null;\nfor (const c of candidates) {\n  if (Array.isArray(c?.messages) && c.messages.length > 0) { value = c; break; }\n}\n\n// Delivery-status callbacks (sent / delivered / read) carry a `statuses` array\n// and no `messages`. They are normal traffic, not errors - the trigger is\n// configured with messageStatusUpdates: all. Report and stop.\nif (!value) {\n  const isStatus = candidates.some(function (c) { return Array.isArray(c?.statuses); });\n  return [{ json: { parsed: false, reason: isStatus ? 'delivery status callback' : 'no messages array found', sender_e164: '', button_norm: '', top_level_keys: Object.keys(first).toString() } }];\n}\n\nconst msg = value.messages[0];\nconst waId = msg.from ?? value.contacts?.[0]?.wa_id ?? '';\n\n// Numbers are stored with a leading +; Meta returns them without one.\n// Prepend to the INBOUND value - never wrap the DB column in a function,\n// which would defeat the index on elders.whatsapp_number.\nconst senderE164 = waId ? (String(waId).charAt(0) === '+' ? String(waId) : '+' + String(waId)) : '';\n\n// Quick-reply text arrives in two different shapes.\nconst rawButton = msg.button?.text ?? msg.interactive?.button_reply?.title ?? '';\n\n// Never compare raw strings (Templates.md 3.2). Lowercase, strip apostrophes\n// and punctuation, collapse whitespace. Yes, that's fine -> yes thats fine\nconst buttonNorm = String(rawButton).toLowerCase().replace(/[\\u0027\\u2018\\u2019\\u0060]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();\n\n// parsed=true only when we have a real message AND a usable sender. Downstream\n// nodes must not run without it: an empty queryReplacement makes n8n send NO\n// parameters, and the query then fails with 'there is no parameter $1'.\nconst ok = senderE164.length > 1;\n\nreturn [{ json: { parsed: ok, reason: ok ? 'message' : 'message with no sender', sender_e164: senderE164, wa_id_raw: String(waId), message_type: msg.type ?? 'unknown', wa_message_id: msg.id ?? '', button_text_raw: String(rawButton), button_norm: buttonNorm, text_body: msg.text?.body ?? '' } }];",
+        "language": "javaScript",
+        "mode": "runOnceForAllItems"
+      },
+      "position": [
+        224,
+        192
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "4b221a32-d5cc-4785-a788-6a373b86f98a",
+      "name": "Is A Real Message?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.parsed }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          }
+        }
+      },
+      "position": [
+        448,
+        192
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "88a2155f-5fa3-46e8-8d52-d2f6989d42d7",
+      "name": "Resolve Elder",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $json.sender_e164 }}"
+        },
+        "query": "SELECT $1::text AS sender, (e.id IS NOT NULL) AS found, e.id AS elder_id, COALESCE(e.first_name, '') AS elder_first_name, (e.consent_requested_at IS NOT NULL) AS consent_requested, (e.consent_confirmed_at IS NOT NULL) AS consent_confirmed, (e.consent_declined_at IS NOT NULL) AS consent_declined FROM (SELECT 1) AS probe LEFT JOIN elders e ON e.whatsapp_number = $1::text AND e.active = true",
+        "resource": "database"
+      },
+      "position": [
+        672,
+        96
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "dee2f621-7e3c-4429-a4f9-7f3e64af33b4",
+      "name": "Decide Route",
+      "parameters": {
+        "jsCode": "const db = $input.first().json;\nconst parsed = $('Parse Inbound Message').first().json;\n\n// Exact normalised forms of the approved welcome buttons (Templates.md 3.2).\nconst YES = 'yes thats fine';\nconst NO = 'no thank you';\n\nlet route = 'unhandled';\n\n// Consent is only in play for a known, active elder who has neither confirmed\n// nor declined. Everything else falls through untouched - no guessing (P3).\nif (db.found === true && db.consent_confirmed === false && db.consent_declined === false) {\n  if (parsed.button_norm === YES) { route = 'consent_yes'; }\n  else if (parsed.button_norm === NO) { route = 'consent_no'; }\n}\n\nreturn [{ json: Object.assign({}, db, parsed, { route: route }) }];",
+        "language": "javaScript",
+        "mode": "runOnceForAllItems"
+      },
+      "position": [
+        896,
+        96
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "86dffc47-5bf9-440f-b6d0-9976b6d36626",
+      "name": "Consent Confirmed?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.route }}",
+              "operator": {
+                "operation": "equals",
+                "type": "string"
+              },
+              "rightValue": "consent_yes"
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          }
+        }
+      },
+      "position": [
+        1120,
+        96
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "a7bf34ef-bc2b-4434-8625-3ece7974c749",
+      "name": "Write Consent Confirmed",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $json.elder_id }}"
+        },
+        "query": "UPDATE elders SET consent_confirmed_at = now() WHERE id = $1::uuid AND consent_confirmed_at IS NULL AND consent_declined_at IS NULL RETURNING id AS elder_id, first_name, consent_confirmed_at",
+        "resource": "database"
+      },
+      "position": [
+        1344,
+        0
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "8ed8482b-80b8-4414-82b5-6ec8ccc503d0",
+      "name": "Consent Declined?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.route }}",
+              "operator": {
+                "operation": "equals",
+                "type": "string"
+              },
+              "rightValue": "consent_no"
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          }
+        }
+      },
+      "position": [
+        1344,
+        192
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "a729e5bd-5e58-4a7b-bb7e-f26d6c5d6cdc",
+      "name": "Write Consent Declined",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $json.elder_id }}"
+        },
+        "query": "UPDATE elders SET consent_declined_at = now() WHERE id = $1::uuid AND consent_confirmed_at IS NULL AND consent_declined_at IS NULL RETURNING id AS elder_id, first_name, consent_declined_at",
+        "resource": "database"
+      },
+      "position": [
+        1568,
+        96
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "a59ca06f-5a77-4ae6-a05d-4e80c7eb1ee5",
+      "name": "Not A Consent Reply - Future Branches Here",
+      "parameters": {},
+      "position": [
+        1568,
+        288
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
+      "id": "e6e09e56-8175-4048-863e-e8fcff3b684b",
+      "name": "Delivery Status - Ignored",
+      "parameters": {},
+      "position": [
+        672,
+        288
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null
+}
