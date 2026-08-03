@@ -3,9 +3,8 @@
 import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { SegmentedNotify } from "@/components/onboarding/fields";
+import { NotRequiredWarning, SegmentedNotify } from "@/components/onboarding/fields";
 import { TimePicker } from "@/components/shared/time-picker";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -157,17 +156,18 @@ export function MedicationTab({
           </DialogHeader>
           {editing ? (
             <div className="space-y-4">
-              <Field label="Name (include strength)">
-                <Input
-                  value={editing.name}
-                  onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-                  placeholder="e.g. Metformin 500mg"
-                />
-              </Field>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field label="Medication name">
+                  <Input
+                    value={editing.name}
+                    onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                    placeholder="Metformin 500mg"
+                  />
+                </Field>
                 <Field label="Dosage quantity">
                   <Input
                     value={editing.dosage}
+                    placeholder="1"
                     onChange={(e) => setEditing({ ...editing, dosage: e.target.value })}
                   />
                 </Field>
@@ -204,7 +204,7 @@ export function MedicationTab({
                     }
                   />
                 </Field>
-                <Field label="End date">
+                <Field label="End date (optional)">
                   <Input
                     type="date"
                     value={editing.endDate || ""}
@@ -214,60 +214,68 @@ export function MedicationTab({
                   />
                 </Field>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Timing with meal">
-                  <Select
-                    value={
-                      editing.timingPreference === "after_food"
-                        ? "after_food"
-                        : "before_food"
-                    }
-                    onValueChange={(value) =>
-                      setEditing({
-                        ...editing,
-                        timingPreference: value as MedicationTiming,
-                      })
-                    }
+              <div className="space-y-2">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Field label="Timing with meal">
+                    <Select
+                      value={
+                        editing.timingPreference === "after_food"
+                          ? "after_food"
+                          : "before_food"
+                      }
+                      onValueChange={(value) =>
+                        setEditing({
+                          ...editing,
+                          timingPreference: value as MedicationTiming,
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="before_food">Before meal</SelectItem>
+                        <SelectItem value="after_food">After meal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Notify Care Partner">
+                    <SegmentedNotify
+                      value={editing.notifyCarePartner}
+                      onChange={(notifyCarePartner) =>
+                        setEditing({ ...editing, notifyCarePartner })
+                      }
+                    />
+                  </Field>
+                  <div
+                    className={cn(
+                      "space-y-2 transition-opacity",
+                      editing.notifyCarePartner === "not_required" && "opacity-50",
+                    )}
                   >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="before_food">Before meal</SelectItem>
-                      <SelectItem value="after_food">After meal</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Notify Care Partner">
-                  <SegmentedNotify
-                    value={editing.notifyCarePartner}
-                    onChange={(notifyCarePartner) =>
-                      setEditing({ ...editing, notifyCarePartner })
-                    }
-                  />
-                </Field>
-              </div>
-              <div
-                className={cn(
-                  "space-y-2 transition-opacity",
-                  editing.notifyCarePartner === "not_required" && "opacity-50",
-                )}
-              >
-                <Label htmlFor={`esc-${editing.id}`}>Missed-dose escalation (minutes)</Label>
-                <Input
-                  id={`esc-${editing.id}`}
-                  type="number"
-                  min={5}
-                  max={240}
-                  value={editing.escalationMinutes}
-                  disabled={editing.notifyCarePartner === "not_required"}
-                  onChange={(e) =>
-                    setEditing({
-                      ...editing,
-                      escalationMinutes: Number(e.target.value) || 30,
-                    })
-                  }
-                />
+                    <Label htmlFor={`esc-${editing.id}`}>
+                      Missed-dose escalation (minutes)
+                    </Label>
+                    <Input
+                      id={`esc-${editing.id}`}
+                      type="number"
+                      min={5}
+                      max={240}
+                      value={editing.escalationMinutes}
+                      disabled={editing.notifyCarePartner === "not_required"}
+                      aria-disabled={editing.notifyCarePartner === "not_required"}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          escalationMinutes: Number(e.target.value) || 30,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                {editing.notifyCarePartner === "not_required" ? (
+                  <NotRequiredWarning variant="medication" />
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -367,25 +375,30 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
           </DialogHeader>
           {editing ? (
             <div className="space-y-4">
-              <Field label="Meal name">
-                <Input
-                  value={editing.mealName}
-                  onChange={(e) => setEditing({ ...editing, mealName: e.target.value })}
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field label="Meal name">
+                  <Input
+                    value={editing.mealName}
+                    onChange={(e) => setEditing({ ...editing, mealName: e.target.value })}
+                  />
+                </Field>
+                <TimePicker
+                  label="Check-in time"
+                  value={editing.checkInTime}
+                  onChange={(checkInTime) => setEditing({ ...editing, checkInTime })}
                 />
-              </Field>
-              <TimePicker
-                label="Check-in time"
-                value={editing.checkInTime}
-                onChange={(checkInTime) => setEditing({ ...editing, checkInTime })}
-              />
-              <Field label="Notify Care Partner">
-                <SegmentedNotify
-                  value={editing.notifyCarePartner}
-                  onChange={(notifyCarePartner) =>
-                    setEditing({ ...editing, notifyCarePartner })
-                  }
-                />
-              </Field>
+                <Field label="Notify Care Partner">
+                  <SegmentedNotify
+                    value={editing.notifyCarePartner}
+                    onChange={(notifyCarePartner) =>
+                      setEditing({ ...editing, notifyCarePartner })
+                    }
+                  />
+                </Field>
+              </div>
+              {editing.notifyCarePartner === "not_required" ? (
+                <NotRequiredWarning variant="food" />
+              ) : null}
             </div>
           ) : null}
           <DialogFooter>
@@ -491,37 +504,30 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
                   onCheckedChange={(enabled) => setEditing({ ...editing, enabled })}
                 />
               </div>
-              <Field label="Routine name">
-                <Input
-                  value={editing.name}
-                  onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field label="Routine name">
+                  <Input
+                    value={editing.name}
+                    onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                  />
+                </Field>
+                <TimePicker
+                  label="Check-in time"
+                  value={editing.time}
+                  onChange={(time) => setEditing({ ...editing, time })}
                 />
-              </Field>
-              <TimePicker
-                label="Check-in time"
-                value={editing.time}
-                onChange={(time) => setEditing({ ...editing, time })}
-              />
-              <Field label="Notify Care Partner">
-                <SegmentedNotify
-                  value={editing.notifyCarePartner}
-                  onChange={(notifyCarePartner) =>
-                    setEditing({ ...editing, notifyCarePartner })
-                  }
-                />
-              </Field>
-              {/* TODO(v2): MVP health check-ins are Yes/No only — number / mood / short_text later. */}
-              <Field label="Answer type">
-                <div className="flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 text-sm">
-                  <span>Yes / No</span>
-                  <Badge variant="secondary" className="font-mono text-[10px]">
-                    MVP
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    Number, mood, and short text — Coming soon
-                  </span>
-                </div>
-              </Field>
+                <Field label="Notify Care Partner">
+                  <SegmentedNotify
+                    value={editing.notifyCarePartner}
+                    onChange={(notifyCarePartner) =>
+                      setEditing({ ...editing, notifyCarePartner })
+                    }
+                  />
+                </Field>
+              </div>
+              {editing.notifyCarePartner === "not_required" ? (
+                <NotRequiredWarning variant="health" />
+              ) : null}
             </div>
           ) : null}
           <DialogFooter>

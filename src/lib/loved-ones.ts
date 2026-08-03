@@ -9,8 +9,9 @@ import type {
 } from "@/types";
 import { ALL_DAYS } from "@/lib/onboarding";
 
-function uid(prefix: string) {
-  return `${prefix}-${crypto.randomUUID()}`;
+/** Postgres uuid PK — never prefix; `med-…` / `food-…` fail UUID cast. */
+function newId() {
+  return crypto.randomUUID();
 }
 
 export function createBlankLovedOne(carePartnerId: string): LovedOne {
@@ -21,7 +22,7 @@ export function createBlankLovedOne(carePartnerId: string): LovedOne {
       : "Asia/Kolkata";
 
   return {
-    id: uid("lo"),
+    id: newId(),
     firstName: "",
     lastName: "",
     age: 70,
@@ -48,7 +49,7 @@ export function createBlankMedication(lovedOneId: string): Medication {
   const now = new Date().toISOString();
   const today = now.slice(0, 10);
   return {
-    id: uid("med"),
+    id: newId(),
     lovedOneId,
     enabled: true,
     name: "",
@@ -75,7 +76,7 @@ export function createBlankFood(lovedOneId: string): FoodRoutine {
   const now = new Date().toISOString();
   const today = now.slice(0, 10);
   return {
-    id: uid("food"),
+    id: newId(),
     lovedOneId,
     enabled: true,
     mealName: "Breakfast",
@@ -97,7 +98,7 @@ export function createBlankHealth(lovedOneId: string): HealthRoutine {
   const now = new Date().toISOString();
   const today = now.slice(0, 10);
   return {
-    id: uid("health"),
+    id: newId(),
     lovedOneId,
     enabled: true,
     name: "Wellness check-in",
@@ -119,7 +120,7 @@ export function createBlankHealth(lovedOneId: string): HealthRoutine {
 export function createBlankBuddy(lovedOneId: string): LocalBuddy {
   const now = new Date().toISOString();
   return {
-    id: uid("buddy"),
+    id: newId(),
     lovedOneId,
     firstName: "",
     lastName: "",
@@ -133,7 +134,7 @@ export function createBlankBuddy(lovedOneId: string): LocalBuddy {
 export function createBlankDoctor(lovedOneId: string): FamilyDoctor {
   const now = new Date().toISOString();
   return {
-    id: uid("doc"),
+    id: newId(),
     lovedOneId,
     firstName: "",
     lastName: "",

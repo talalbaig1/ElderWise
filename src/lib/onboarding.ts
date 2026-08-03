@@ -180,7 +180,7 @@ export const healthRoutineDraftSchema = z.object({
 
 /** Settings / routine editors until Pass 4 alignment. */
 export const medicationSchema = z.object({
-  id: z.string(),
+  id: z.string().uuid("Invalid medication id"),
   enabled: z.boolean(),
   name: z.string().trim().min(1, "Medication name is required"),
   dosage: z.string().trim().min(1, "Dosage quantity is required"),
@@ -193,7 +193,7 @@ export const medicationSchema = z.object({
 });
 
 export const foodRoutineSchema = z.object({
-  id: z.string(),
+  id: z.string().uuid("Invalid meal routine id"),
   enabled: z.boolean(),
   mealName: z.string().trim().min(1, "Meal name is required"),
   checkInTime: z.string().min(1, "Time is required"),
@@ -203,7 +203,7 @@ export const foodRoutineSchema = z.object({
 });
 
 export const healthRoutineSchema = z.object({
-  id: z.string(),
+  id: z.string().uuid("Invalid health routine id"),
   enabled: z.boolean(),
   name: z.string().trim().min(1, "Routine name is required"),
   time: z.string().min(1, "Time is required"),
