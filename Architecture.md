@@ -5,8 +5,8 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.12 |
-| **Date** | 28 July 2026 |
+| **Document** | Architecture.md — v1.13 |
+| **Date** | 2 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
 
@@ -59,8 +59,7 @@ Five rules govern every decision below. They are not negotiable without a decisi
 │   share link)    │                       └──────────────────────────┘
 └──────────────────┘
                                            ┌──────────────────────────┐
-                                           │  Google STT / ElevenLabs │◀── n8n
-                                           │  OpenAI                  │◀── n8n
+                                           │  OpenAI (LLM + Whisper)  │◀── n8n
                                            │  Sentry                  │◀── both
                                            └──────────────────────────┘
 ```
@@ -78,7 +77,7 @@ Five rules govern every decision below. They are not negotiable without a decisi
 | **Database / Auth / Storage** | **Supabase** (Postgres) | ElderWise's data is strongly relational (care partner → elders → check-ins / SOS / medications). Postgres + RLS gives data isolation as a database guarantee rather than an application hope. Auth, Storage, and Realtime in the same product removes three integrations. |
 | **Front-end + app backend** | **Next.js (App Router) + Tailwind + shadcn/ui**, on **Vercel** | Locked in Meeting 12. Server components + route handlers cover the dashboard's needs without a separate API service. |
 | **LLM** | **OpenAI** | For message generation and interpreting free-text/transcribed replies. |
-| **Speech-to-text** | **Google Speech-to-Text** *or* **ElevenLabs** — final pick pending (OQ-5b) | Voice replies are Must-have (M4a) and must be transcribed accurately. **Whisper is explicitly not the choice.** |
+| **Speech-to-text** | **OpenAI (Whisper via the OpenAI transcription API)** | Voice replies are Must-have (M4a). **Superseded 2 August 2026 by Talal** (was: Google STT vs ElevenLabs; prior wording that Whisper was not the choice is withdrawn). Rationale: MVP is English-only (NFR-9) so multi-language coverage is a v2 benefit; n8n has a native OpenAI node whereas Google STT would require raw HTTP with service-account JWT signing; one fewer vendor in Security Gate Pass 2. |
 | **Scheduling** | **n8n cron only** | Not pg_cron. Two schedulers is a bug factory — and worse, a bug factory where the bug is "Mum didn't get her reminder." |
 | **Error tracking** | **Sentry** | Weighted toward the SOS path. See §11. |
 | **Repo** | **GitHub**, monorepo, branch-per-member | Akhil's directive. See §12. |
@@ -191,12 +190,23 @@ care_partners ──┐
 | `consent_attested_by_ct` | boolean | The CT's onboarding attestation (M16a / N5). |
 | `consent_attested_at` | timestamptz | |
 | `consent_confirmed_at` | timestamptz | **The elder's in-channel confirmation** (M16b). **NULL ⇒ schedule nothing.** |
+| `consent_requested_at` | timestamptz | **When the welcome/consent template was sent** (B1.5 / WF-0). **NULL = not yet sent.** Set by WF-0. Non-NULL suppresses re-send — without this, a cron re-sends the welcome every minute to a silent elder (R1). |
+| `consent_declined_at` | timestamptz | **Elder declined in-channel** (B1.5 / WF-2). **Terminal:** never schedule, never re-ask. Distinct from silence (`consent_requested_at` set, both confirmation and decline still NULL). |
 | `consent_med_accuracy_at` | timestamptz | nullable — non-null **is** the consent (Review). |
 | `consent_data_sharing_at` | timestamptz | nullable — conditional if Doctor or Local Buddy added. |
 | `consent_terms_at` | timestamptz | nullable — Terms & Privacy re-confirm at Review. |
 | `consent_terms_version` | text | nullable — **dated** policy version consented to (e.g. `2026-07-v1`). Must match the Privacy/Terms text shown at Review; bump when approved page text changes. |
 | `active` | boolean | **Onboarding draft flag:** `false` while the wizard is in progress, `true` on finish. **All product reads filter `active = true`**, so a draft never appears in the dashboard, list, or selector. **At most one draft per care partner.** Discarding a draft is a **hard DELETE**, not a soft delete: `elders.whatsapp_number` is globally UNIQUE, so a soft-deleted draft would permanently lock that number against every care partner — including a sibling caring for the same parent. Safe because a draft has no history (`consent_confirmed_at` is null, nothing was scheduled, children cascade). **Contrast:** routine deletion is soft precisely because history must survive. |
 | `created_at` | timestamptz | |
+
+**Consent lifecycle (welcome message) — four states.** Columns: (`consent_requested_at`, `consent_confirmed_at`, `consent_declined_at`).
+
+| `requested` | `confirmed` | `declined` | Meaning |
+|---|---|---|---|
+| NULL | NULL | NULL | WF-0 sends the welcome template |
+| set | NULL | NULL | Awaiting reply — send nothing (do not re-send welcome) |
+| set | set | NULL | Confirmed — WF-1 may schedule check-ins |
+| set | NULL | set | Declined — **terminal**; never schedule, never re-ask |
 
 **`local_caregivers`** — LCT / Local Buddy. SOS-only. **Optional at onboarding** (per-card Skip). **Inherits the elder's timezone** (no `timezone` column, by design). If no LCT is set, SOS is handled by the Care Partner (CT is always present); LCT WhatsApp notification is **conditional** on a row existing. Elder `address` remains **NOT NULL** regardless. Absent row after Care Circle submit = deliberate skip.
 
@@ -320,8 +330,8 @@ Index: `(elder_id, domain, scheduled_for)` and `(status, scheduled_for)` — the
 | `checkin_id` | uuid FK | |
 | `audio_path` | text | Supabase Storage object path — **never the file itself in a column** |
 | `transcript` | text | |
-| `confidence` | numeric | Drives the re-ask decision (FR-RH-2a) |
-| `provider` | text | `google_stt` \| `elevenlabs` |
+| `confidence` | numeric | **Diagnostic only** — may hold Whisper `avg_logprob`. **Must not** gate the re-ask (see A-2 / WF-5). |
+| `provider` | text | `openai_whisper` (column stays `text` — no enum migration) |
 | `reask_count` | integer | default 0, max 1 |
 | `created_at` | timestamptz | |
 
@@ -537,11 +547,18 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 
 ## 8. The message path (n8n)
 
-Six workflows. Each is a separate n8n workflow so they can be built, tested, and broken independently.
+Seven workflows (WF-0 … WF-6). Each is a separate n8n workflow so they can be built, tested, and broken independently.
+
+### WF-0 · Consent / welcome dispatch
+- **Trigger:** cron. [TBD — Talal] exact interval.
+- **Selects** elders where `active = true` AND `consent_requested_at IS NULL` AND `consent_confirmed_at IS NULL` AND `consent_declined_at IS NULL`.
+- Sends the welcome / consent template (`elderwise_ep_welcome` — see `Templates.md`).
+- **Sets `consent_requested_at` in the same step as the send**, so a failed or partial run cannot loop and re-send every minute (R1 — one WhatsApp Business account, no backup).
+- **WF-1 is unchanged** and still gates only on `consent_confirmed_at`. WF-0 does not schedule check-ins.
 
 ### WF-1 · Scheduler
 - **Trigger:** cron, every minute.
-- **Consent gate — the first check, before anything else:** skip any elder whose `consent_confirmed_at` is NULL. **An elder who has not confirmed in-channel is never sent a check-in.** A Meta opt-in requirement, and an ethical one (§9).
+- **Consent gate — the first check, before anything else:** skip any elder whose `consent_confirmed_at` is NULL. **An elder who has not confirmed in-channel is never sent a check-in.** A Meta opt-in requirement, and an ethical one (§9). Unchanged by B1.5 / WF-0.
 - Reads `domain_configs` where `enabled = true`, computes the next due occurrence per elder per domain **in the elder's IANA timezone**, and materialises a `checkins` row (`status = scheduled`).
 - Dispatches the WhatsApp template, sets `status = sent`, `sent_at`, `wa_message_id`.
 - **Must land within ±5 minutes of `scheduled_for`** (NFR-6). A one-minute cron gives ~4 minutes of headroom for retries.
@@ -551,6 +568,7 @@ Six workflows. Each is a separate n8n workflow so they can be built, tested, and
 - Resolves the sender's number → `elders.whatsapp_number` (indexed).
 - Routes on payload type:
   - **Welcome confirmation** (the elder's first-ever response) → set `elders.consent_confirmed_at`. Until this exists, nothing else is ever sent.
+  - **Welcome decline** → set `elders.consent_declined_at`. **Terminal:** never schedule, never re-ask. [TBD — Talal] exact button / payload match for decline.
   - **Button reply** (health / food Yes-No; medication *Yes, all* / *Some of them* / *Not yet*) → WF-3
   - **Medication = "Some of them"** → the 24-hour window is now open → send a **free-form interactive list** of that elder's medicines for multi-select → WF-3
   - **Voice note** → WF-5 (STT)
@@ -608,10 +626,10 @@ Six workflows. Each is a separate n8n workflow so they can be built, tested, and
 
 ### WF-5 · Voice reply → STT
 - Download the audio from the Meta media endpoint → store in the Supabase Storage bucket → write `voice_replies.audio_path`.
-- Transcribe (Google STT or ElevenLabs) → store `transcript`, `confidence`, `provider`.
-- Derive the answer (Yes / No, or the medicine selection) from the transcript, using OpenAI where a plain string match is insufficient.
-- **Hand the answer to WF-3 and treat it exactly as a button tap.** A voice reply is a first-class response (M4a).
-- **Low confidence → do not guess (P3).** Re-ask once, in plain language (`reask_count` → 1). If the second attempt also fails, the check-in follows the normal missed path. **Never infer "yes" on a medication question from muddy audio.**
+- Transcribe via **OpenAI Whisper** (OpenAI transcription API) → store `transcript`, `provider = openai_whisper`. Optional: store Whisper `avg_logprob` in `confidence` as a **diagnostic only**.
+- **Answer derivation (OpenAI):** return `{"answer": "yes"|"no"|"unclear"}` (medication multi-select path [TBD — Talal]). **Any value other than a clean yes/no triggers the single re-ask (P3).** Do **not** gate on ASR confidence — OpenAI transcription does not return a usable confidence threshold for this purpose (A-2).
+- **Hand a clean yes/no to WF-3 and treat it exactly as a button tap.** A voice reply is a first-class response (M4a).
+- **Unclear → do not guess (P3).** Re-ask once, in plain language (`reask_count` → 1). If the second attempt also fails, the check-in follows the normal missed path. **Never infer "yes" on a medication question from muddy audio.**
 
 ### WF-6 · CT notification dispatch
 - **Authoritative setting:** the owning routine's `notify_care_partner` (`every_time` | `only_missed` | `not_required`) on `medications` / `food_routines` / `health_routines`.
@@ -664,7 +682,7 @@ Six workflows. Each is a separate n8n workflow so they can be built, tested, and
 | Severity | What it covers |
 |---|---|
 | **P0 — page someone** | Any failure in WF-4 (SOS). A dropped SOS is the worst thing this system can do. |
-| **P1** | Check-in not sent within the ±5-minute window · inbound webhook failures · STT hard failures |
+| **P1** | Check-in not sent within the ±5-minute window · inbound webhook failures · STT hard failures · **WF-0 welcome send failures** (an elder who never receives a welcome is never scheduled — a silent total failure for that family) |
 | **P2** | CT notification failures · dashboard errors |
 | **P3** | Report generation, cosmetic |
 
@@ -692,7 +710,7 @@ elderwise/
 │   ├── migrations/          # SQL — schema + RLS policies
 │   └── seed.sql
 ├── n8n/
-│   └── workflows/           # WF-1..WF-6 exported JSON — version-controlled
+│   └── workflows/           # WF-0..WF-6 exported JSON — version-controlled
 ├── docs/
 │   ├── PRD.md
 │   ├── Architecture.md
@@ -761,7 +779,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 |---|---|---|---|
 | R1 | **One WhatsApp Business account, no backup** (NFR-13) | The entire demo dies with it | Start template approval early; consider a second account as insurance. **Currently unmitigated.** |
 | R2 | **Meta template approval lead time** | Blocks all EP messaging | Submit in Sprint 3. Owner: Talal. |
-| R3 | **STT accuracy on elderly speech** — accents, background noise, frailty | A voice reply is a Must-have; misreads are dangerous | P3: never guess; re-ask once; fall through to missed. Provider pick still open (OQ-5b). |
+| R3 | **STT accuracy on elderly speech** — accents, background noise, frailty | A voice reply is a Must-have; misreads are dangerous | P3: never guess; re-ask once on `unclear` from answer derivation; fall through to missed. Provider = OpenAI Whisper (A-1 closed 2 Aug 2026). |
 | R4 | **SOS reliability** | The most severe failure class in the system | P2; Sentry P0; explicit error branches; SOS never queues behind routine traffic. |
 | R5 | **11 distributed contributors, 6 weeks** | Merge chaos, inconsistent quality | Branch-per-member; shared `.cursor/rules`; the n8n/Next.js split (P1) lets both halves proceed in parallel. |
 | R6 | **Timezone bugs** | Reminders fire at the wrong hour — a silent, humiliating failure in a demo | §10. IANA only, UTC storage, elder-tz scheduling. |
@@ -775,8 +793,8 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | # | Item | Owner |
 |---|---|---|
-| A-1 | **STT provider** — Google Speech-to-Text vs ElevenLabs. Final pick. | Talal / Ferdous |
-| A-2 | **STT confidence threshold** that triggers the single re-ask (FR-RH-2a). | Talal / Ferdous |
+| A-1 | ~~**STT provider** — Google Speech-to-Text vs ElevenLabs.~~ — **CLOSED 2 August 2026 by Talal:** **OpenAI Whisper** (OpenAI transcription API). Rationale in §3. | Closed |
+| A-2 | **Re-ask gate (FR-RH-2a) — rewritten 2 Aug 2026.** Not an ASR confidence threshold (OpenAI transcription does not return one). WF-5's OpenAI answer-derivation step must return `{"answer": "yes"|"no"|"unclear"}`; any value other than a clean yes/no triggers the single re-ask (P3). `voice_replies.confidence` may hold `avg_logprob` as a diagnostic but **must not** be the gate. Exact derivation prompt / schema details: [TBD — Talal]. | Talal / Ferdous |
 | A-3 | **Demo-day readiness checklist** (replaces the old "availability target"): Meta templates approved · n8n instance up · **Supabase project not paused** (free-tier projects auto-pause after inactivity — this alone can kill the demo) · WhatsApp account healthy · full end-to-end rehearsal · a rehearsed fallback if a live message does not land on stage. | Talal |
 | A-4 | ~~How WF-4 observes a dashboard-side SOS resolution~~ — **RESOLVED 14 Jul: authenticated webhook from the Next.js route handler → n8n** (fast path), **plus a status re-check before every nudge** (safety net). No polling, no Realtime subscription. | Closed |
 | A-5 | **WhatsApp backup account** — R1 is currently unmitigated. | Talal |
@@ -793,6 +811,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | Date | Version | Change |
 |---|---|---|
+| 2 Aug 2026 | 1.13 | **B1.5 consent lifecycle + STT decision.** §3 / §2: STT = **OpenAI Whisper** (supersedes Google/ElevenLabs; prior "Whisper is not the choice" withdrawn — Talal, 2 Aug). §5.2 `elders`: `consent_requested_at` / `consent_declined_at` + four-state table; `voice_replies.provider` = `openai_whisper`; `confidence` diagnostic-only. §8: **WF-0** welcome dispatch (cron; set `consent_requested_at` with the send); WF-2 decline → `consent_declined_at` (terminal); WF-1 still gates on `consent_confirmed_at` only; WF-5 re-ask gated on answer-derivation `unclear`, not ASR confidence. §11: WF-0 send failures = P1. A-1 closed; A-2 rewritten. Migration file only — not applied by agents. |
 | 28 Jul 2026 | 1.12 | **SOS path reconciled to the templates Meta approved** (WABA `1495493002256968`, Graph API 28 Jul). §7.3 doctor allowlist **rescoped to the share page only**; the SOS channel deliberately carries CT/Buddy names and WhatsApp numbers to the doctor, and the Doctor's name/clinic to the Buddy — ruled 28 Jul, covered by `consent_data_sharing_at`. §8 WF-4 gains **`NA` send-time substitution** for absent Doctor/Buddy (DB never written with placeholder rows — explicitly rejected) and the **SOS share-link reuse-or-mint** path with fail-open-to-`NA` (P2: never block the alert). §8 WF-2 gains **case- and punctuation-insensitive button matching** (`I Am Responding` vs `I'm Responding`; food buttons are `Yes`/`No`). §10 states doctor/buddy/CT message timezones explicitly. A-10 (template 12 pending), A-11 (period label) opened. |
 | 27 Jul 2026 | 1.11 | **§5.7 FR-ON-7.** Care Circle draft inserts Doctor with `approved_by_ct = false`; Review sets `true` with `consent_data_sharing_at`. |
 | 27 Jul 2026 | 1.10 | **Corrected `voice_journal_entries`.** Table is **not** created in the MVP — journal screen renders empty state (`load-app-data.ts`). Prior wording caused A4.0 wipe to abort treating a non-existent table as present. |
