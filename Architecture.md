@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.17 |
+| **Document** | Architecture.md — v1.18 |
 | **Date** | 3 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
@@ -896,7 +896,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 | A-12 | **Some of them does not capture which medicines were taken** — scope reduction 3 Aug 2026. Reply = `response_value = 'some_of_them'`, `status = responded`, CT notified. `checkin_medication_items` populated only on *Yes, All*. Native WhatsApp node has no interactive-list type; raw Graph HTTP ruled out. | Talal |
 | A-13 | **`domain_configs` currently holds one row for the live elder, not the three §5.2 requires** — whatever creates them is not creating all three. Contributes to medication-only Track B scope. | Talal |
 | A-14 | **n8n SOS webhook secret is readable in plaintext in n8n execution history.** | Talal |
-| A-15 | **Elder timezone / number mismatch.** The live elder's WhatsApp number is Pakistani (`+92`) while `elders.timezone` is `Asia/Riyadh`. If the handset is physically in Pakistan, every check-in fires two hours off her actual local time. Decide before building a demo schedule. | Talal |
+| A-15 | ~~**Elder timezone / number mismatch.**~~ — **CLOSED 3 August 2026.** The live elder record is a test persona operated by Talal on a second handset he holds. The Pakistani `+92` number and the `Asia/Riyadh` timezone are both correct and both his; the handset is physically in Riyadh. No scheduling error exists. | Closed |
 | A-16 | **Health and food domains unbuilt.** Templates 3, 4, 6, 7 approved and unused. WF-1 / WF-3a / WF-3b / WF-3c are medication-only. | Talal |
 | A-17 | **Raw doctor share tokens are stored in plaintext in n8n execution history.** WF-4 returns the raw token from Postgres to build the URL, so it is readable by anyone with instance access, who can then open the patient report. Same class as A-14. | Talal |
 | A-18 | **Template 14 sends cannot be logged, so W3 cannot be satisfied for the resolution broadcast.** `sos_notifications` is constrained to `nudge_index` 0–3 for alerts and nudges; `ct_notifications.type` is `interaction \| missed` only. There is no table that can hold a resolution-broadcast send. Needs a schema decision or a recorded acceptance. | Talal |
