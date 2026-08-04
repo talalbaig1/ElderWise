@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.14 |
+| **Document** | Rules.md — v1.15 |
 | **Date** | 4 August 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
@@ -175,6 +175,7 @@ Defaults, not dogma. Consistency across ten contributors matters more than any i
 | **C7** | **The product is spelled *ElderWise*.** Not ElderVoice. Not Elder Wise. It slips in meetings; it does not slip in the codebase. |
 | **C8** | **Every user-facing string is in English** (NFR-9). Multi-language is v2 — but don't hardcode strings in a way that makes v2 a rewrite. |
 | **C9** | **Never render a percentage on a zero denominator.** Show "—" or "No data". 100% on no data reads as perfect adherence when nothing happened. This occurred twice: the meal-completion card and nearly the PDF generator. |
+| **C10** | **This project uses `src/`, so every Next.js root-convention file lives in `src/` — `instrumentation.ts`, `middleware.ts`, and anything similar.** Root placement does not error, does not warn, and does not appear in the build output. It compiles to **nothing** and the feature is silently absent. Proven 4 August 2026: `src/instrumentation.ts` emitted `.next/server/instrumentation.js` (~1.5 MB) while root `middleware.ts` emitted an empty manifest (A-32). **Verify the build artifact, not the file's existence.** |
 
 ---
 
@@ -319,6 +320,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 4 Aug 2026 | 1.15 | **C10 added** — `src/`-directory projects must place Next.js root-convention files in `src/`; root placement compiles silently to nothing (`Architecture.md` A-32). |
 | 4 Aug 2026 | 1.14 | **Sentry scope.** §11 Definition of Done: errors go to Sentry for Next.js, the n8n error workflow for Track B (`Architecture.md` §11.1, ruled 4 Aug 2026). |
 | 4 Aug 2026 | 1.13 | **§6a — cancelled pass (4 Aug).** Mutually exclusive parallel branches (WF-3c); enum additions are frontend-breaking — deploy mapper before workflow writes. |
 | 4 Aug 2026 | 1.12 | **§6a — five additions from voice pass (3–4 Aug).** Sub-workflow ID resolution; ordering-as-protection (WF-5); zero-row SELECT vs probe pattern; `alwaysOutputData` + IF pairing; enum-vs-text on `response_value`. |
