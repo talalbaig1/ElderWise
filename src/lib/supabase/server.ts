@@ -23,7 +23,8 @@ export async function createClient() {
             cookieStore.set(name, value, options);
           });
         } catch {
-          // Called from a Server Component — middleware refreshes sessions.
+          // Called from a Server Component, which cannot set cookies.
+          // src/middleware.ts refreshes the session on page navigations.
         }
       },
     },
