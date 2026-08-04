@@ -10,4 +10,3 @@ Sentry.init({
   tracesSampleRate: 0,
   beforeSend: scrubEvent,
 });
-(globalThis as Record<string, unknown>).__EW_INIT_RAN = true;
