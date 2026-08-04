@@ -17,7 +17,14 @@ export type Gender = "female" | "male" | "other" | "prefer_not_to_say";
 
 export type WellbeingStatus = "stable" | "attention" | "urgent" | "unknown";
 
-export type CheckInStatus = "taken" | "missed" | "delayed" | "upcoming" | "pending" | "skipped";
+export type CheckInStatus =
+  | "taken"
+  | "missed"
+  | "delayed"
+  | "upcoming"
+  | "pending"
+  | "skipped"
+  | "cancelled";
 
 export type ResponseChoice = "yes" | "no" | "remind_later";
 

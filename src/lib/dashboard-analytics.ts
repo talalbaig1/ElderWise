@@ -251,6 +251,7 @@ export function buildDashboardModel(
   const todayTo = endOfDay(new Date());
   const todayItems = allInRange
     .filter((c) => inRange(c.scheduledAt, todayFrom, todayTo))
+    .filter((c) => c.status !== "cancelled")
     .sort((a, b) => +parseISO(a.scheduledAt) - +parseISO(b.scheduledAt));
 
   const timeline = todayItems

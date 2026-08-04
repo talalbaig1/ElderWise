@@ -178,15 +178,21 @@ function adherence(items: CheckInResponse[]): number | null {
 }
 
 function statusBreakdown(items: CheckInResponse[]) {
-  const counts: Record<"taken" | "missed" | "delayed" | "pending", number> = {
+  const counts: Record<
+    "taken" | "missed" | "delayed" | "pending" | "cancelled",
+    number
+  > = {
     taken: 0,
     missed: 0,
     delayed: 0,
     pending: 0,
+    cancelled: 0,
   };
   items.forEach((item) => {
     if (item.status === "taken" || item.status === "missed" || item.status === "delayed") {
       counts[item.status] += 1;
+    } else if (item.status === "cancelled") {
+      counts.cancelled += 1;
     } else {
       counts.pending += 1;
     }

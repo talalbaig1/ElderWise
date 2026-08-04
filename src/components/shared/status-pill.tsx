@@ -16,6 +16,7 @@ const checkInMap: Record<CheckInStatus, StatusMeta> = {
   upcoming: { label: "Upcoming", variant: "info" },
   pending: { label: "Pending", variant: "warning" },
   skipped: { label: "Skipped", variant: "muted" },
+  cancelled: { label: "Cancelled", variant: "muted" },
 };
 
 const wellbeingMap: Record<WellbeingStatus, StatusMeta> = {

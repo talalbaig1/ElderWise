@@ -25,7 +25,8 @@ export type DbCheckInStatus =
   | "sent"
   | "reminded"
   | "responded"
-  | "missed";
+  | "missed"
+  | "cancelled";
 
 export function checkInStatusToUi(status: DbCheckInStatus): CheckInStatus {
   switch (status) {
@@ -39,6 +40,8 @@ export function checkInStatusToUi(status: DbCheckInStatus): CheckInStatus {
       return "taken";
     case "missed":
       return "missed";
+    case "cancelled":
+      return "cancelled";
   }
 }
 
@@ -56,6 +59,8 @@ export function checkInStatusToDb(status: CheckInStatus): DbCheckInStatus | null
       return "missed";
     case "skipped":
       return null; // UI-only — no backend status
+    case "cancelled":
+      return "cancelled";
   }
 }
 
