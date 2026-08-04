@@ -1,5 +1,5 @@
 import type { createClient } from "@/lib/supabase/server";
-import { dayRangeBounds, type DayRangeKey } from "@/lib/verify/dates";
+import { dayRangeBounds, expandDayBounds, type DayRangeKey } from "@/lib/verify/dates";
 import {
   getCheckDefinition,
   MEDICINE_ITEMS_EMBED_SELECT,
@@ -244,12 +244,14 @@ async function runSimpleSelect(
   }
 
   if (checkId === "voice_replies_for_day") {
+    const checkinBounds = expandDayBounds({ startIso, endIso }, tz, 1, 1);
+
     const { data: elderCheckins, error: checkinError } = await supabase
       .from("checkins")
       .select("id")
       .eq("elder_id", params.elder!)
-      .gte("scheduled_for", startIso)
-      .lte("scheduled_for", endIso);
+      .gte("scheduled_for", checkinBounds.startIso)
+      .lte("scheduled_for", checkinBounds.endIso);
 
     if (checkinError) throw new Error(checkinError.message);
 

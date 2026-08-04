@@ -85,6 +85,20 @@ function dayBoundsForYmd(ymd: string, timeZone: string): DayBounds {
   return { startIso: start.toISOString(), endIso: end.toISOString() };
 }
 
+/** Widen inclusive UTC bounds by whole calendar days in an IANA timezone. */
+export function expandDayBounds(
+  bounds: DayBounds,
+  timeZone: string,
+  daysBefore: number,
+  daysAfter: number,
+): DayBounds {
+  const startYmd = calendarYmd(new Date(bounds.startIso), timeZone);
+  const endYmd = calendarYmd(new Date(bounds.endIso), timeZone);
+  const start = dayBoundsForYmd(shiftYmd(startYmd, -daysBefore), timeZone);
+  const end = dayBoundsForYmd(shiftYmd(endYmd, daysAfter), timeZone);
+  return { startIso: start.startIso, endIso: end.endIso };
+}
+
 /** Closed enum → inclusive UTC bounds in the elder's IANA timezone. */
 export function dayRangeBounds(
   key: DayRangeKey,
