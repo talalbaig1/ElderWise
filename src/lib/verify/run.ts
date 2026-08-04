@@ -244,26 +244,31 @@ async function runSimpleSelect(
   }
 
   if (checkId === "voice_replies_for_day") {
-    const { data, error } = await supabase
-      .from("voice_replies")
-      .select(selectColumns(def.columns))
-      .gte("created_at", startIso)
-      .lte("created_at", endIso)
-      .order(def.orderBy.column, { ascending: def.orderBy.ascending })
-      .limit(def.limit);
-
-    if (error) throw new Error(error.message);
-
     const { data: elderCheckins, error: checkinError } = await supabase
       .from("checkins")
       .select("id")
-      .eq("elder_id", params.elder!);
+      .eq("elder_id", params.elder!)
+      .gte("scheduled_for", startIso)
+      .lte("scheduled_for", endIso);
 
     if (checkinError) throw new Error(checkinError.message);
 
-    const allowed = new Set((elderCheckins ?? []).map((r) => r.id as string));
-    const rows = ((data ?? []) as unknown as Record<string, unknown>[]).filter(
-      (row) => allowed.has(String(row.checkin_id)),
+    const checkinIds = (elderCheckins ?? []).map((r) => r.id as string);
+    if (checkinIds.length === 0) {
+      return { columns, rows: [] };
+    }
+
+    const rows = await runSelectCheck(
+      supabase,
+      def.table,
+      def.columns,
+      def.orderBy,
+      def.limit,
+      (query) =>
+        query
+          .in("checkin_id", checkinIds)
+          .gte("created_at", startIso)
+          .lte("created_at", endIso),
     );
     return { columns, rows };
   }

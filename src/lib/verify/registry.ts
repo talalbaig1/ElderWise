@@ -270,7 +270,8 @@ export const VERIFY_CHECKS = {
   notification_ownership: {
     kind: "computed",
     compute: "notification_ownership",
-    label: "Notification ownership mismatches",
+    label:
+      "Notification ownership mismatches (RLS-limited — always zero here; not evidence)",
     table: "ct_notifications",
     columns: [
       "notification_id",
