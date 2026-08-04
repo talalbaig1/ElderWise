@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.21 |
+| **Document** | Architecture.md — v1.22 |
 | **Date** | 4 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
@@ -844,7 +844,7 @@ The LLM gate emits three values; medication has three **different** stored value
 
 ## 11. Observability & error handling
 
-**Sentry**, on both the Next.js app and the n8n workflows, **weighted toward the SOS path** (P2).
+**Sentry**, on the **Next.js app**. Building it is a **P2** task; the events it watches include **P0**. The table below classifies **events by severity**, not the build task — the two were previously conflated in this heading. *(Ambiguity resolved 4 August 2026, Talal.)*
 
 | Severity | What it covers |
 |---|---|
@@ -852,6 +852,23 @@ The LLM gate emits three values; medication has three **different** stored value
 | **P1** | Check-in not sent within the ±5-minute window · inbound webhook failures · STT hard failures · **WF-0 welcome send failures** (an elder who never receives a welcome is never scheduled — a silent total failure for that family) |
 | **P2** | CT notification failures · dashboard errors |
 | **P3** | Report generation, cosmetic |
+
+### 11.1 Coverage as built (ruled 4 August 2026, Talal)
+
+**Sentry covers the Next.js app only. Track B failures are covered by `ElderWise Error Workflow` (`uvBstI6J42nNhIYz` → Telegram + Gmail), registered as the `errorWorkflow` on every ElderWise workflow.** Piping n8n into Sentry was considered and **deferred**, not rejected — see A-31.
+
+| Event | Reported by |
+|---|---|
+| Any WF-4 / WF-4a–4d failure (**P0**) | n8n error workflow → Telegram + Gmail |
+| Inbound webhook · STT hard failure · WF-0 welcome failure (**P1**) | n8n error workflow |
+| Check-in not sent within ±5 min (**P1**) | **Nothing** — see A-30 |
+| `/api/sos/resolve` or `/api/sos/trigger` failure (**P1**, SOS path) | **Sentry** |
+| CT notification failure (**P2**) | n8n error workflow |
+| Dashboard errors (**P2**) · report generation (**P3**) | **Sentry** |
+
+**Consequence to hold in mind:** the P0 tier is served by a push notification with no grouping, no state, and no history. A high-frequency error on a one-minute cron will bury a real alert in Telegram — the WF-4d zero-row case in `Rules.md` §6a would have fired ~1,400 times a day. If that ever happens in practice, revisit A-31 rather than muting the channel.
+
+**Scrubbing is a prerequisite, not a follow-up.** `Rules.md` §14.3 **X9** applies in full to the Next.js half on its own. In particular `/share/[token]` carries a **live doctor share token in the URL path**, and the Sentry SDK attaches request URLs to server-side events by default. Configure `sendDefaultPii: false` and a `beforeSend` scrubber **in the same commit as the SDK install**, never after.
 
 **Additional requirements:**
 - **Every attempted WhatsApp send is logged with its `wa_message_id`**, or it is not sent. An unlogged message is an untraceable one.
@@ -991,6 +1008,8 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 | A-27 | **The ≤60 s window.** WF-3a, WF-3d and WF-5 resolve check-ins by elder + status and do **not** filter on routine `enabled`. Between a routine being disabled and WF-3c cancelling the orphan, a reply is still accepted. **ACCEPTED DEVIATION** (Talal, 4 Aug 2026) — closing it would require a slot-match join in three resolvers for a one-minute window. | Talal |
 | A-28 | **`checkins_medication_slot_uniq` slot occupancy.** `UNIQUE (elder_id, scheduled_for) WHERE domain = 'medication'`. A **`cancelled` row still occupies its slot**, so disabling and re-enabling a routine the same day will **not** restore that day's check-in. Ruled acceptable; recorded so it is not rediscovered as a bug. | Talal |
 | A-29 | **Frontend `statusBreakdown` divergence + raw labels.** `report-analytics.ts` counts `cancelled` explicitly; `dashboard-analytics.ts` drops it (its `Record<string, number>` has no else branch for `cancelled`). Same concept, different behaviour on two screens. Share page and PDF render the raw lowercase DB status `cancelled` rather than a formatted label. **`adherence()` in both files** builds numerator and denominator from an explicit inclusion filter (`taken \| missed \| delayed`) — **`cancelled` is excluded from both automatically**; left deliberately unchanged (commit `25114ed`). | Talal |
+| **A-30** | **The ±5-minute dispatch P1 is reported by nothing.** A late or never-sent check-in is not a node error, so the n8n error workflow never fires, and Next.js cannot see it. §11 lists it as P1 and nothing satisfies that. Pre-dates this ruling; made visible by it. Needs a detector or a recorded acceptance. | Talal |
+| **A-31** | **n8n → Sentry deferred (4 Aug 2026).** One HTTP Request node on `uvBstI6J42nNhIYz` would put every Track B failure into Sentry with severity from the failing workflow's name. Deferred as unnecessary at current volume. If revisited: the DSN lives in an n8n **header-auth credential**, never in a node URL — the hourly export strips credentials, not URLs, and a DSN in a URL reaches the public repo within the hour. Payload must be a hand-built envelope (workflow name, node name, execution ID, timestamp, error class) — **never** `execution.error.message`, which is A-19. | Talal |
 
 ---
 
@@ -998,6 +1017,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | Date | Version | Change |
 |---|---|---|
+| 4 Aug 2026 | 1.22 | **Sentry scope ruled.** §11 heading ambiguity resolved (P2 = build task, table = event severity). New §11.1: Sentry covers Next.js only; Track B stays on the n8n error workflow; per-event coverage table; X9 scrubbing named as a prerequisite with the `/share/[token]` leak vector. A-30 (±5-min P1 unreported) and A-31 (n8n→Sentry deferred) opened. |
 | 4 Aug 2026 | 1.21 | **Cancelled check-ins + orphan cleanup.** §5.2: `checkin_status` +`cancelled`, `cancelled_at`; two-migration reason. §8: WF-3c second branch (Cancel Orphaned Check-ins); stranded-`sent` defect; medication NOT EXISTS slot predicate. A-27–A-29 opened. Frontend `25114ed` noted. |
 | 4 Aug 2026 | 1.20 | **WF-5 built (voice reachability).** §8: WF-2a `voice_note` route; WF-5 `IC6oR4fuQd2VMkfQ`; voice→medication mapping; `voice-notes` bucket; renames (WF-3a/3b/6). WF-3a WF-6 guard defect (P1). A-22–A-26 opened. |
 | 3 Aug 2026 | 1.19 | **All-domain pass (evening).** Fifteen-workflow map: +WF-1b/1c/3d; WF-1 renamed Medication Scheduler (`days_of_week` honoured; overdue miss removed); WF-3b/3c all domains; WF-3c sole missed owner; WF-6 reads notify via check-in FKs; WF-2a `food_health_response`. Three defects recorded (§8). §5.2 `checkins` FKs + migration `20260803120000`. `domain_configs` = derived cache only; A-13/A-16 closed. A-20 opened; A-21 closed (frequency aligned). |

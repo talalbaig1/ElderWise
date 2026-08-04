@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.13 |
+| **Document** | Rules.md — v1.14 |
 | **Date** | 4 August 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
@@ -215,7 +215,7 @@ A task is done when **all** of these are true. Not four out of six.
 - [ ] It respects the architectural boundaries (§4).
 - [ ] Schema changes are in a committed migration, with RLS.
 - [ ] Timezones are handled per §5 (D3–D5).
-- [ ] Errors go somewhere a human will see them (Sentry).
+- [ ] Errors go somewhere a human will see them (Sentry for Next.js; the n8n error workflow for Track B).
 - [ ] No secret is exposed client-side.
 - [ ] n8n workflows are exported, scrubbed, and committed.
 - [ ] It has been tested **end to end on a real WhatsApp number**, not just in isolation. The unit that matters is the message arriving on a phone.
@@ -319,6 +319,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 4 Aug 2026 | 1.14 | **Sentry scope.** §11 Definition of Done: errors go to Sentry for Next.js, the n8n error workflow for Track B (`Architecture.md` §11.1, ruled 4 Aug 2026). |
 | 4 Aug 2026 | 1.13 | **§6a — cancelled pass (4 Aug).** Mutually exclusive parallel branches (WF-3c); enum additions are frontend-breaking — deploy mapper before workflow writes. |
 | 4 Aug 2026 | 1.12 | **§6a — five additions from voice pass (3–4 Aug).** Sub-workflow ID resolution; ordering-as-protection (WF-5); zero-row SELECT vs probe pattern; `alwaysOutputData` + IF pairing; enum-vs-text on `response_value`. |
 | 3 Aug 2026 | 1.11 | **§6a — enum verification + one writer per state transition.** From all-domain pass debugging: `checkins.response_channel` is `button|voice` not `whatsapp`; missed transition must have a single owner (WF-3c). |
