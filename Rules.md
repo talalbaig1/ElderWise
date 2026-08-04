@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.12 |
+| **Document** | Rules.md — v1.13 |
 | **Date** | 4 August 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
@@ -141,6 +141,8 @@ From `Architecture.md` §1 (P1). These are the walls that let ten people work in
 - [ ] **A plain single-statement SELECT returning zero rows halts the chain**, which can make a downstream "not found" branch **unreachable**. If that branch must run, either use the probe pattern (WF-3a's `FROM (SELECT 1) probe LEFT JOIN LATERAL …`) or `alwaysOutputData` paired with an IF that tests the empty case.
 - [ ] **`alwaysOutputData` is only safe when paired with such an IF.** Alone it pushes an empty `{}` downstream and causes undefined reads.
 - [ ] **Verify enum-vs-text before writing.** `response_value` is plain TEXT with no constraint; the database will not catch a wrong value. Only the human-facing template will, and only if someone reads it. (`checkins.response_channel` is `button | voice` — not `whatsapp`.)
+- [ ] **Two branches off one trigger satisfy "one writer per state transition" ONLY when their selection sets are mutually exclusive by construction.** WF-3c's missed branch selects **enabled** routines and its cancel branch selects **disabled** ones; they cannot overlap, and each UPDATE re-checks status so a mid-run flag flip is safe in either execution order.
+- [ ] **Adding an enum value is a FRONTEND-BREAKING change.** The DB-to-UI mapper is an exhaustive switch with **no default**: update the TypeScript union and deploy **before** any workflow writes the new value, or the mapper returns `undefined` at runtime and the status pill renders blank or throws. This deliberately inverts the docs-first / code-second habit — **and the inversion is correct** for enum additions.
 
 
 ## 7. Security rules
@@ -317,6 +319,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 4 Aug 2026 | 1.13 | **§6a — cancelled pass (4 Aug).** Mutually exclusive parallel branches (WF-3c); enum additions are frontend-breaking — deploy mapper before workflow writes. |
 | 4 Aug 2026 | 1.12 | **§6a — five additions from voice pass (3–4 Aug).** Sub-workflow ID resolution; ordering-as-protection (WF-5); zero-row SELECT vs probe pattern; `alwaysOutputData` + IF pairing; enum-vs-text on `response_value`. |
 | 3 Aug 2026 | 1.11 | **§6a — enum verification + one writer per state transition.** From all-domain pass debugging: `checkins.response_channel` is `button|voice` not `whatsapp`; missed transition must have a single owner (WF-3c). |
 | 3 Aug 2026 | 1.10 | **§6a corrected.** Postgres guard applies to reads as well as writes — CTE-based SELECTs also return `{success: true}` on zero rows. Nested sub-workflows must be published to execute. `autoAssignedCredentials: []` on update means no new assignments, not dropped bindings. Team size → 10. |

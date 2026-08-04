@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.20 |
+| **Document** | Architecture.md — v1.21 |
 | **Date** | 4 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
@@ -307,20 +307,22 @@ care_partners ──┐
 | `health_routine_id` | uuid FK → `health_routines` | nullable · `ON DELETE CASCADE` · set for `domain = health` |
 | `scheduled_for` | timestamptz | Computed from the owning routine's local time + elder tz → UTC at materialisation. |
 | `sent_at` | timestamptz | Must land within **±5 min** of `scheduled_for` (NFR-6). |
-| `status` | enum(`scheduled`,`sent`,`reminded`,`responded`,`missed`) | |
+| `status` | enum(`scheduled`,`sent`,`reminded`,`responded`,`missed`,`cancelled`) | Sixth value **`cancelled`** added **4 August 2026** — routine disabled while check-in still open; set by WF-3c cancel branch. |
 | `response_channel` | enum(`button`,`voice`) | nullable |
 | `response_value` | text | `yes` / `no` — for health & food |
 | `responded_at` | timestamptz | |
 | `reminder_sent_at` | timestamptz | the single escalation resend |
 | `missed_at` | timestamptz | |
+| `cancelled_at` | timestamptz | nullable · set when `status = cancelled` |
 | `escalated_at` | timestamptz | |
 | `wa_message_id` | text | Meta's message ID — join key for inbound webhooks and food/health response attribution |
 
 **Asymmetry (Talal, 3 August 2026):** medication **aggregates** several medicines into one check-in and links through `checkin_medication_items`; food and health are **1:1** with their routine row. Two nullable FKs were chosen over a polymorphic `routine_id` so referential integrity is real and illegal states cannot be stored.
 
-**Constraints & indexes** (migration `20260803120000`):
+**Constraints & indexes** (migration `20260803120000` + **4 Aug 2026 cancelled pass**):
+- **`checkin_status` enum** — sixth value `cancelled`. Applied **4 August 2026 as two separate migrations**: Postgres will not let a statement use an enum value added in the same transaction, and `apply_migration` wraps each file in one transaction. Migration 1: `ALTER TYPE … ADD VALUE 'cancelled'`. Migration 2: `ALTER TABLE checkins ADD COLUMN cancelled_at timestamptz` and any writes referencing `cancelled`.
 - **`checkins_domain_routine_consistent` CHECK** — domain must match which FK is set (medication: both FKs null; food: `food_routine_id` set; health: `health_routine_id` set).
-- **Partial unique indexes** — one `scheduled`/`sent`/`reminded` row per elder per medication slot / per food routine / per health routine (three indexes).
+- **Partial unique indexes** — one open row per elder per medication slot / per food routine / per health routine (three indexes). **`checkins_medication_slot_uniq`** is `UNIQUE (elder_id, scheduled_for) WHERE domain = 'medication'`. A **`cancelled` row still occupies its slot** — disabling and re-enabling a routine the same day will **not** restore that day's check-in (A-28; ruled acceptable).
 - **`checkins_wa_message_id_idx`** — lookup for `context.id` attribution (food, health, and reminder overwrite path).
 
 Index: `(elder_id, domain, scheduled_for)` and `(status, scheduled_for)` — the reminder and missed sweeps depend on the second.
@@ -460,7 +462,8 @@ The front end (`CheckInStatus`) and the database (`checkins.status`) use differe
 | `delayed` | `reminded` | One reminder already sent; still waiting. |
 | `taken` | `responded` | Affirmative / completed answer recorded (e.g. yes, medicines taken). |
 | `missed` | `missed` | Direct match — no reply after the reminder path. |
-| `skipped` | *(no dedicated backend status)* | UI-only / future. Do not invent a schema value in this doc pass. |
+| `cancelled` | `cancelled` | Direct match — routine disabled while check-in was still open; not a miss and not a skip. |
+| `skipped` | *(no dedicated backend status)* | UI-only — elder skipped it. **Different meaning from `cancelled`.** Do not conflate. |
 
 Negative or partial medication answers that still count as a recorded response remain backend `responded`, with detail in `response_value` / `checkin_medication_items` — the UI may show a non-`taken` label for those cases without changing the backend enum.
 
@@ -570,7 +573,7 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 | **WF-2a** Inbound Router (logic) | `Ne4rNaezpjn95UMM` | sub-workflow | All routing logic incl. `food_health_response` and `voice_note` |
 | **WF-3a** Medication Response Handler | `j0CWtHYyzplmad09` | sub-workflow | Records medication button replies |
 | **WF-3b** Reminder Sweep (All Domains) | `5P19E5CPhA14K6fo` | cron 1 min | One reminder after `escalation_minutes` — **all three domains** (templates 2/5/6 by domain) |
-| **WF-3c** Missed Sweep (All Domains) | `A3Z7yjrxLRZ6pI5r` | cron 1 min | **Sole owner** of the `missed` transition; escalates to WF-6 |
+| **WF-3c** Missed Sweep (All Domains) | `A3Z7yjrxLRZ6pI5r` | cron 1 min | **Sole owner** of the `missed` transition **and** the `cancelled` transition (orphan cleanup); two parallel branches off one trigger |
 | **WF-3d** Food & Health Response Handler | `Mx035ogWEoY1MEdU` | sub-workflow | Records food/health `Yes`/`No`; calls WF-6 |
 | **WF-5** Voice Reply → STT | `IC6oR4fuQd2VMkfQ` | sub-workflow | Whisper + LLM gate; voice storage; re-ask once |
 | **WF-4** SOS Orchestrator | `HSEp1YhQFHjga9qa` | sub-workflow | Create/reuse `sos_events`, load care circle, mint share link, dispatch templates 10/11/12 at `nudge_index 0`, acknowledge the elder |
@@ -580,7 +583,7 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 | **WF-4d** SOS Nudge Sweep | `EY36qDhdv5FqfL0W` | **cron 1 min** | Nudge rounds 1–3, template 13 |
 | **WF-6** Care Partner Notifications (All Domains) | `6I6OC7qJ5YhhUQxU` | sub-workflow | Templates 8 and 9 |
 
-**Track B message-path workflows: built** (4 August 2026). **Remaining:** Sentry (§11 P0); open items A-22–A-26; WF-3a guard defect (§8, P1); `some_of_them` fourth gate output (A-12).
+**Track B message-path workflows: built** (4 August 2026). **Remaining:** Sentry (§11 P0); open items A-22–A-29; WF-3a guard defect (§8, P1); `some_of_them` fourth gate output (A-12).
 
 > **Three defects fixed this evening (3 Aug 2026) — record as defects, not design intent:**
 >
@@ -665,12 +668,22 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 - Send **exactly one** reminder → `status = reminded`, set `reminder_sent_at`, **overwrite `wa_message_id`** for food/health (attribution — see WF-2a). Skip CT push paths when `notify_care_partner = not_required`.
 
 ### WF-3c · Missed Sweep (All Domains) (`A3Z7yjrxLRZ6pI5r`)
-- **Scope:** **all three domains**. **Sole owner of the `missed` transition** (defect fix 3 Aug 2026).
-- **Trigger:** cron, every minute.
-- Marks missed on **both** paths:
-  1. **`reminded`** and still silent after the delay elapses again.
-  2. **`scheduled`** and never dispatched past the dispatch window (never-dispatched — the case the Care Partner most needs to know about).
-- Sets `status = missed`, `missed_at`. If `notify_care_partner ≠ not_required`, escalate to the **CT only** (LCT and Doctor are never contacted on a missed check-in) → fire **WF-6**. If `not_required`, record the miss and send nothing.
+- **Scope:** **all three domains**. **Sole owner of the `missed` transition** (defect fix 3 Aug 2026) **and sole owner of the `cancelled` transition** (orphan cleanup — 4 Aug 2026).
+- **Trigger:** cron, every minute. **Two parallel branches** off the same schedule trigger:
+  1. **Mark Missed And Collect** — routines that **are enabled** (`enabled = true`; medication also requires `active = true`). Marks missed on both paths:
+     - **`reminded`** and still silent after the delay elapses again.
+     - **`scheduled`** and never dispatched past the dispatch window (never-dispatched — the case the Care Partner most needs to know about).
+     - Sets `status = missed`, `missed_at`. If `notify_care_partner ≠ not_required`, escalate to the **CT only** (LCT and Doctor are never contacted on a missed check-in) → fire **WF-6**. If `not_required`, record the miss and send nothing.
+  2. **Cancel Orphaned Check-ins** — routines that are **not** enabled (or, for medication, no longer have an active medicine in the slot). Sets `status = cancelled`, `cancelled_at`. **Nothing runs downstream** of the cancel node — no WF-6, no guard needed; `cancelled_count` exists only for the execution log.
+
+- **One writer preserved structurally:** the two selection sets are **mutually exclusive by construction** — missed branch selects enabled routines; cancel branch selects disabled ones. Each UPDATE re-checks status, so a mid-run flag flip is safe in either execution order (`Rules.md` §6a).
+
+- **Defect fixed (4 Aug 2026):** before this branch, an open check-in whose routine was disabled could **never terminate**. WF-1 dispatch, WF-3b reminder and WF-3c missed all filter `enabled = true`, and WF-3c missed only handled `status IN ('reminded','scheduled')` — so a check-in sitting at **`sent`** when the routine was disabled was **stranded permanently**.
+- **Proven live 4 August:** check-in `4af31e90` (Panadol 10:00, routine disabled) was stranded at `scheduled`, then **cancelled within 60 s** of the branch going live; three enabled check-ins were untouched.
+
+- **Selection predicates by domain:**
+  - **Medication** — `NOT EXISTS` against the **time slot**, not a simple `enabled = false` test, because a medication check-in has **no FK to a medication** — it is slot-scoped. The predicate covers disabled, soft-deleted (`active = false`), hard-deleted, and time-changed in one condition.
+  - **Food / health** — use `food_routine_id` / `health_routine_id` FKs. `food_routines` and `health_routines` have **`enabled` only**; only **`medications`** has **`active`**.
 
 ### WF-3d · Food & Health Response Handler (`Mx035ogWEoY1MEdU`)
 - **Scope:** `domain = 'food'` and `domain = 'health'`.
@@ -975,6 +988,9 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 | A-24 | **`consent_confirmed_at` covers daily check-ins, not storing recordings of the elder's voice.** Separate consent may be needed for voice retention — undecided. | Talal |
 | A-25 | **WF-5 is NOT idempotent.** No dedup on `media_id`. Verified 3 August: one `media_id` replayed produced four `voice_replies` rows and four distinct stored objects, because `$now.toMillis()` is in the upload path. A duplicate webhook delivery means a duplicate recording stored and a duplicate row. | Talal |
 | A-26 | **Voice note with no open check-in is silent to the elder.** Resolve Check-in now carries `alwaysOutputData` so the chain reaches **"No Open Check-in For This Voice Note"**, but that node is a **noOp**. §8 requires *"a gentle, plain-language re-prompt. Never a silent drop."* Needs a ruling: send something, or record an accepted deviation. | Talal |
+| A-27 | **The ≤60 s window.** WF-3a, WF-3d and WF-5 resolve check-ins by elder + status and do **not** filter on routine `enabled`. Between a routine being disabled and WF-3c cancelling the orphan, a reply is still accepted. **ACCEPTED DEVIATION** (Talal, 4 Aug 2026) — closing it would require a slot-match join in three resolvers for a one-minute window. | Talal |
+| A-28 | **`checkins_medication_slot_uniq` slot occupancy.** `UNIQUE (elder_id, scheduled_for) WHERE domain = 'medication'`. A **`cancelled` row still occupies its slot**, so disabling and re-enabling a routine the same day will **not** restore that day's check-in. Ruled acceptable; recorded so it is not rediscovered as a bug. | Talal |
+| A-29 | **Frontend `statusBreakdown` divergence + raw labels.** `report-analytics.ts` counts `cancelled` explicitly; `dashboard-analytics.ts` drops it (its `Record<string, number>` has no else branch for `cancelled`). Same concept, different behaviour on two screens. Share page and PDF render the raw lowercase DB status `cancelled` rather than a formatted label. **`adherence()` in both files** builds numerator and denominator from an explicit inclusion filter (`taken \| missed \| delayed`) — **`cancelled` is excluded from both automatically**; left deliberately unchanged (commit `25114ed`). | Talal |
 
 ---
 
@@ -982,6 +998,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | Date | Version | Change |
 |---|---|---|
+| 4 Aug 2026 | 1.21 | **Cancelled check-ins + orphan cleanup.** §5.2: `checkin_status` +`cancelled`, `cancelled_at`; two-migration reason. §8: WF-3c second branch (Cancel Orphaned Check-ins); stranded-`sent` defect; medication NOT EXISTS slot predicate. A-27–A-29 opened. Frontend `25114ed` noted. |
 | 4 Aug 2026 | 1.20 | **WF-5 built (voice reachability).** §8: WF-2a `voice_note` route; WF-5 `IC6oR4fuQd2VMkfQ`; voice→medication mapping; `voice-notes` bucket; renames (WF-3a/3b/6). WF-3a WF-6 guard defect (P1). A-22–A-26 opened. |
 | 3 Aug 2026 | 1.19 | **All-domain pass (evening).** Fifteen-workflow map: +WF-1b/1c/3d; WF-1 renamed Medication Scheduler (`days_of_week` honoured; overdue miss removed); WF-3b/3c all domains; WF-3c sole missed owner; WF-6 reads notify via check-in FKs; WF-2a `food_health_response`. Three defects recorded (§8). §5.2 `checkins` FKs + migration `20260803120000`. `domain_configs` = derived cache only; A-13/A-16 closed. A-20 opened; A-21 closed (frequency aligned). |
 | 3 Aug 2026 | 1.18 | **A-15 closed.** Live elder is Talal's test persona on a second handset in Riyadh; `+92` number and `Asia/Riyadh` timezone are both correct — no scheduling error. |

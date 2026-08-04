@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.15 |
+| **Document** | Phases.md — v1.16 |
 | **Date** | 4 August 2026 |
 | **Demo Day** | **Saturday 29 August 2026** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Templates.md` |
@@ -189,7 +189,7 @@ Runs **in parallel with Track A from day one.**
 
 ### B2 · Core workflows *(Sprint 4–5)*
 
-> **Sixteen-workflow map** (`Architecture.md` §8). **All message-path workflows built as of 4 Aug 2026**, including **WF-5** voice → STT. All three care domains verified on real WhatsApp (3 Aug evening + 4 Aug voice). **Remaining:** Sentry (§11 P0); A-25 idempotency; A-26 silent-drop ruling; WF-3a guard; `some_of_them` fourth gate; Sama copy items.
+> **Sixteen-workflow map** (`Architecture.md` §8). **All message-path workflows built as of 4 Aug 2026**, including **WF-5** voice → STT and **WF-3c** orphan cancel branch. **Remaining:** Sentry (§11 P0); A-25 idempotency; A-26 silent-drop; A-27/A-28/A-29; WF-3a guard; `some_of_them` fourth gate; Sama copy items.
 
 | # | Workflow | Owner | Status |
 |---|---|---|---|
@@ -209,8 +209,9 @@ Runs **in parallel with Track A from day one.**
 | B3.2 | **WF-4 SOS family** — WF-4 (`HSEp1YhQFHjga9qa`) + WF-4b + WF-4c + WF-4d + existing WF-4a. **Alert + 3 nudges** (not 4 nudges). | Talal | **DONE 3 August 2026.** Proven E2E on real WhatsApp: dispatch to three recipients with `NA` substitution and share-link minting; resolution attributed by `context.id` to two different roles from a single shared number; template 14 broadcast to all three; nudge round 1 with a single correct increment; two-minute gate declining to re-send. **Not proven:** nudge rounds 2 and 3 and exhaustion at `nudges_sent = 3` — schedule one deliberate four-round run at rehearsal (I3). |
 | B3.3 | **WF-2a audio branch** + voice→medication mapping + workflow renames (WF-3a *Medication Response Handler*, WF-3b *Reminder Sweep (All Domains)*, WF-6 *Care Partner Notifications (All Domains)*; WF-2 unchanged) | Talal | **DONE 4 August 2026**, published via UI |
 | B3.4 | Three throwaway harness workflows archived | Talal | **DONE 4 August 2026** |
+| B3.5 | **`cancelled` check-in status** — two DB migrations (`checkin_status` + `cancelled_at`); frontend support (`25114ed`); WF-3c **Cancel Orphaned Check-ins** branch | Talal | **DONE 4 August 2026.** Migrations applied. Frontend: types, mappers, status pill, `report-analytics` `statusBreakdown`; `adherence()` untouched in both analytics files. WF-3c cancel branch proven live on check-in `4af31e90` (Panadol 10:00, routine disabled — cancelled within 60 s; three enabled check-ins untouched). |
 
-**Remaining (Track B):** Sentry (`Architecture.md` §11 P0); A-25 idempotency; A-26 silent-drop ruling; WF-3a guard defect; `some_of_them` fourth gate output; Sama copy items (`Templates.md` OT-9 wording, OT-10).
+**Remaining (Track B):** Sentry (`Architecture.md` §11 P0); A-25 idempotency; A-26 silent-drop ruling; A-27/A-28/A-29; WF-3a guard defect; `some_of_them` fourth gate output; Sama copy items (`Templates.md` OT-9 wording, OT-10).
 
 **🚪 GATE B.** An elder confirms consent and only then begins receiving check-ins. A real WhatsApp number receives a real check-in, a Yes/No button reply is recorded, a voice reply is transcribed and recorded, a missed check-in escalates to the CT, and an SOS reaches all three recipients and can be resolved from **both** channels.
 
@@ -330,6 +331,7 @@ The proposal was a **second channel (Telegram)** so the demo could run even if t
 
 | Date | Version | Change |
 |---|---|---|
+| 4 Aug 2026 | 1.16 | **Cancelled check-ins DONE.** Two migrations; frontend `25114ed`; WF-3c cancel branch proven on `4af31e90`. A-27–A-29 opened. Remaining: Sentry, A-25, A-26, A-27–29, WF-3a guard, `some_of_them`, Sama copy. |
 | 4 Aug 2026 | 1.15 | **Voice pass DONE.** WF-5 built + E2E proven (medication `yes_all`, CT "Taken"). WF-2a audio branch; voice→medication mapping; renames (WF-3a/3b/6); harnesses archived. Re-ask cap correction: proven 4 Aug, not 3 Aug. Sixteen-workflow map. Remaining: Sentry, A-25, A-26, WF-3a guard, `some_of_them` gate, Sama copy. |
 | 3 Aug 2026 | 1.14 | **All-domain pass DONE (evening).** Health 19:15, food 19:30, `No` → `responded` + CT notice ("Dinner"). Fifteen-workflow map (+WF-1b/1c/3d). A-16 closed. Remaining Track B: **WF-5 only**. Sentry deferred; SOS nudge exhaustion = rehearsal scenario. |
 | 3 Aug 2026 | 1.13 | **WF-4 SOS DONE.** B3.2 built as WF-4/4b/4c/4d (+ WF-4a); E2E proven on real WhatsApp (dispatch, `context.id` attribution, template 14, nudge round 1). Remaining Track B workflow: **WF-5 only**. PR #2 close-not-merge action recorded. |
