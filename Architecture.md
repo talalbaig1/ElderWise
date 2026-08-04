@@ -5,8 +5,8 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.19 |
-| **Date** | 3 August 2026 |
+| **Document** | Architecture.md — v1.20 |
+| **Date** | 4 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
 
@@ -337,7 +337,7 @@ Index: `(elder_id, domain, scheduled_for)` and `(status, scheduled_for)` — the
 |---|---|---|
 | `id` | uuid PK | |
 | `checkin_id` | uuid FK | |
-| `audio_path` | text | Supabase Storage object path — **never the file itself in a column** |
+| `audio_path` | text | Supabase Storage object path in bucket **`voice-notes`** — **never a URL**. Path shape `{elder_id}/{checkin_id}/{unix_ms}.ogg`. Signed URLs on demand only. |
 | `transcript` | text | |
 | `confidence` | numeric | **Diagnostic only** — may hold Whisper `avg_logprob`. **Must not** gate the re-ask (see A-2 / WF-5). |
 | `provider` | text | `openai_whisper` (column stays `text` — no enum migration) |
@@ -558,7 +558,7 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 
 ## 8. The message path (n8n)
 
-**Fifteen n8n workflows** (as of the all-domain pass of **3 August 2026** evening). Three new schedulers/handlers (WF-1b, WF-1c, WF-3d); five materially changed (WF-1, WF-3b, WF-3c, WF-6, WF-2a). n8n constraints forced splits from the earlier six-/seven-workflow map: the Meta inbound webhook must stay on a thin shell; response / reminder / missed are separate; and **SOS dispatch, nudge loop, and resolution had to become separate workflows** because a resolution arriving mid-loop cannot be handed to a running execution, and because a suspended in-execution wait loop does not survive an n8n restart — which this section requires. The cron sweep (WF-4d) does.
+**Sixteen n8n workflows** (as of **4 August 2026**). WF-5 voice → STT built and proven end to end this date; WF-3a / WF-3b / WF-6 renamed (see table). Prior all-domain pass (3 Aug evening): +WF-1b/1c/3d; five materially changed (WF-1, WF-3b, WF-3c, WF-6, WF-2a).
 
 | Workflow | n8n ID | Trigger | Role |
 |---|---|---|---|
@@ -567,19 +567,20 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 | **WF-1b** Food Scheduler | `J0HQ47OKo21whK9G` | cron 1 min | Materialise + dispatch food check-ins, one per `food_routines` row |
 | **WF-1c** Health Scheduler | `2HgbXGM0Z5XQArf1` | cron 1 min | Materialise + dispatch health check-ins, one per `health_routines` row |
 | **WF-2** Inbound Router | `oHSNqoskL0nOoOfo` | Meta webhook | **Thin router** — one Execute Sub-workflow node. Owns the Meta callback. |
-| **WF-2a** Inbound Router (logic) | `Ne4rNaezpjn95UMM` | sub-workflow | All routing logic incl. `food_health_response` |
-| **WF-3a** Response Handler | `j0CWtHYyzplmad09` | sub-workflow | Records medication button replies |
-| **WF-3b** Reminder Sweep | `5P19E5CPhA14K6fo` | cron 1 min | One reminder after `escalation_minutes` — **all three domains** (templates 2/5/6 by domain) |
+| **WF-2a** Inbound Router (logic) | `Ne4rNaezpjn95UMM` | sub-workflow | All routing logic incl. `food_health_response` and `voice_note` |
+| **WF-3a** Medication Response Handler | `j0CWtHYyzplmad09` | sub-workflow | Records medication button replies |
+| **WF-3b** Reminder Sweep (All Domains) | `5P19E5CPhA14K6fo` | cron 1 min | One reminder after `escalation_minutes` — **all three domains** (templates 2/5/6 by domain) |
 | **WF-3c** Missed Sweep (All Domains) | `A3Z7yjrxLRZ6pI5r` | cron 1 min | **Sole owner** of the `missed` transition; escalates to WF-6 |
 | **WF-3d** Food & Health Response Handler | `Mx035ogWEoY1MEdU` | sub-workflow | Records food/health `Yes`/`No`; calls WF-6 |
+| **WF-5** Voice Reply → STT | `IC6oR4fuQd2VMkfQ` | sub-workflow | Whisper + LLM gate; voice storage; re-ask once |
 | **WF-4** SOS Orchestrator | `HSEp1YhQFHjga9qa` | sub-workflow | Create/reuse `sos_events`, load care circle, mint share link, dispatch templates 10/11/12 at `nudge_index 0`, acknowledge the elder |
 | **WF-4a** SOS Resolution Receiver | `jeNrf7b7ne3JX2Xu` | webhook | A2.7 dashboard → n8n stop-nudges |
 | **WF-4b** SOS Resolution Handler | `jh2P2gibpCsnyhoy` | sub-workflow | WhatsApp resolution path — attribute, write, call WF-4c |
 | **WF-4c** SOS Resolution Broadcast | `Baydb7saYNyAayMC` | sub-workflow | Template 14 to every recipient of a `sent` alert |
 | **WF-4d** SOS Nudge Sweep | `EY36qDhdv5FqfL0W` | **cron 1 min** | Nudge rounds 1–3, template 13 |
-| **WF-6** CT Notification Dispatch | `6I6OC7qJ5YhhUQxU` | sub-workflow | Templates 8 and 9 |
+| **WF-6** Care Partner Notifications (All Domains) | `6I6OC7qJ5YhhUQxU` | sub-workflow | Templates 8 and 9 |
 
-**Not yet built (Track B remaining):** **WF-5** voice → STT only.
+**Track B message-path workflows: built** (4 August 2026). **Remaining:** Sentry (§11 P0); open items A-22–A-26; WF-3a guard defect (§8, P1); `some_of_them` fourth gate output (A-12).
 
 > **Three defects fixed this evening (3 Aug 2026) — record as defects, not design intent:**
 >
@@ -630,7 +631,7 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
   - **Button reply** (medication *Yes, All* / *Some of them* / *Not Yet*) → **WF-3a**.
   - **Button reply** (food / health *Yes* / *No*) → **`food_health_response`** route → **WF-3d**.
   - **Medication = "Some of them"** — **scope reduction, ruled by Talal 3 August 2026:** the free-form interactive medicine list (`Templates.md` §7.1) is **not built**. The reply is recorded as `response_value = 'some_of_them'`, `status = responded`, and the Care Partner is notified (via WF-6 — see below). **Known gap:** we do **not** capture which medicines were taken — `checkin_medication_items` is populated only on *Yes, All*. Reason: the native WhatsApp node has no interactive-list message type; delivering one requires raw HTTP to the Graph API, which the team has ruled against. See open item **A-12**.
-  - **Voice note** → WF-5 (STT) — **not built yet**
+  - **Voice note** → **`voice_note`** route when `message_type === 'audio'` **and** a `media_id` is present, inside the **consented** block alongside `med_response` and `food_health_response`. **Parse Inbound Message** emits `media_id` from `msg.audio?.id`. Calls **WF-5** with **`waitForSubWorkflow: false`** — WF-5 takes ~6–7 s; holding Meta's callback that long invites a retry (same reasoning as WF-4). **Built and proven end to end 4 August 2026.**
   - **SOS trigger** → **WF-4** — **checked first and short-circuits everything else** (P2). The elder's message must normalise to exactly `sos` or `help` — **whole-message exact match**, case-insensitive, **not** a contains-match. A contains-match would fire a three-person emergency on *"can you help me with my tablets?"*. **Ruled by Talal, 3 August 2026.** **SOS fires regardless of consent state**, including an elder who has declined — deliberate carve-out from N5: she is the sender, and the alerts go to her care circle, not to her. **Ruled by Talal, 3 August 2026.**
   - **SOS resolution reply** → **WF-4b** (WhatsApp path). Matched on **four** button labels, not two (table below). Dashboard path → **WF-4a**.
   - **Delivery-status callbacks** (`statuses`, no `messages`) — normal inbound traffic; handle, do not treat as errors (`Rules.md` §6a)
@@ -649,13 +650,15 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 - **A `No` on a food or health check-in is a recorded negative response** (backend `responded`), **not** a missed check-in. Do not route it down the missed path.
 - **Food and health response attribution:** bare `Yes` / `No` cannot be told apart by text alone. Attribute by **`context.id` → `checkins.wa_message_id`** — the same mechanism proven on the SOS path against `sos_notifications`. **WF-3b's food and health reminders overwrite `checkins.wa_message_id`** with the reminder's wamid, so a reply quoting the reminder still attributes correctly. Medication deliberately does **not** use this path — it is matched by distinctive button text through **WF-3a**, which was left untouched.
 
-### WF-3a · Response Handler (`j0CWtHYyzplmad09`)
+### WF-3a · Medication Response Handler (`j0CWtHYyzplmad09`)
 - **Scope:** `domain = 'medication'` **only**.
 - **Trigger:** sub-workflow (from WF-2a).
 - **On response:** write to `checkins` (+ `checkin_medication_items` when *Yes, All*), set `status = responded`.
 - Fire **WF-6** when the owning routine's `notify_care_partner` requires a CT notice (see WF-6).
 
-### WF-3b · Reminder Sweep (`5P19E5CPhA14K6fo`)
+> **⚠️ DEFECT (P1, not yet fixed — 4 Aug 2026):** WF-3a's **Record Response** connects directly to **Notify Care Partner (WF-6)** with **no guard**. The query is CTE-based with scalar subqueries in the outer SELECT, so a zero-row UPDATE returns **one row of NULLs**, not `[]`. WF-6 is then invoked with `checkin_id` NULL. Reachable via a double-tap or a race with WF-3c. Violates `Rules.md` §6a — *guard every node that consumes a Postgres result*.
+
+### WF-3b · Reminder Sweep (All Domains) (`5P19E5CPhA14K6fo`)
 - **Scope:** **all three domains** — templates **2** (medication), **5** (food), **6** (health) by domain.
 - **Trigger:** cron, every minute.
 - Find `checkins` where `status = sent` and `now() > sent_at + escalation_minutes` (read from the **owning routine** — medication via `checkin_medication_items`, food via `food_routine_id`, health via `health_routine_id`).
@@ -744,15 +747,42 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 - Finds open SOS events due for the next nudge round; sends template **13** for `nudge_index` 1–3; increments `nudges_sent` (0–3). Re-reads `sos_events.status` before every send (safety net).
 - **Must guard CTE-based SELECT results** (`Rules.md` §6a) — zero due rows must not run the WhatsApp node.
 
-### WF-5 · Voice reply → STT — **not yet built**
-- Download the audio from the Meta media endpoint → store in the Supabase Storage bucket → write `voice_replies.audio_path`.
-- Transcribe via **OpenAI Whisper** (OpenAI transcription API) → store `transcript`, `provider = openai_whisper`. Optional: store Whisper `avg_logprob` in `confidence` as a **diagnostic only**.
-- **Answer derivation (OpenAI):** return `{"answer": "yes"|"no"|"unclear"}`. Medication multi-select path superseded by A-12 scope reduction; voice medication answer mapping is a WF-5 build-time detail (owner: Talal). **Any value other than a clean yes/no triggers the single re-ask (P3).** Do **not** gate on ASR confidence — OpenAI transcription does not return a usable confidence threshold for this purpose (A-2 resolved).
-- **Hand a clean yes/no to WF-3a and treat it exactly as a button tap.** A voice reply is a first-class response (M4a).
-- **Unclear → do not guess (P3).** Re-ask once, in plain language (`reask_count` → 1). If the second attempt also fails, the check-in follows the normal missed path. **Never infer "yes" on a medication question from muddy audio.**
+### WF-5 · Voice Reply → STT (`IC6oR4fuQd2VMkfQ`) — **built 4 August 2026**
 
-### WF-6 · CT Notification Dispatch (`6I6OC7qJ5YhhUQxU`)
-- **Trigger:** sub-workflow (from WF-3a / WF-3c / WF-3d).
+- **Trigger:** sub-workflow (from WF-2a `voice_note` route). **`waitForSubWorkflow: false`** on the WF-2a call.
+- **Ordering constraint (load-bearing):** **Resolve Check-in runs before any media fetch.** An elder with no open check-in never has audio downloaded or stored. That ordering — not the WF-2a consent gate alone — is the real safeguard. Reordering would remove the protection silently (`Rules.md` §6a).
+- **Chain:** WhatsApp `mediaUrlGet` → authenticated HTTP download → upload to private Supabase bucket **`voice-notes`** (25 MB max, MIME-restricted to audio types) → **OpenAI Whisper** → LLM gate returning `yes` | `no` | `unclear`.
+- **On `yes` / `no`:** update `checkins` with `response_channel = 'voice'`, write `voice_replies`, call **WF-6** when notify rules require it.
+- **On `unclear`:** send **one** free-form re-ask and increment `voice_replies.reask_count`. A **second** unclear does **not** re-ask — the check-in follows the missed path. **Re-ask cap proven 4 August 2026** (see `Phases.md` B3.1 correction).
+- **UI-maintained:** WF-5's two **HTTP Request** nodes lose their credentials on every SDK update — treat WF-5 as **effectively UI-maintained** for credential binding.
+
+#### Voice → medication mapping (load-bearing)
+
+The LLM gate emits three values; medication has three **different** stored values. **Record Voice Response** maps by domain, reading `c.domain` from the row being updated:
+
+| Domain | Gate output | `response_value` written |
+|---|---|---|
+| **medication** | `yes` | `yes_all` |
+| **medication** | `no` | `not_yet` |
+| **medication** | other | `unknown` |
+| **food / health** | `yes` / `no` | passes through unchanged |
+
+**Status rule (mirrors WF-3a):** a medication **`not_yet` does NOT close the check-in** — `status` is preserved so the reminder still arms. **`checkin_medication_items` CTE is replicated verbatim** from WF-3a, so a voice `yes_all` populates the medicines exactly as the button does.
+
+**Why this mattered:** `checkins.response_value` is plain **TEXT with no CHECK and no enum**. Writing a bare `'yes'` on a medication check-in would have been accepted silently, WF-6's `status_label` CASE would have fallen through to **"Recorded"** instead of **"Taken"**, and `checkin_medication_items` would have stayed empty.
+
+**Remaining gap — `some_of_them` unreachable by voice:** the gate has no fourth output, so medication-by-voice is **all-or-nothing**. A spoken *"I took some of them"* returns `unclear` and spends the single re-ask. Deliberate; a fourth output is a **feature decision**, not a sync fix. Cross-reference **A-12**.
+
+#### Voice storage
+
+| Property | Value |
+|---|---|
+| **Bucket** | `voice-notes` — private, 25 MB, MIME-restricted to audio types |
+| **Object path** | `{elder_id}/{checkin_id}/{unix_ms}.ogg` |
+| **`voice_replies.audio_path`** | Bucket-prefixed key — **never a URL**; signed URLs on demand |
+
+### WF-6 · Care Partner Notifications (All Domains) (`6I6OC7qJ5YhhUQxU`)
+- **Trigger:** sub-workflow (from WF-3a / WF-3c / WF-3d / **WF-5**).
 - **Authoritative setting:** the owning routine's `notify_care_partner` (`every_time` | `only_missed` | `not_required`) — read **per domain via check-in FKs** (`checkin_medication_items` → `medications`; `food_routine_id` → `food_routines`; `health_routine_id` → `health_routines`). **Do not** `LEFT JOIN medications` alone for all domains (defect fixed 3 Aug 2026).
 - **`not_required`:** send **nothing** — no confirmation and no missed-routine WhatsApp. The check-in miss is still written to the DB and visible on the dashboard. Do not escalate a mute into a silent workflow failure.
 - **`every_time`:** send template 8 (`elderwise_ct_interaction_notice`) on a recorded response.
@@ -940,6 +970,11 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 | A-17 | **Raw doctor share tokens are stored in plaintext in n8n execution history.** WF-4 returns the raw token from Postgres to build the URL, so it is readable by anyone with instance access, who can then open the patient report. Same class as A-14. | Talal |
 | A-18 | **Template 14 sends cannot be logged, so W3 cannot be satisfied for the resolution broadcast.** `sos_notifications` is constrained to `nudge_index` 0–3 for alerts and nudges; `ct_notifications.type` is `interaction \| missed` only. There is no table that can hold a resolution-broadcast send. Needs a schema decision or a recorded acceptance. | Talal |
 | A-19 | **The n8n error workflow forwards raw error content to Telegram and Gmail.** It interpolates `execution.error.message` and `error.messages[0]`, which on the SOS path can carry query parameters including phone numbers and record IDs. X9 requires scrubbing before error reporting is switched on. Raise at Security Gate Pass 2. | Talal |
+| A-22 | **Voice upload uses service-role key via n8n Header Auth**, bypassing RLS on an instance shared with ~26 personal workflows. Pass 2 item alongside A-14 and A-17. | Talal |
+| A-23 | **Audio retention undecided.** Proposed 30 days; nothing currently deletes objects in `voice-notes`. | Talal |
+| A-24 | **`consent_confirmed_at` covers daily check-ins, not storing recordings of the elder's voice.** Separate consent may be needed for voice retention — undecided. | Talal |
+| A-25 | **WF-5 is NOT idempotent.** No dedup on `media_id`. Verified 3 August: one `media_id` replayed produced four `voice_replies` rows and four distinct stored objects, because `$now.toMillis()` is in the upload path. A duplicate webhook delivery means a duplicate recording stored and a duplicate row. | Talal |
+| A-26 | **Voice note with no open check-in is silent to the elder.** Resolve Check-in now carries `alwaysOutputData` so the chain reaches **"No Open Check-in For This Voice Note"**, but that node is a **noOp**. §8 requires *"a gentle, plain-language re-prompt. Never a silent drop."* Needs a ruling: send something, or record an accepted deviation. | Talal |
 
 ---
 
@@ -947,6 +982,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | Date | Version | Change |
 |---|---|---|
+| 4 Aug 2026 | 1.20 | **WF-5 built (voice reachability).** §8: WF-2a `voice_note` route; WF-5 `IC6oR4fuQd2VMkfQ`; voice→medication mapping; `voice-notes` bucket; renames (WF-3a/3b/6). WF-3a WF-6 guard defect (P1). A-22–A-26 opened. |
 | 3 Aug 2026 | 1.19 | **All-domain pass (evening).** Fifteen-workflow map: +WF-1b/1c/3d; WF-1 renamed Medication Scheduler (`days_of_week` honoured; overdue miss removed); WF-3b/3c all domains; WF-3c sole missed owner; WF-6 reads notify via check-in FKs; WF-2a `food_health_response`. Three defects recorded (§8). §5.2 `checkins` FKs + migration `20260803120000`. `domain_configs` = derived cache only; A-13/A-16 closed. A-20 opened; A-21 closed (frequency aligned). |
 | 3 Aug 2026 | 1.18 | **A-15 closed.** Live elder is Talal's test persona on a second handset in Riyadh; `+92` number and `Asia/Riyadh` timezone are both correct — no scheduling error. |
 | 3 Aug 2026 | 1.17 | **Round 2 doc pass.** §5.2 round-numbering note (`nudge_index` vs `nudges_sent`). Migration `20260803100000` (file only) tightens `nudges_sent` bound 0–3. |
@@ -970,4 +1006,4 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 3 August 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 4 August 2026.*

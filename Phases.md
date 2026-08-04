@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.14 |
-| **Date** | 3 August 2026 |
+| **Document** | Phases.md — v1.15 |
+| **Date** | 4 August 2026 |
 | **Demo Day** | **Saturday 29 August 2026** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Templates.md` |
 
@@ -58,7 +58,7 @@ The two tracks cannot block each other — that is the entire reason the archite
 | **Sprint 5** | 3 – 16 August | Integration · auth · end-to-end |
 | **Sprint 6** | 17 – 29 August | **Security gate** · hardening · rehearsal · **Demo Day 29 Aug** |
 
-**Today is 3 August 2026 — Sprint 5 (integration · auth · end-to-end). Demo Day is 29 August (~26 days left).**
+**Today is 4 August 2026 — Sprint 5 (integration · auth · end-to-end). Demo Day is 29 August (~25 days left).**
 
 ---
 
@@ -189,7 +189,7 @@ Runs **in parallel with Track A from day one.**
 
 ### B2 · Core workflows *(Sprint 4–5)*
 
-> **Fifteen-workflow map** (`Architecture.md` §8). Built as of 3 Aug evening: WF-0, WF-1 / **WF-1b** / **WF-1c**, WF-2 (thin) + WF-2a, WF-3a / **WF-3b (all domains)** / **WF-3c (all domains)** / **WF-3d**, **WF-4 / 4a / 4b / 4c / 4d**, WF-6. **All three care domains verified on real WhatsApp 3 Aug 2026 evening** (health 19:15, food 19:30, `No` → `responded`, CT notice naming "Dinner"). **Remaining Track B workflow: WF-5 (voice → STT) only.**
+> **Sixteen-workflow map** (`Architecture.md` §8). **All message-path workflows built as of 4 Aug 2026**, including **WF-5** voice → STT. All three care domains verified on real WhatsApp (3 Aug evening + 4 Aug voice). **Remaining:** Sentry (§11 P0); A-25 idempotency; A-26 silent-drop ruling; WF-3a guard; `some_of_them` fourth gate; Sama copy items.
 
 | # | Workflow | Owner | Status |
 |---|---|---|---|
@@ -198,15 +198,19 @@ Runs **in parallel with Track A from day one.**
 | B2.1b | **WF-1b Food Scheduler** (`J0HQ47OKo21whK9G`) | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug evening |
 | B2.1c | **WF-1c Health Scheduler** (`2HgbXGM0Z5XQArf1`) | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug evening |
 | B2.2 | **WF-2 Inbound Router** (thin, `oHSNqoskL0nOoOfo`) + **WF-2a** logic (`Ne4rNaezpjn95UMM`) incl. `food_health_response` | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug (evening pass) |
-| B2.3 | **WF-3a** Response / **WF-3b** Reminder / **WF-3c** Missed (all domains) / **WF-3d** Food & Health Response | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug evening |
-| B2.4 | **WF-6 CT Notification Dispatch** (`6I6OC7qJ5YhhUQxU`) — templates 8 and 9; notify via check-in FKs | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug (evening pass) |
+| B2.3 | **WF-3a** *Medication Response Handler* / **WF-3b** *Reminder Sweep (All Domains)* / **WF-3c** Missed (all domains) / **WF-3d** Food & Health Response | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug evening; **renamed** 4 Aug (WF-3a/3b/6 titles; WF-2 unchanged) |
+| B2.4 | **WF-6 Care Partner Notifications (All Domains)** (`6I6OC7qJ5YhhUQxU`) — templates 8 and 9; notify via check-in FKs | Claude (in-session) · Talal (approval/test) | **DONE** 3 Aug (evening pass); **renamed** 4 Aug |
 
-### B3 · Voice & SOS — the hard parts *(Sprint 5, remaining Track B)*
+### B3 · Voice & SOS *(Sprint 5)*
 
 | # | Workflow | Owner | Note |
 |---|---|---|---|
-| B3.1 | **WF-5 Voice → STT** — download audio → Storage → **OpenAI Whisper** → derive `{"answer":"yes"|"no"|"unclear"}` → **treat clean yes/no exactly as a button tap** | Talal | **Never guess** (N3). `unclear` → re-ask once → then missed. Do not gate on ASR confidence. **Not built.** |
+| B3.1 | **WF-5 Voice → STT** (`IC6oR4fuQd2VMkfQ`) — WF-2a `voice_note` route; Whisper + LLM gate; `voice-notes` bucket; voice→medication mapping | Talal | **DONE 4 August 2026.** Test 1: zero open check-ins — chain routes, WF-5 halts before media fetch. Test 2: live medication check-in — `response_value=yes_all`, `status=responded`, `response_channel=voice`, one `checkin_medication_items` row (Vitimin D at 06:01; Panadol at 10:00 excluded), CT notice **"Status: Taken"**. **Re-ask cap proven 4 Aug:** two unclear notes — first incremented `reask_count` to 1 and sent re-ask; second saw `prior_reasks=1`, terminated at *Re-ask Already Used - Falls To Missed Path* (Send Re-ask / Increment absent from run data). **Correction:** re-ask cap was **not** proven on 3 August — no `voice_replies` row had `reask_count > 0` that day. |
 | B3.2 | **WF-4 SOS family** — WF-4 (`HSEp1YhQFHjga9qa`) + WF-4b + WF-4c + WF-4d + existing WF-4a. **Alert + 3 nudges** (not 4 nudges). | Talal | **DONE 3 August 2026.** Proven E2E on real WhatsApp: dispatch to three recipients with `NA` substitution and share-link minting; resolution attributed by `context.id` to two different roles from a single shared number; template 14 broadcast to all three; nudge round 1 with a single correct increment; two-minute gate declining to re-send. **Not proven:** nudge rounds 2 and 3 and exhaustion at `nudges_sent = 3` — schedule one deliberate four-round run at rehearsal (I3). |
+| B3.3 | **WF-2a audio branch** + voice→medication mapping + workflow renames (WF-3a *Medication Response Handler*, WF-3b *Reminder Sweep (All Domains)*, WF-6 *Care Partner Notifications (All Domains)*; WF-2 unchanged) | Talal | **DONE 4 August 2026**, published via UI |
+| B3.4 | Three throwaway harness workflows archived | Talal | **DONE 4 August 2026** |
+
+**Remaining (Track B):** Sentry (`Architecture.md` §11 P0); A-25 idempotency; A-26 silent-drop ruling; WF-3a guard defect; `some_of_them` fourth gate output; Sama copy items (`Templates.md` OT-9 wording, OT-10).
 
 **🚪 GATE B.** An elder confirms consent and only then begins receiving check-ins. A real WhatsApp number receives a real check-in, a Yes/No button reply is recorded, a voice reply is transcribed and recorded, a missed check-in escalates to the CT, and an SOS reaches all three recipients and can be resolved from **both** channels.
 
@@ -326,6 +330,7 @@ The proposal was a **second channel (Telegram)** so the demo could run even if t
 
 | Date | Version | Change |
 |---|---|---|
+| 4 Aug 2026 | 1.15 | **Voice pass DONE.** WF-5 built + E2E proven (medication `yes_all`, CT "Taken"). WF-2a audio branch; voice→medication mapping; renames (WF-3a/3b/6); harnesses archived. Re-ask cap correction: proven 4 Aug, not 3 Aug. Sixteen-workflow map. Remaining: Sentry, A-25, A-26, WF-3a guard, `some_of_them` gate, Sama copy. |
 | 3 Aug 2026 | 1.14 | **All-domain pass DONE (evening).** Health 19:15, food 19:30, `No` → `responded` + CT notice ("Dinner"). Fifteen-workflow map (+WF-1b/1c/3d). A-16 closed. Remaining Track B: **WF-5 only**. Sentry deferred; SOS nudge exhaustion = rehearsal scenario. |
 | 3 Aug 2026 | 1.13 | **WF-4 SOS DONE.** B3.2 built as WF-4/4b/4c/4d (+ WF-4a); E2E proven on real WhatsApp (dispatch, `context.id` attribution, template 14, nudge round 1). Remaining Track B workflow: **WF-5 only**. PR #2 close-not-merge action recorded. |
 | 3 Aug 2026 | 1.12 | **Correction pass.** B2 owners corrected: WF-0–WF-6 built by Claude in-session with Talal approval/test (not Robert). WF-4 and WF-5 owner = Talal (consistent across §5 / §8). Sandy: PR #2 (WF-3/WF-6) pending, will close not merge. §7 channel go/no-go cleared (WhatsApp; all 14 approved 2 Aug). Track B remaining = WF-4, WF-5, health + food; WF-1/3a/3b/3c medication-only. Footer → 3 Aug. |
@@ -344,4 +349,4 @@ The proposal was a **second channel (Telegram)** so the demo could run even if t
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 3 August 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 4 August 2026.*

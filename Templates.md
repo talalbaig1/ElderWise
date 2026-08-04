@@ -577,6 +577,7 @@ variants must stay parallel.
 | ~~OT-8~~ | ~~`elderwise_sos_alert_doctor` PENDING~~ — **CLOSED 2 Aug 2026. Approved unchanged.** All 14 templates now approved. | Closed | Talal |
 | ~~OT-7~~ | ~~The "No, thank you" path must actually be built.~~ — **CLOSED 3 Aug 2026.** Decline path verified on real WhatsApp (Phases B1.5). | Closed | Robert / Sandy |
 | ~~OT-9~~ | ~~Period label derivation (B-3)~~ — **CLOSED 3 Aug 2026 (implemented):** `< 12:00 Morning`, `< 17:00 Afternoon`, `< 21:00 Evening`, else `Night`. **Sama has not signed off the wording.** | Closed (wording: Sama) | Sandy + Sama |
+| **OT-10** | **Template 8 `{{2}}` asymmetry across domains.** Spec = "routine label + period" (e.g. `Medication (Morning)`). Food names the meal ("Dinner"); health will pass `h.name` once v2 templates clear Meta; medication shows a **derived period** because a medication check-in is scoped to a **time slot** and may cover several medicines. Two of three domains name the routine; one does not. **Parked with Sama** alongside OT-9 period-label wording sign-off. | Parked | Sama |
 | **OT-4** | Language of the elder's WhatsApp — MVP is English only. Cosmetic for the demo; real for the product. | Medium | Team |
 | **OT-5** | Telegram equivalents — parked. Telegram needs no approval, so copy lifts directly from here. | Parked | Talal |
 | **OT-6** | ~~Emoji usage~~ — **CLOSED by default 28 Jul.** Emoji shipped in approved templates (🚨 ✅ 👍 💚 👋). Revisit for v2. | Closed | Sama |
@@ -611,6 +612,9 @@ placeholder count not matching the samples · buttons over 20 characters.
 
 | Date | Version | Change |
 |---|---|---|
+| Date | Change |
+|---|---|
+| 4 Aug 2026 | **OT-10 opened (no version bump).** Template 8 `{{2}}` domain asymmetry — medication uses derived period label; food/health name the routine/meal. Parked with Sama alongside OT-9 wording sign-off. **No §4–6 body edits.** |
 | 3 Aug 2026 | **1.10** | **Health v2 pair submitted (pending Meta).** §3.0 records `elderwise_ep_health_checkin_v2` and `_reminder_v2` — two vars, routine name in body; reminder wording avoids re-engagement MARKETING classification. Templates 3 and 6 remain in service. **No §4–6 body edits.** |
 | 3 Aug 2026 | **1.9** | **Round 2 doc pass.** §1 WABA verification date restored to 28 Jul (re-verified 2 Aug). §13 nudge numbering aligned to `nudge_index` 1–3 (alert = 0). |
 | 3 Aug 2026 | **1.8** | **WF-4 SOS docs.** §3.2 callout names all four resolution labels + apostrophe-strip order. §3.4 reuse-before-mint struck (always mint). §7.3 elder acknowledgement rewritten as four variants with no `NA` (T3); pending Sama sign-off. |

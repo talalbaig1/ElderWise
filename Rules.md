@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.11 |
-| **Date** | 3 August 2026 |
+| **Document** | Rules.md — v1.12 |
+| **Date** | 4 August 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
 
@@ -125,7 +125,7 @@ From `Architecture.md` §1 (P1). These are the walls that let ten people work in
 
 ## 6a. n8n implementation rules (pre-merge checklist)
 
-> Every item below cost real debugging time on **3 August 2026**. Check each before merging a workflow change.
+> Every item below cost real debugging time on **3–4 August 2026**. Check each before merging a workflow change.
 
 - [ ] **Never edit a workflow that contains a webhook trigger via the API.** `update_workflow` rotates the trigger node's `webhookId`. That changes the Meta callback URL and silently stops all inbound WhatsApp. **UI only** for webhook-bearing workflows (WF-2, WF-4a). Sub-workflows without a webhook are safe to update programmatically.
 - [ ] **Guard every node that consumes a Postgres result — reads as well as writes.** An `INSERT`/`UPDATE` matching zero rows returns `{success: true}`, and so does a **CTE-based `SELECT`** matching zero rows. Only a simple single-statement `SELECT` reliably returns `[]`. Do not rely on statement type to decide whether a guard is needed. Guard everything. Proven twice on 3 August: WF-4c `Load Broadcast Recipients` and WF-4d `Find Due Nudge Recipients` are pure read queries on CTEs and both returned `{success: true}` on zero rows. In WF-4d that carried undefined values into the WhatsApp node. Consequence: on a one-minute cron, WF-4d would have errored every minute that no SOS was due — roughly 1,400 times a day — firing the error workflow into Telegram and Gmail each time, burying a real alert.
@@ -136,6 +136,11 @@ From `Architecture.md` §1 (P1). These are the walls that let ten people work in
 - [ ] **A sub-workflow called from another sub-workflow must be published before it can execute.** A first-level call from a manual execution resolves the draft, but a second-level call goes through `getPublishedWorkflowData` and fails with *"Workflow is not active and cannot be executed."* This is broader than the known rule that a parent cannot be published until its children are. Production chains are three deep — WF-2 → WF-2a → WF-4b → WF-4c — so every workflow below WF-2a must be published. Failure mode observed 3 August: the resolution was written to the database and then the broadcast call failed, leaving an SOS marked resolved with nobody told, and the only trace an execution marked `error`. Architecture §11 classes this as **P0**.
 - [ ] **Verify enum values before using them.** `checkins.response_channel` is `button | voice` — **not** `whatsapp`. It does not mirror `sos_events.resolved_channel`. Reasoning by analogy between similarly-named enums produces a runtime failure.
 - [ ] **One writer per state transition.** A status change that triggers a notification must have exactly one workflow that performs it. Three workflows once marked check-ins `missed`; only one notified, and they raced.
+- [ ] **Sub-workflow calls must resolve by ID, never by name.** Verified 4 August across all exports: every `executeWorkflow` node uses `mode=id` except WF-2's call to WF-2a, which is `mode=list` but still carries the ID as its value (`cachedResultName` is a display label only). This is why the WF-3a / WF-3b / WF-6 renames were safe.
+- [ ] **A node's protection can live in its POSITION, not its guard.** WF-5 resolves the check-in **before** fetching any media, so an elder with no open check-in never has audio downloaded or stored. That ordering — not the WF-2a consent gate alone — is the real safeguard. Reordering it would remove the protection silently. **Ordering constraints must be documented as constraints.**
+- [ ] **A plain single-statement SELECT returning zero rows halts the chain**, which can make a downstream "not found" branch **unreachable**. If that branch must run, either use the probe pattern (WF-3a's `FROM (SELECT 1) probe LEFT JOIN LATERAL …`) or `alwaysOutputData` paired with an IF that tests the empty case.
+- [ ] **`alwaysOutputData` is only safe when paired with such an IF.** Alone it pushes an empty `{}` downstream and causes undefined reads.
+- [ ] **Verify enum-vs-text before writing.** `response_value` is plain TEXT with no constraint; the database will not catch a wrong value. Only the human-facing template will, and only if someone reads it. (`checkins.response_channel` is `button | voice` — not `whatsapp`.)
 
 
 ## 7. Security rules
@@ -312,6 +317,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 4 Aug 2026 | 1.12 | **§6a — five additions from voice pass (3–4 Aug).** Sub-workflow ID resolution; ordering-as-protection (WF-5); zero-row SELECT vs probe pattern; `alwaysOutputData` + IF pairing; enum-vs-text on `response_value`. |
 | 3 Aug 2026 | 1.11 | **§6a — enum verification + one writer per state transition.** From all-domain pass debugging: `checkins.response_channel` is `button|voice` not `whatsapp`; missed transition must have a single owner (WF-3c). |
 | 3 Aug 2026 | 1.10 | **§6a corrected.** Postgres guard applies to reads as well as writes — CTE-based SELECTs also return `{success: true}` on zero rows. Nested sub-workflows must be published to execute. `autoAssignedCredentials: []` on update means no new assignments, not dropped bindings. Team size → 10. |
 | 3 Aug 2026 | 1.9 | **§6a n8n implementation rules** — pre-merge checklist from 3 Aug Track B debugging (webhookId rotation / UI-only; guard Postgres writes; empty `queryReplacement`; verify credentials; honour `parsed: false`; delivery-status callbacks). |
@@ -327,4 +333,4 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 3 August 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 4 August 2026.*
