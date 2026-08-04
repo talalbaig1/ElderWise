@@ -37,6 +37,11 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Page routes only. `api` and `share` are excluded deliberately:
+    // every API route authenticates itself via getUser(), and /share/[token]
+    // is token-gated with no session (Architecture §7.3). Middleware exists to
+    // refresh session cookies on page navigations — it has no job on either.
+    // /api/sos/resolve is the SOS path, where added latency is the harm (P2).
+    "/((?!api|share|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
