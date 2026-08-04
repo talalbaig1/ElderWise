@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "93b821fe-6040-4b15-9ac3-5ba00409ce1c",
+  "activeVersionId": "8b9ddffe-c5b9-4232-9b6d-3c83df95bfe1",
   "connections": {
     "Any Reminder Due?": {
       "main": [
@@ -117,7 +117,7 @@
     "aiBuilderAssisted": true,
     "builderVariant": "mcp"
   },
-  "name": "ElderWise WF-3b - Reminder Sweep",
+  "name": "ElderWise WF-3b - Reminder Sweep (All Domains)",
   "nodes": [
     {
       "id": "92382779-9d63-40a9-b062-7b380724fc2a",
@@ -153,8 +153,7 @@
         "options": {
           "connectionTimeout": 10
         },
-        "query": "SELECT c.id AS checkin_id, c.domain::text AS domain, e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp, string_agg(m.name, ', ' ORDER BY m.name) AS medicine_list, COALESCE(MIN(f.meal_name), MIN(h.name)) AS routine_name, CASE WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 12 THEN 'Morning' WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 17 THEN 'Afternoon' WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 21 THEN 'Evening' ELSE 'Night' END AS period_label FROM checkins c JOIN elders e ON e.id = c.elder_id LEFT JOIN medications m ON c.domain = 'medication' AND m.elder_id = e.id AND m.enabled AND m.active AND to_char(c.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) LEFT JOIN food_routines f ON f.id = c.food_routine_id LEFT JOIN health_routines h ON h.id = c.health_routine_id WHERE c.status = 'sent' AND e.active AND e.consent_confirmed_at IS NOT NULL AND c.sent_at IS NOT NULL GROUP BY c.id, c.domain, c.sent_at, c.scheduled_for, e.first_name, e.whatsapp_number, e.timezone HAVING now() > c.sent_at + make_interval(mins => COALESCE(MIN(m.escalation_minutes), MIN(f.escalation_minutes), MIN(h.escalation_minutes), 30)) ORDER BY c.scheduled_for LIMIT 10",
-        "resource": "database"
+        "query": "SELECT c.id AS checkin_id, c.domain::text AS domain, e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp, string_agg(m.name, ', ' ORDER BY m.name) AS medicine_list, COALESCE(MIN(f.meal_name), MIN(h.name)) AS routine_name, CASE WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 12 THEN 'Morning' WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 17 THEN 'Afternoon' WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 21 THEN 'Evening' ELSE 'Night' END AS period_label FROM checkins c JOIN elders e ON e.id = c.elder_id LEFT JOIN medications m ON c.domain = 'medication' AND m.elder_id = e.id AND m.enabled AND m.active AND to_char(c.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) LEFT JOIN food_routines f ON f.id = c.food_routine_id LEFT JOIN health_routines h ON h.id = c.health_routine_id WHERE c.status = 'sent' AND e.active AND e.consent_confirmed_at IS NOT NULL AND c.sent_at IS NOT NULL GROUP BY c.id, c.domain, c.sent_at, c.scheduled_for, e.first_name, e.whatsapp_number, e.timezone HAVING now() > c.sent_at + make_interval(mins => COALESCE(MIN(m.escalation_minutes), MIN(f.escalation_minutes), MIN(h.escalation_minutes), 30)) ORDER BY c.scheduled_for LIMIT 10"
       },
       "position": [
         224,
@@ -182,9 +181,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "loose"
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         448,
@@ -211,9 +213,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "strict"
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         672,
@@ -238,27 +243,21 @@
               "bodyParameters": {
                 "parameter": [
                   {
-                    "text": "={{ $json.elder_first_name }}",
-                    "type": "text"
+                    "text": "={{ $json.elder_first_name }}"
                   },
                   {
-                    "text": "={{ $json.period_label }}",
-                    "type": "text"
+                    "text": "={{ $json.period_label }}"
                   },
                   {
-                    "text": "={{ $json.medicine_list }}",
-                    "type": "text"
+                    "text": "={{ $json.medicine_list }}"
                   }
                 ]
-              },
-              "type": "body"
+              }
             }
           ]
         },
-        "operation": "sendTemplate",
         "phoneNumberId": "1084405194760141",
         "recipientPhoneNumber": "={{ $json.elder_whatsapp }}",
-        "resource": "message",
         "template": "elderwise_ep_medication_reminder|en"
       },
       "position": [
@@ -285,8 +284,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $('Find Due Reminders').item.json.checkin_id }}"
         },
-        "query": "UPDATE checkins SET status = 'reminded', reminder_sent_at = now() WHERE id = $1::uuid AND status = 'sent' RETURNING id AS checkin_id, status::text AS status_text, reminder_sent_at",
-        "resource": "database"
+        "query": "UPDATE checkins SET status = 'reminded', reminder_sent_at = now() WHERE id = $1::uuid AND status = 'sent' RETURNING id AS checkin_id, status::text AS status_text, reminder_sent_at"
       },
       "position": [
         1120,
@@ -313,9 +311,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "strict"
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         896,
@@ -340,23 +341,18 @@
               "bodyParameters": {
                 "parameter": [
                   {
-                    "text": "={{ $json.elder_first_name }}",
-                    "type": "text"
+                    "text": "={{ $json.elder_first_name }}"
                   },
                   {
-                    "text": "={{ $json.routine_name }}",
-                    "type": "text"
+                    "text": "={{ $json.routine_name }}"
                   }
                 ]
-              },
-              "type": "body"
+              }
             }
           ]
         },
-        "operation": "sendTemplate",
         "phoneNumberId": "1084405194760141",
         "recipientPhoneNumber": "={{ $json.elder_whatsapp }}",
-        "resource": "message",
         "template": "elderwise_ep_food_reminder|en"
       },
       "position": [
@@ -383,8 +379,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $('Find Due Reminders').item.json.checkin_id }},{{ $json.messages[0].id }}"
         },
-        "query": "UPDATE checkins SET status = 'reminded', reminder_sent_at = now(), wa_message_id = $2::text WHERE id = $1::uuid AND status = 'sent' RETURNING id AS checkin_id, status::text AS status_text, reminder_sent_at, wa_message_id",
-        "resource": "database"
+        "query": "UPDATE checkins SET status = 'reminded', reminder_sent_at = now(), wa_message_id = $2::text WHERE id = $1::uuid AND status = 'sent' RETURNING id AS checkin_id, status::text AS status_text, reminder_sent_at, wa_message_id"
       },
       "position": [
         1344,
@@ -409,19 +404,15 @@
               "bodyParameters": {
                 "parameter": [
                   {
-                    "text": "={{ $json.elder_first_name }}",
-                    "type": "text"
+                    "text": "={{ $json.elder_first_name }}"
                   }
                 ]
-              },
-              "type": "body"
+              }
             }
           ]
         },
-        "operation": "sendTemplate",
         "phoneNumberId": "1084405194760141",
         "recipientPhoneNumber": "={{ $json.elder_whatsapp }}",
-        "resource": "message",
         "template": "elderwise_ep_health_reminder|en"
       },
       "position": [
@@ -448,8 +439,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $('Find Due Reminders').item.json.checkin_id }},{{ $json.messages[0].id }}"
         },
-        "query": "UPDATE checkins SET status = 'reminded', reminder_sent_at = now(), wa_message_id = $2::text WHERE id = $1::uuid AND status = 'sent' RETURNING id AS checkin_id, status::text AS status_text, reminder_sent_at, wa_message_id",
-        "resource": "database"
+        "query": "UPDATE checkins SET status = 'reminded', reminder_sent_at = now(), wa_message_id = $2::text WHERE id = $1::uuid AND status = 'sent' RETURNING id AS checkin_id, status::text AS status_text, reminder_sent_at, wa_message_id"
       },
       "position": [
         1344,

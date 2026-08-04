@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "cf27d2b6-8b51-4f8b-b502-4b275b00accd",
+  "activeVersionId": "d284313f-145a-437b-8863-d92b5500be5b",
   "connections": {
     "Called By WF-2a": {
       "main": [
@@ -59,7 +59,7 @@
     "aiBuilderAssisted": true,
     "builderVariant": "mcp"
   },
-  "name": "ElderWise WF-3a - Response Handler",
+  "name": "ElderWise WF-3a - Medication Response Handler",
   "nodes": [
     {
       "id": "af8a5cf8-465b-4e6a-a151-375a6d33b18f",
@@ -89,8 +89,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $json.sender_e164 }}"
         },
-        "query": "SELECT (x.checkin_id IS NOT NULL) AS found, x.checkin_id, x.elder_id, x.status_text, x.scheduled_for FROM (SELECT 1) AS probe LEFT JOIN LATERAL (SELECT c.id AS checkin_id, c.elder_id, c.status::text AS status_text, c.scheduled_for FROM checkins c JOIN elders e ON e.id = c.elder_id WHERE e.whatsapp_number = $1::text AND e.active AND c.domain = 'medication' AND c.status IN ('sent','reminded') ORDER BY c.scheduled_for DESC LIMIT 1) x ON true",
-        "resource": "database"
+        "query": "SELECT (x.checkin_id IS NOT NULL) AS found, x.checkin_id, x.elder_id, x.status_text, x.scheduled_for FROM (SELECT 1) AS probe LEFT JOIN LATERAL (SELECT c.id AS checkin_id, c.elder_id, c.status::text AS status_text, c.scheduled_for FROM checkins c JOIN elders e ON e.id = c.elder_id WHERE e.whatsapp_number = $1::text AND e.active AND c.domain = 'medication' AND c.status IN ('sent','reminded') ORDER BY c.scheduled_for DESC LIMIT 1) x ON true"
       },
       "position": [
         224,
@@ -118,9 +117,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "loose"
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         448,
@@ -144,8 +146,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $json.checkin_id }},{{ $('Called By WF-2a').first().json.button_norm }}"
         },
-        "query": "WITH mapped AS (SELECT $1::uuid AS cid, CASE $2::text WHEN 'yes all' THEN 'yes_all' WHEN 'some of them' THEN 'some_of_them' WHEN 'not yet' THEN 'not_yet' ELSE 'unknown' END AS rv), upd AS (UPDATE checkins c SET response_channel = 'button', response_value = mapped.rv, responded_at = now(), status = CASE WHEN mapped.rv = 'not_yet' THEN c.status ELSE 'responded'::checkin_status END FROM mapped WHERE c.id = mapped.cid AND c.status IN ('sent','reminded') RETURNING c.id, c.elder_id, c.scheduled_for, c.response_value, c.status::text AS status_text), items AS (INSERT INTO checkin_medication_items (checkin_id, medication_id, taken) SELECT u.id, m.id, true FROM upd u JOIN elders e ON e.id = u.elder_id JOIN medications m ON m.elder_id = e.id AND m.enabled AND m.active AND to_char(u.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) WHERE u.response_value = 'yes_all' RETURNING 1) SELECT (SELECT id FROM upd) AS checkin_id, (SELECT response_value FROM upd) AS response_value, (SELECT status_text FROM upd) AS status_text, (SELECT count(*)::int FROM items) AS medicines_recorded, 'interaction' AS notification_type",
-        "resource": "database"
+        "query": "WITH mapped AS (SELECT $1::uuid AS cid, CASE $2::text WHEN 'yes all' THEN 'yes_all' WHEN 'some of them' THEN 'some_of_them' WHEN 'not yet' THEN 'not_yet' ELSE 'unknown' END AS rv), upd AS (UPDATE checkins c SET response_channel = 'button', response_value = mapped.rv, responded_at = now(), status = CASE WHEN mapped.rv = 'not_yet' THEN c.status ELSE 'responded'::checkin_status END FROM mapped WHERE c.id = mapped.cid AND c.status IN ('sent','reminded') RETURNING c.id, c.elder_id, c.scheduled_for, c.response_value, c.status::text AS status_text), items AS (INSERT INTO checkin_medication_items (checkin_id, medication_id, taken) SELECT u.id, m.id, true FROM upd u JOIN elders e ON e.id = u.elder_id JOIN medications m ON m.elder_id = e.id AND m.enabled AND m.active AND to_char(u.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) WHERE u.response_value = 'yes_all' RETURNING 1) SELECT (SELECT id FROM upd) AS checkin_id, (SELECT response_value FROM upd) AS response_value, (SELECT status_text FROM upd) AS status_text, (SELECT count(*)::int FROM items) AS medicines_recorded, 'interaction' AS notification_type"
       },
       "position": [
         672,
@@ -158,11 +159,9 @@
       "id": "6a43f98e-3c7b-4064-a794-a8ab180f6bcd",
       "name": "Notify Care Partner (WF-6)",
       "parameters": {
-        "mode": "once",
         "options": {
           "waitForSubWorkflow": true
         },
-        "source": "database",
         "workflowId": {
           "__rl": true,
           "mode": "id",

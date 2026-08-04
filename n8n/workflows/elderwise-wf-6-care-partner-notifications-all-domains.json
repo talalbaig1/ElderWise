@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "3038c94d-a3b4-4299-9837-fab1e9c00dae",
+  "activeVersionId": "b2c97b85-8cf6-4fa8-9c76-734f7ea30ee6",
   "connections": {
     "Called With checkin_id": {
       "main": [
@@ -117,7 +117,7 @@
     "aiBuilderAssisted": true,
     "builderVariant": "mcp"
   },
-  "name": "ElderWise WF-6 - CT Notification Dispatch",
+  "name": "ElderWise WF-6 - Care Partner Notifications (All Domains)",
   "nodes": [
     {
       "id": "408dd74f-b893-4aae-ad2f-592dda2c4d86",
@@ -151,9 +151,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "loose"
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         224,
@@ -177,8 +180,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $json.checkin_id }}"
         },
-        "query": "SELECT c.id AS checkin_id, c.domain::text AS domain, c.status::text AS checkin_status, c.response_value, e.id AS elder_id, e.first_name AS elder_first_name, cp.id AS care_partner_id, cp.whatsapp_number AS cp_whatsapp, COALESCE(MIN(m.notify_care_partner::text), MIN(f.notify_care_partner::text), MIN(h.notify_care_partner::text), 'every_time') AS notify_mode, COALESCE(MIN(f.meal_name), MIN(h.name)) AS routine_name, to_char(c.scheduled_for AT TIME ZONE cp.timezone, 'FMHH12:MI am') AS scheduled_label_cp, to_char(COALESCE(c.responded_at, now()) AT TIME ZONE cp.timezone, 'FMHH12:MI AM, FMDD Mon') AS responded_label_cp, CASE WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 12 THEN 'Morning' WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 17 THEN 'Afternoon' WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 21 THEN 'Evening' ELSE 'Night' END AS period_label, CASE WHEN c.domain = 'medication' THEN (CASE c.response_value WHEN 'yes_all' THEN 'Taken' WHEN 'not_yet' THEN 'Not taken yet' WHEN 'some_of_them' THEN 'Partially taken' ELSE 'Recorded' END) WHEN c.domain = 'food' THEN (CASE c.response_value WHEN 'yes' THEN 'Had it' WHEN 'no' THEN 'Not yet' ELSE 'Recorded' END) WHEN c.domain = 'health' THEN (CASE c.response_value WHEN 'yes' THEN 'Feeling well' WHEN 'no' THEN 'Not feeling well' ELSE 'Recorded' END) ELSE 'Recorded' END AS status_label FROM checkins c JOIN elders e ON e.id = c.elder_id JOIN care_partners cp ON cp.id = e.care_partner_id LEFT JOIN medications m ON c.domain = 'medication' AND m.elder_id = e.id AND m.enabled AND m.active AND to_char(c.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) LEFT JOIN food_routines f ON f.id = c.food_routine_id LEFT JOIN health_routines h ON h.id = c.health_routine_id WHERE c.id = $1::uuid GROUP BY c.id, c.domain, c.status, c.response_value, c.scheduled_for, c.responded_at, e.id, e.first_name, e.timezone, cp.id, cp.whatsapp_number, cp.timezone",
-        "resource": "database"
+        "query": "SELECT c.id AS checkin_id, c.domain::text AS domain, c.status::text AS checkin_status, c.response_value, e.id AS elder_id, e.first_name AS elder_first_name, cp.id AS care_partner_id, cp.whatsapp_number AS cp_whatsapp, COALESCE(MIN(m.notify_care_partner::text), MIN(f.notify_care_partner::text), MIN(h.notify_care_partner::text), 'every_time') AS notify_mode, COALESCE(MIN(f.meal_name), MIN(h.name)) AS routine_name, to_char(c.scheduled_for AT TIME ZONE cp.timezone, 'FMHH12:MI am') AS scheduled_label_cp, to_char(COALESCE(c.responded_at, now()) AT TIME ZONE cp.timezone, 'FMHH12:MI AM, FMDD Mon') AS responded_label_cp, CASE WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 12 THEN 'Morning' WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 17 THEN 'Afternoon' WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 21 THEN 'Evening' ELSE 'Night' END AS period_label, CASE WHEN c.domain = 'medication' THEN (CASE c.response_value WHEN 'yes_all' THEN 'Taken' WHEN 'not_yet' THEN 'Not taken yet' WHEN 'some_of_them' THEN 'Partially taken' ELSE 'Recorded' END) WHEN c.domain = 'food' THEN (CASE c.response_value WHEN 'yes' THEN 'Had it' WHEN 'no' THEN 'Not yet' ELSE 'Recorded' END) WHEN c.domain = 'health' THEN (CASE c.response_value WHEN 'yes' THEN 'Feeling well' WHEN 'no' THEN 'Not feeling well' ELSE 'Recorded' END) ELSE 'Recorded' END AS status_label FROM checkins c JOIN elders e ON e.id = c.elder_id JOIN care_partners cp ON cp.id = e.care_partner_id LEFT JOIN medications m ON c.domain = 'medication' AND m.elder_id = e.id AND m.enabled AND m.active AND to_char(c.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) LEFT JOIN food_routines f ON f.id = c.food_routine_id LEFT JOIN health_routines h ON h.id = c.health_routine_id WHERE c.id = $1::uuid GROUP BY c.id, c.domain, c.status, c.response_value, c.scheduled_for, c.responded_at, e.id, e.first_name, e.timezone, cp.id, cp.whatsapp_number, cp.timezone"
       },
       "position": [
         448,
@@ -191,9 +193,7 @@
       "id": "45e0f91d-2281-4eee-986b-d966f48fa73f",
       "name": "Should We Notify?",
       "parameters": {
-        "jsCode": "const db = $input.first().json;\nconst called = $('Called With checkin_id').first().json;\n\nconst type = String(called.notification_type ?? 'interaction');\nconst mode = String(db.notify_mode ?? 'every_time');\n\n// Architecture 8 / WF-6: the OWNING ROUTINE's notify_care_partner is\n// authoritative. domain_configs.ct_notification is derived/deprecated (A-9).\n// not_required = total silence: no confirmation and no missed push. The miss\n// is still recorded in the DB and visible on the dashboard.\nlet shouldSend = false;\nif (mode !== 'not_required') {\n  if (type === 'missed') {\n    shouldSend = true;\n  } else if (mode === 'every_time') {\n    shouldSend = true;\n  } else if (mode === 'only_missed' && db.response_value === 'some_of_them') {\n    // Ruled by Talal 3 Aug 2026: a partial dose is closer to a miss than to a\n    // clean yes, so only_missed still notifies. Deliberate deviation from the\n    // literal reading of only_missed - do not 'fix' it back.\n    shouldSend = true;\n  }\n}\n\n// Medication aggregates several medicines into one slot, so it has no single\n// routine name and uses the derived period label. Food and health are 1:1 with\n// their routine, so the CT sees the name she actually typed - Dinner, BP check.\nlet missedLabel;\nlet interactionLabel;\nif (db.domain === 'medication') {\n  missedLabel = db.period_label + ' Medication';\n  interactionLabel = 'Medication (' + db.period_label + ')';\n} else {\n  const name = String(db.routine_name || db.domain);\n  missedLabel = name;\n  interactionLabel = name + ' (' + db.period_label + ')';\n}\n\nreturn [{ json: Object.assign({}, db, { notification_type: type, should_send: shouldSend, is_missed: type === 'missed', routine_label_missed: missedLabel, routine_label_interaction: interactionLabel }) }];",
-        "language": "javaScript",
-        "mode": "runOnceForAllItems"
+        "jsCode": "const db = $input.first().json;\nconst called = $('Called With checkin_id').first().json;\n\nconst type = String(called.notification_type ?? 'interaction');\nconst mode = String(db.notify_mode ?? 'every_time');\n\n// Architecture 8 / WF-6: the OWNING ROUTINE's notify_care_partner is\n// authoritative. domain_configs.ct_notification is derived/deprecated (A-9).\n// not_required = total silence: no confirmation and no missed push. The miss\n// is still recorded in the DB and visible on the dashboard.\nlet shouldSend = false;\nif (mode !== 'not_required') {\n  if (type === 'missed') {\n    shouldSend = true;\n  } else if (mode === 'every_time') {\n    shouldSend = true;\n  } else if (mode === 'only_missed' && db.response_value === 'some_of_them') {\n    // Ruled by Talal 3 Aug 2026: a partial dose is closer to a miss than to a\n    // clean yes, so only_missed still notifies. Deliberate deviation from the\n    // literal reading of only_missed - do not 'fix' it back.\n    shouldSend = true;\n  }\n}\n\n// Medication aggregates several medicines into one slot, so it has no single\n// routine name and uses the derived period label. Food and health are 1:1 with\n// their routine, so the CT sees the name she actually typed - Dinner, BP check.\nlet missedLabel;\nlet interactionLabel;\nif (db.domain === 'medication') {\n  missedLabel = db.period_label + ' Medication';\n  interactionLabel = 'Medication (' + db.period_label + ')';\n} else {\n  const name = String(db.routine_name || db.domain);\n  missedLabel = name;\n  interactionLabel = name + ' (' + db.period_label + ')';\n}\n\nreturn [{ json: Object.assign({}, db, { notification_type: type, should_send: shouldSend, is_missed: type === 'missed', routine_label_missed: missedLabel, routine_label_interaction: interactionLabel }) }];"
       },
       "position": [
         672,
@@ -221,9 +221,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "loose"
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         896,
@@ -251,9 +254,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "loose"
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         1120,
@@ -278,27 +284,21 @@
               "bodyParameters": {
                 "parameter": [
                   {
-                    "text": "={{ $json.elder_first_name }}",
-                    "type": "text"
+                    "text": "={{ $json.elder_first_name }}"
                   },
                   {
-                    "text": "={{ $json.routine_label_missed }}",
-                    "type": "text"
+                    "text": "={{ $json.routine_label_missed }}"
                   },
                   {
-                    "text": "={{ $json.scheduled_label_cp }}",
-                    "type": "text"
+                    "text": "={{ $json.scheduled_label_cp }}"
                   }
                 ]
-              },
-              "type": "body"
+              }
             }
           ]
         },
-        "operation": "sendTemplate",
         "phoneNumberId": "1084405194760141",
         "recipientPhoneNumber": "={{ $json.cp_whatsapp }}",
-        "resource": "message",
         "template": "elderwise_ct_missed_notice|en"
       },
       "position": [
@@ -324,8 +324,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $('Should We Notify?').item.json.elder_id }},{{ $('Should We Notify?').item.json.care_partner_id }},{{ $('Should We Notify?').item.json.checkin_id }},{{ $json.messages[0].id }}"
         },
-        "query": "INSERT INTO ct_notifications (elder_id, care_partner_id, type, checkin_id, wa_message_id, sent_at) VALUES ($1::uuid, $2::uuid, 'missed'::ct_notification_type, $3::uuid, $4::text, now()) RETURNING id, type::text AS type_text, wa_message_id",
-        "resource": "database"
+        "query": "INSERT INTO ct_notifications (elder_id, care_partner_id, type, checkin_id, wa_message_id, sent_at) VALUES ($1::uuid, $2::uuid, 'missed'::ct_notification_type, $3::uuid, $4::text, now()) RETURNING id, type::text AS type_text, wa_message_id"
       },
       "position": [
         1568,
@@ -350,31 +349,24 @@
               "bodyParameters": {
                 "parameter": [
                   {
-                    "text": "={{ $json.elder_first_name }}",
-                    "type": "text"
+                    "text": "={{ $json.elder_first_name }}"
                   },
                   {
-                    "text": "={{ $json.routine_label_interaction }}",
-                    "type": "text"
+                    "text": "={{ $json.routine_label_interaction }}"
                   },
                   {
-                    "text": "={{ $json.status_label }}",
-                    "type": "text"
+                    "text": "={{ $json.status_label }}"
                   },
                   {
-                    "text": "={{ $json.responded_label_cp }}",
-                    "type": "text"
+                    "text": "={{ $json.responded_label_cp }}"
                   }
                 ]
-              },
-              "type": "body"
+              }
             }
           ]
         },
-        "operation": "sendTemplate",
         "phoneNumberId": "1084405194760141",
         "recipientPhoneNumber": "={{ $json.cp_whatsapp }}",
-        "resource": "message",
         "template": "elderwise_ct_interaction_notice|en"
       },
       "position": [
@@ -400,8 +392,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $('Should We Notify?').item.json.elder_id }},{{ $('Should We Notify?').item.json.care_partner_id }},{{ $('Should We Notify?').item.json.checkin_id }},{{ $json.messages[0].id }}"
         },
-        "query": "INSERT INTO ct_notifications (elder_id, care_partner_id, type, checkin_id, wa_message_id, sent_at) VALUES ($1::uuid, $2::uuid, 'interaction'::ct_notification_type, $3::uuid, $4::text, now()) RETURNING id, type::text AS type_text, wa_message_id",
-        "resource": "database"
+        "query": "INSERT INTO ct_notifications (elder_id, care_partner_id, type, checkin_id, wa_message_id, sent_at) VALUES ($1::uuid, $2::uuid, 'interaction'::ct_notification_type, $3::uuid, $4::text, now()) RETURNING id, type::text AS type_text, wa_message_id"
       },
       "position": [
         1568,

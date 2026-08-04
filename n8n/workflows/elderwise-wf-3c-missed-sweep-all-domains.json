@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "f995b183-2e3e-45ef-ba35-042f733b7636",
+  "activeVersionId": "69290141-734e-448d-9115-bf35c1638ebe",
   "connections": {
     "Anything Missed?": {
       "main": [
@@ -25,6 +25,11 @@
           {
             "index": 0,
             "node": "Mark Missed And Collect",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Cancel Orphaned Check-ins",
             "type": "main"
           }
         ]
@@ -84,8 +89,7 @@
         "options": {
           "connectionTimeout": 10
         },
-        "query": "WITH esc AS (SELECT c.id, c.status, c.scheduled_for, c.reminder_sent_at, COALESCE(MIN(m.escalation_minutes), MIN(f.escalation_minutes), MIN(h.escalation_minutes), 30) AS esc_mins FROM checkins c JOIN elders e ON e.id = c.elder_id LEFT JOIN medications m ON c.domain = 'medication' AND m.elder_id = e.id AND m.enabled AND m.active AND to_char(c.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) LEFT JOIN food_routines f ON f.id = c.food_routine_id LEFT JOIN health_routines h ON h.id = c.health_routine_id WHERE c.status IN ('reminded','scheduled') AND e.active AND e.consent_confirmed_at IS NOT NULL GROUP BY c.id, c.status, c.scheduled_for, c.reminder_sent_at), due AS (SELECT id FROM esc WHERE (status = 'reminded' AND reminder_sent_at IS NOT NULL AND now() > reminder_sent_at + make_interval(mins => esc_mins)) OR (status = 'scheduled' AND now() > scheduled_for + make_interval(mins => esc_mins))), upd AS (UPDATE checkins c SET status = 'missed', missed_at = now(), escalated_at = now() FROM due WHERE c.id = due.id RETURNING c.id) SELECT id AS checkin_id, 'missed' AS notification_type FROM upd",
-        "resource": "database"
+        "query": "WITH esc AS (SELECT c.id, c.status, c.scheduled_for, c.reminder_sent_at, COALESCE(MIN(m.escalation_minutes), MIN(f.escalation_minutes), MIN(h.escalation_minutes), 30) AS esc_mins FROM checkins c JOIN elders e ON e.id = c.elder_id LEFT JOIN medications m ON c.domain = 'medication' AND m.elder_id = e.id AND m.enabled AND m.active AND to_char(c.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) LEFT JOIN food_routines f ON f.id = c.food_routine_id LEFT JOIN health_routines h ON h.id = c.health_routine_id WHERE c.status IN ('reminded','scheduled') AND e.active AND e.consent_confirmed_at IS NOT NULL GROUP BY c.id, c.status, c.scheduled_for, c.reminder_sent_at), due AS (SELECT id FROM esc WHERE (status = 'reminded' AND reminder_sent_at IS NOT NULL AND now() > reminder_sent_at + make_interval(mins => esc_mins)) OR (status = 'scheduled' AND now() > scheduled_for + make_interval(mins => esc_mins))), upd AS (UPDATE checkins c SET status = 'missed', missed_at = now(), escalated_at = now() FROM due WHERE c.id = due.id RETURNING c.id) SELECT id AS checkin_id, 'missed' AS notification_type FROM upd"
       },
       "position": [
         224,
@@ -113,9 +117,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "loose"
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         448,
@@ -132,11 +139,14 @@
         "options": {
           "waitForSubWorkflow": true
         },
-        "source": "database",
         "workflowId": {
           "__rl": true,
           "mode": "id",
           "value": "6I6OC7qJ5YhhUQxU"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {}
         }
       },
       "position": [
@@ -157,6 +167,29 @@
       ],
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "e3a70700-22b2-44e9-bd72-36c398d49950",
+      "name": "Cancel Orphaned Check-ins",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10
+        },
+        "query": "WITH orphaned AS (\n  SELECT c.id\n  FROM checkins c\n  JOIN elders e ON e.id = c.elder_id\n  WHERE c.status IN ('scheduled','sent','reminded')\n    AND (\n      (c.domain = 'medication' AND NOT EXISTS (\n         SELECT 1 FROM medications m\n         WHERE m.elder_id = c.elder_id AND m.enabled AND m.active\n           AND to_char(c.scheduled_for AT TIME ZONE e.timezone,'HH24:MI') = ANY(m.times)))\n   OR (c.domain = 'food' AND NOT EXISTS (\n         SELECT 1 FROM food_routines f WHERE f.id = c.food_routine_id AND f.enabled))\n   OR (c.domain = 'health' AND NOT EXISTS (\n         SELECT 1 FROM health_routines h WHERE h.id = c.health_routine_id AND h.enabled))\n    )\n), upd AS (\n  UPDATE checkins c\n  SET status = 'cancelled'::checkin_status, cancelled_at = now()\n  FROM orphaned o\n  WHERE c.id = o.id AND c.status IN ('scheduled','sent','reminded')\n  RETURNING c.id\n)\nSELECT (SELECT count(*)::int FROM upd) AS cancelled_count"
+      },
+      "position": [
+        240,
+        320
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
     }
   ],
   "settings": {
