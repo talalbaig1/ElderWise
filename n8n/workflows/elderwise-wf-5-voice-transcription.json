@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "2857803a-f3fc-4cb8-83e5-dc0ade25a319",
+  "activeVersionId": "54c7fcaf-63e5-48c8-b4a9-2cfebcc07bd0",
   "connections": {
     "Answer Clear?": {
       "main": [
@@ -291,6 +291,7 @@
       "typeVersion": 2.3
     },
     {
+      "alwaysOutputData": true,
       "credentials": {
         "postgres": {
           "id": "WH9oLDfKfOX6KW5F",
@@ -322,6 +323,7 @@
           "combinator": "and",
           "conditions": [
             {
+              "id": "9e38df1a-e10d-4a5f-a1a8-18dc3fea36fc",
               "leftValue": "={{ !!$json.checkin_id }}",
               "operator": {
                 "operation": "true",
@@ -334,8 +336,8 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "loose",
-            "version": 1
+            "typeValidation": "strict",
+            "version": 3
           }
         },
         "options": {}
@@ -652,7 +654,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ [ $json.checkin_id, $json.answer ] }}"
         },
-        "query": "UPDATE checkins SET status = 'responded'::checkin_status, responded_at = now(), response_value = $2::text, response_channel = 'voice'::response_channel WHERE id = $1::uuid AND status IN ('sent','reminded') RETURNING id AS checkin_id, 'interaction' AS notification_type, status::text AS status, response_value"
+        "query": "WITH upd AS (\n  UPDATE checkins c\n  SET response_value = CASE WHEN c.domain = 'medication'::care_domain\n                            THEN CASE $2::text WHEN 'yes' THEN 'yes_all'\n                                               WHEN 'no'  THEN 'not_yet'\n                                               ELSE 'unknown' END\n                            ELSE $2::text END,\n      response_channel = 'voice'::response_channel,\n      responded_at = now(),\n      status = CASE WHEN c.domain = 'medication'::care_domain AND $2::text = 'no'\n                    THEN c.status\n                    ELSE 'responded'::checkin_status END\n  WHERE c.id = $1::uuid AND c.status IN ('sent','reminded')\n  RETURNING c.id, c.elder_id, c.scheduled_for, c.response_value, c.status::text AS status_text\n), items AS (\n  INSERT INTO checkin_medication_items (checkin_id, medication_id, taken)\n  SELECT u.id, m.id, true\n  FROM upd u\n  JOIN elders e ON e.id = u.elder_id\n  JOIN medications m ON m.elder_id = e.id AND m.enabled AND m.active\n       AND to_char(u.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times)\n  WHERE u.response_value = 'yes_all'\n  RETURNING 1\n)\nSELECT (SELECT id           FROM upd)   AS checkin_id,\n       (SELECT response_value FROM upd) AS response_value,\n       (SELECT status_text  FROM upd)   AS status_text,\n       (SELECT status_text  FROM upd)   AS status,\n       (SELECT count(*)::int FROM items) AS medicines_recorded,\n       'interaction' AS notification_type"
       },
       "position": [
         3040,
