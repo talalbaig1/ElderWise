@@ -28,6 +28,7 @@
     "@radix-ui/react-toast": "^1.2.14",
     "@radix-ui/react-tooltip": "^1.2.7",
     "@react-pdf/renderer": "^4.5.1",
+    "@sentry/nextjs": "^10.69.0",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.8",
     "@upstash/ratelimit": "^2.0.8",
