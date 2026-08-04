@@ -10,12 +10,16 @@ export async function GET() {
   );
   const flushed = await Sentry.flush(3000);
 
+  const g = globalThis as Record<string, unknown>;
   return Response.json({
+    registerRan: g.__EW_REGISTER_RAN ?? false,
+    serverImported: g.__EW_SERVER_IMPORTED ?? false,
+    initRan: g.__EW_INIT_RAN ?? false,
+    importError: g.__EW_IMPORT_ERROR ?? null,
     clientInitialised: Boolean(Sentry.getClient()),
     dsnPresent: Boolean(process.env.SENTRY_DSN),
     runtime: process.env.NEXT_RUNTIME ?? null,
     vercelEnv: process.env.VERCEL_ENV ?? null,
-    eventId,
     flushed,
   });
 }
