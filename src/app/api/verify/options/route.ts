@@ -37,7 +37,7 @@ export async function GET(request: Request) {
 
   const { data: elders, error: eldersError } = await gate.supabase
     .from("elders")
-    .select("id, first_name")
+    .select("id, first_name, timezone")
     .eq("care_partner_id", gate.userId)
     .order("first_name", { ascending: true });
 
