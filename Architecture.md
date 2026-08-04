@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.23 |
+| **Document** | Architecture.md — v1.24 |
 | **Date** | 4 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
@@ -882,6 +882,29 @@ The LLM gate emits three values; medication has three **different** stored value
 - n8n workflows have explicit **error branches**. A failed node must not silently end an execution — least of all in WF-4.
 - The SOS path must degrade loudly, never quietly.
 
+### 11.2 Verification console (delivered 4 August 2026, Talal)
+
+A **read-only witness** for approved testers — not part of the dashboard analytics layer. Lets nine testers confirm database rows required by the test catalogue without Supabase dashboard access, service-role keys, or free-text input.
+
+**Route placement.** `src/app/verify/` with its own layout — **deliberately outside** the `(app)` route group. The `(app)` group redirects to `/onboarding` when no active elder exists and wraps children in `AppDataProvider` / `loadAppData`; placing the console there would couple it to the very data layer it is meant to check independently.
+
+**Approval gate (`console_access`).** Testers reuse their existing Care Partner Supabase Auth session. On top of that, a row in `console_access` is required: self-request only (`INSERT` forces `approved_at`, `approved_by`, and `revoked_at` NULL); **approval is admin-side only** (team lead sets `approved_at` in the Supabase table editor — no admin UI). Revocation takes effect on the next request without re-login. Migration: `supabase/migrations/20260804130000_console_access.sql` (written in repo; apply manually).
+
+**Closed registry.** All table and column names live in `src/lib/verify/registry.ts` as a hard-coded `CheckId` union. Requests supply a `checkId` looked up in that object; PostgREST `.select()` only — no SQL strings, no `.rpc()`. The read executor never writes; the only console `.insert()` is the access-request path in `src/app/api/verify/request/route.ts`.
+
+**RLS is the access control.** The console uses the caller's authenticated session (`createClient()` from `src/lib/supabase/server.ts`), not `createAdminClient()`. Row visibility is whatever RLS permits for that care partner. Ownership helpers on the API routes are belt-and-braces; they do not replace RLS.
+
+**Feature flag.** `VERIFY_CONSOLE_ENABLED` is **server-only** (never `NEXT_PUBLIC_*`), default **`false`**. When not `"true"`, `/verify` and all `/api/verify/*` routes return **404** (not 403). Production and `.env.example` keep the flag off.
+
+**Replay script.** `scripts/verify-console-phase4.mjs` — §9 behavioural tests (ten scenarios + env for preview / flag-off base).
+
+**Known limitations (not bugs):**
+
+| Case | Limitation |
+|---|---|
+| **40** | A `ct_notifications` row with a **wrong `care_partner_id`** (defect D-9) is **invisible under RLS** — the console shows zero rows, indistinguishable from a true absence. That assertion cannot be delegated to testers; it stays with the team lead. |
+| **115** / **`notification_ownership`** | The check is retained for catalogue mapping but **can only ever return zero rows** here: live RLS on `ct_notifications` requires both `care_partner_id = auth.uid()` and elder ownership, so a mismatched row is never visible to the caller. A zero-row result is **not evidence** of correctness. |
+
 ---
 
 ## 12. Repository & environments
@@ -896,6 +919,7 @@ elderwise/
 │       ├── (app)/           # dashboard, care circle, SOS, voice journal,
 │       │                    # reports, settings, profile
 │       ├── onboarding/      # onboarding wizard
+│       ├── verify/          # verification console (outside (app); flag-gated)
 │       ├── share/[token]/   # doctor read-only view (server-side only)
 │       └── api/             # route handlers (incl. SOS resolve / trigger)
 ├── supabase/
@@ -1024,6 +1048,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | Date | Version | Change |
 |---|---|---|
+| 4 Aug 2026 | 1.24 | **Verification console delivered.** New §11.2: `src/app/verify/` outside `(app)`; `console_access` approval gate (admin-side only); closed `CheckId` registry; RLS-scoped reads; `VERIFY_CONSOLE_ENABLED` server-only default false; Case 40 and Case 115 / `notification_ownership` limitations. §12.1 layout updated. |
 | 4 Aug 2026 | 1.23 | **Sentry installed.** §11.1: as-built record — server/edge only, no client SDK, scrubbing proven against a live event, phone-regex tradeoff recorded, edge config dead until A-32. A-32 opened: root `middleware.ts` never registered, so Supabase session refresh has never run in production. |
 | 4 Aug 2026 | 1.22 | **Sentry scope ruled.** §11 heading ambiguity resolved (P2 = build task, table = event severity). New §11.1: Sentry covers Next.js only; Track B stays on the n8n error workflow; per-event coverage table; X9 scrubbing named as a prerequisite with the `/share/[token]` leak vector. A-30 (±5-min P1 unreported) and A-31 (n8n→Sentry deferred) opened. |
 | 4 Aug 2026 | 1.21 | **Cancelled check-ins + orphan cleanup.** §5.2: `checkin_status` +`cancelled`, `cancelled_at`; two-migration reason. §8: WF-3c second branch (Cancel Orphaned Check-ins); stranded-`sent` defect; medication NOT EXISTS slot predicate. A-27–A-29 opened. Frontend `25114ed` noted. |

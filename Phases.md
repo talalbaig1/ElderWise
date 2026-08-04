@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.16 |
+| **Document** | Phases.md — v1.17 |
 | **Date** | 4 August 2026 |
 | **Demo Day** | **Saturday 29 August 2026** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Templates.md` |
@@ -124,6 +124,7 @@ Build all 8 screens against hardcoded fixtures. **No database. No auth. No API.*
 | A2.6 | ~~Doctor share link: issue, revoke, **server-side token validation** (`Architecture.md` §7.3).~~ — **DONE.** |
 | A2.7 | ~~Dashboard SOS-resolution route handler + **authenticated webhook to n8n** (§8, WF-4).~~ — **DONE.** n8n receiver **ElderWise WF-4a - SOS Resolution Receiver** (`jeNrf7b7ne3JX2Xu`) + `src/app/api/sos/resolve/route.ts`, verified end to end in production **2 August 2026**. |
 | A2.8 | ~~Reports / PDF generation.~~ — **DONE** (23–24 Jul). |
+| A2.9 | ~~**Verification console** — read-only, approval-gated; closed `CheckId` registry; `/verify` outside `(app)`; `scripts/verify-console-phase4.mjs`.~~ — **DONE 4 August 2026** (`feat/verify-console`, commit `a7d88a8`). See `Architecture.md` §11.2, `Rules.md` C11. Migration `20260804130000_console_access.sql` written; Talal applies. |
 
 **Owner:** Ferdous (schema) + TBD (application wiring).
 
@@ -331,6 +332,7 @@ The proposal was a **second channel (Telegram)** so the demo could run even if t
 
 | Date | Version | Change |
 |---|---|---|
+| 4 Aug 2026 | 1.17 | **Verification console delivered (Track A).** A2.9 DONE — read-only `/verify` console, `console_access` gate, Phase 4 behavioural tests green; `Architecture.md` §11.2, `Rules.md` C11. |
 | 4 Aug 2026 | 1.16 | **Cancelled check-ins DONE.** Two migrations; frontend `25114ed`; WF-3c cancel branch proven on `4af31e90`. A-27–A-29 opened. Remaining: Sentry, A-25, A-26, A-27–29, WF-3a guard, `some_of_them`, Sama copy. |
 | 4 Aug 2026 | 1.15 | **Voice pass DONE.** WF-5 built + E2E proven (medication `yes_all`, CT "Taken"). WF-2a audio branch; voice→medication mapping; renames (WF-3a/3b/6); harnesses archived. Re-ask cap correction: proven 4 Aug, not 3 Aug. Sixteen-workflow map. Remaining: Sentry, A-25, A-26, WF-3a guard, `some_of_them` gate, Sama copy. |
 | 3 Aug 2026 | 1.14 | **All-domain pass DONE (evening).** Health 19:15, food 19:30, `No` → `responded` + CT notice ("Dinner"). Fifteen-workflow map (+WF-1b/1c/3d). A-16 closed. Remaining Track B: **WF-5 only**. Sentry deferred; SOS nudge exhaustion = rehearsal scenario. |

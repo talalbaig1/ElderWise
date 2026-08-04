@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.15 |
+| **Document** | Rules.md — v1.16 |
 | **Date** | 4 August 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
@@ -176,6 +176,7 @@ Defaults, not dogma. Consistency across ten contributors matters more than any i
 | **C8** | **Every user-facing string is in English** (NFR-9). Multi-language is v2 — but don't hardcode strings in a way that makes v2 a rewrite. |
 | **C9** | **Never render a percentage on a zero denominator.** Show "—" or "No data". 100% on no data reads as perfect adherence when nothing happened. This occurred twice: the meal-completion card and nearly the PDF generator. |
 | **C10** | **This project uses `src/`, so every Next.js root-convention file lives in `src/` — `instrumentation.ts`, `middleware.ts`, and anything similar.** Root placement does not error, does not warn, and does not appear in the build output. It compiles to **nothing** and the feature is silently absent. Proven 4 August 2026: `src/instrumentation.ts` emitted `.next/server/instrumentation.js` (~1.5 MB) while root `middleware.ts` emitted an empty manifest (A-32). **Verify the build artifact, not the file's existence.** |
+| **C11** | **The verification console (`src/app/verify/`, `src/app/api/verify/`, `src/lib/verify/`, `src/components/verify/`) is a fixed security surface.** It must never contain: free-text input; SQL strings or template-literal query assembly; `.rpc()`; writes on the **read** path (`.insert` / `.update` / `.delete` / `.upsert`); or any import of `createAdminClient`, `dashboard-analytics`, `report-analytics`, or `supabase/mappers`. The standing check is the §9 grep block in the console task spec (service-role / `getSession` / read-path writes / dashboard coupling / no `NEXT_PUBLIC_VERIFY`). Re-run before merge. |
 
 ---
 
@@ -320,6 +321,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 4 Aug 2026 | 1.16 | **C11 — verification console.** Fixed security surface: no free-text, SQL, `.rpc()`, read-path writes, or imports of `createAdminClient` / dashboard analytics / mappers; §9 grep block is the standing check (`Architecture.md` §11.2). |
 | 4 Aug 2026 | 1.15 | **C10 added** — `src/`-directory projects must place Next.js root-convention files in `src/`; root placement compiles silently to nothing (`Architecture.md` A-32). |
 | 4 Aug 2026 | 1.14 | **Sentry scope.** §11 Definition of Done: errors go to Sentry for Next.js, the n8n error workflow for Track B (`Architecture.md` §11.1, ruled 4 Aug 2026). |
 | 4 Aug 2026 | 1.13 | **§6a — cancelled pass (4 Aug).** Mutually exclusive parallel branches (WF-3c); enum additions are frontend-breaking — deploy mapper before workflow writes. |
