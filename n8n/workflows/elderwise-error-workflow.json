@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "9fd3eb6e-8a26-4ca0-ad15-5a3b186bc660",
+  "activeVersionId": "22784b60-7e11-44bb-b738-b5991fca3995",
   "connections": {
     "Error Trigger": {
       "main": [
@@ -62,6 +62,7 @@
         208,
         0
       ],
+      "retryOnFail": true,
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "webhookId": "e85a08fd-1cc2-4c69-b9c3-cd70006e868b"

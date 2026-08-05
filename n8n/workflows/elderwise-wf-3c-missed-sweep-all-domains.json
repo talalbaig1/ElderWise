@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "69290141-734e-448d-9115-bf35c1638ebe",
+  "activeVersionId": "7c2f67d6-2958-46be-8767-f538dba7eaae",
   "connections": {
     "Anything Missed?": {
       "main": [
@@ -87,7 +87,7 @@
       "parameters": {
         "operation": "executeQuery",
         "options": {
-          "connectionTimeout": 10
+          "connectionTimeout": 13
         },
         "query": "WITH esc AS (SELECT c.id, c.status, c.scheduled_for, c.reminder_sent_at, COALESCE(MIN(m.escalation_minutes), MIN(f.escalation_minutes), MIN(h.escalation_minutes), 30) AS esc_mins FROM checkins c JOIN elders e ON e.id = c.elder_id LEFT JOIN medications m ON c.domain = 'medication' AND m.elder_id = e.id AND m.enabled AND m.active AND to_char(c.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) LEFT JOIN food_routines f ON f.id = c.food_routine_id LEFT JOIN health_routines h ON h.id = c.health_routine_id WHERE c.status IN ('reminded','scheduled') AND e.active AND e.consent_confirmed_at IS NOT NULL GROUP BY c.id, c.status, c.scheduled_for, c.reminder_sent_at), due AS (SELECT id FROM esc WHERE (status = 'reminded' AND reminder_sent_at IS NOT NULL AND now() > reminder_sent_at + make_interval(mins => esc_mins)) OR (status = 'scheduled' AND now() > scheduled_for + make_interval(mins => esc_mins))), upd AS (UPDATE checkins c SET status = 'missed', missed_at = now(), escalated_at = now() FROM due WHERE c.id = due.id RETURNING c.id) SELECT id AS checkin_id, 'missed' AS notification_type FROM upd"
       },
