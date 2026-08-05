@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "42a4366f-fbce-4f7c-a8cf-42bc66cbfdf8",
+  "activeVersionId": "178ee066-6450-4c41-a72a-30e2a4ac141b",
   "connections": {
     "Any Due?": {
       "main": [
@@ -104,10 +104,9 @@
       "parameters": {
         "operation": "executeQuery",
         "options": {
-          "connectionTimeout": 10
+          "connectionTimeout": 13
         },
-        "query": "WITH ins AS (INSERT INTO checkins (elder_id, domain, health_routine_id, scheduled_for, status) SELECT e.id, 'health'::care_domain, h.id, (((now() AT TIME ZONE e.timezone)::date + h.\"time\") AT TIME ZONE e.timezone), 'scheduled'::checkin_status FROM elders e JOIN health_routines h ON h.elder_id = e.id AND h.enabled WHERE e.active AND e.consent_confirmed_at IS NOT NULL AND h.start_date <= (now() AT TIME ZONE e.timezone)::date AND (h.end_date IS NULL OR h.end_date >= (now() AT TIME ZONE e.timezone)::date) AND (cardinality(h.days_of_week) = 0 OR (ARRAY['sunday','monday','tuesday','wednesday','thursday','friday','saturday'])[extract(dow from (now() AT TIME ZONE e.timezone)::date)::int + 1] = ANY(h.days_of_week)) AND NOT EXISTS (SELECT 1 FROM checkins c WHERE c.health_routine_id = h.id AND c.scheduled_for = (((now() AT TIME ZONE e.timezone)::date + h.\"time\") AT TIME ZONE e.timezone)) RETURNING 1) SELECT count(*)::int AS materialised FROM ins",
-        "resource": "database"
+        "query": "WITH ins AS (INSERT INTO checkins (elder_id, domain, health_routine_id, scheduled_for, status) SELECT e.id, 'health'::care_domain, h.id, (((now() AT TIME ZONE e.timezone)::date + h.\"time\") AT TIME ZONE e.timezone), 'scheduled'::checkin_status FROM elders e JOIN health_routines h ON h.elder_id = e.id AND h.enabled WHERE e.active AND e.consent_confirmed_at IS NOT NULL AND h.start_date <= (now() AT TIME ZONE e.timezone)::date AND (h.end_date IS NULL OR h.end_date >= (now() AT TIME ZONE e.timezone)::date) AND (cardinality(h.days_of_week) = 0 OR (ARRAY['sunday','monday','tuesday','wednesday','thursday','friday','saturday'])[extract(dow from (now() AT TIME ZONE e.timezone)::date)::int + 1] = ANY(h.days_of_week)) AND NOT EXISTS (SELECT 1 FROM checkins c WHERE c.health_routine_id = h.id AND c.scheduled_for = (((now() AT TIME ZONE e.timezone)::date + h.\"time\") AT TIME ZONE e.timezone)) RETURNING 1) SELECT count(*)::int AS materialised FROM ins"
       },
       "position": [
         224,
@@ -130,8 +129,7 @@
         "options": {
           "connectionTimeout": 10
         },
-        "query": "SELECT c.id AS checkin_id, e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp, h.name AS routine_name FROM checkins c JOIN elders e ON e.id = c.elder_id JOIN health_routines h ON h.id = c.health_routine_id AND h.enabled WHERE c.status = 'scheduled' AND c.domain = 'health' AND e.active AND e.consent_confirmed_at IS NOT NULL AND c.scheduled_for <= now() AND now() <= c.scheduled_for + make_interval(mins => h.escalation_minutes) ORDER BY c.scheduled_for LIMIT 10",
-        "resource": "database"
+        "query": "SELECT c.id AS checkin_id, e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp, h.name AS routine_name FROM checkins c JOIN elders e ON e.id = c.elder_id JOIN health_routines h ON h.id = c.health_routine_id AND h.enabled WHERE c.status = 'scheduled' AND c.domain = 'health' AND e.active AND e.consent_confirmed_at IS NOT NULL AND c.scheduled_for <= now() AND now() <= c.scheduled_for + make_interval(mins => h.escalation_minutes) ORDER BY c.scheduled_for LIMIT 10"
       },
       "position": [
         448,
@@ -159,9 +157,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "loose"
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         672,
@@ -186,19 +187,15 @@
               "bodyParameters": {
                 "parameter": [
                   {
-                    "text": "={{ $json.elder_first_name }}",
-                    "type": "text"
+                    "text": "={{ $json.elder_first_name }}"
                   }
                 ]
-              },
-              "type": "body"
+              }
             }
           ]
         },
-        "operation": "sendTemplate",
         "phoneNumberId": "1084405194760141",
         "recipientPhoneNumber": "={{ $json.elder_whatsapp }}",
-        "resource": "message",
         "template": "elderwise_ep_health_checkin|en"
       },
       "position": [
@@ -225,8 +222,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $('Find Due Health Check-ins').item.json.checkin_id }},{{ $json.messages[0].id }}"
         },
-        "query": "UPDATE checkins SET status = 'sent', sent_at = now(), wa_message_id = $2::text WHERE id = $1::uuid AND status = 'scheduled' RETURNING id AS checkin_id, status, sent_at, wa_message_id",
-        "resource": "database"
+        "query": "UPDATE checkins SET status = 'sent', sent_at = now(), wa_message_id = $2::text WHERE id = $1::uuid AND status = 'scheduled' RETURNING id AS checkin_id, status, sent_at, wa_message_id"
       },
       "position": [
         1120,
