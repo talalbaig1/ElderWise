@@ -96,7 +96,10 @@
   ],
   "settings": {
     "binaryMode": "separate",
-    "executionOrder": "v1"
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionOrder": "v1",
+    "executionTimeout": 300,
+    "timeSavedMode": "fixed"
   },
   "staticData": null
 }

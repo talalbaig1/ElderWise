@@ -256,7 +256,11 @@
     }
   ],
   "settings": {
-    "executionOrder": "v1"
+    "binaryMode": "separate",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionOrder": "v1",
+    "executionTimeout": 300,
+    "timeSavedMode": "fixed"
   },
   "staticData": {
     "node:Every Minute": {
