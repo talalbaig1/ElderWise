@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "6c5d654e-8666-49c9-b862-b81835e16bb4",
+  "activeVersionId": "f5b73e58-9fab-4112-81db-d4f8cd779bd3",
   "connections": {
     "Any Nudge Due?": {
       "main": [
@@ -104,10 +104,9 @@
       "parameters": {
         "operation": "executeQuery",
         "options": {
-          "connectionTimeout": 10
+          "connectionTimeout": 15
         },
-        "query": "WITH due AS (SELECT s.id, s.elder_id, s.triggered_at, s.nudges_sent + 1 AS next_nudge_index FROM sos_events s WHERE s.status = 'open' AND s.nudges_sent < 3 AND now() > (SELECT MAX(n.sent_at) FROM sos_notifications n WHERE n.sos_event_id = s.id AND n.status = 'sent') + interval '2 minutes' ORDER BY s.triggered_at LIMIT 1), recips AS (SELECT DISTINCT n.recipient_role, n.recipient_id FROM sos_notifications n JOIN due ON n.sos_event_id = due.id WHERE n.status = 'sent') SELECT due.id AS sos_event_id, due.next_nudge_index, e.first_name AS elder_first_name, r.recipient_role::text AS recipient_role, r.recipient_id, CASE r.recipient_role WHEN 'care_partner' THEN cp.whatsapp_number WHEN 'local_caregiver' THEN lc.whatsapp_number WHEN 'doctor' THEN d.whatsapp_number END AS recipient_number, to_char(due.triggered_at AT TIME ZONE (CASE r.recipient_role WHEN 'care_partner' THEN cp.timezone ELSE e.timezone END), 'FMHH12:MI AM') AS triggered_label FROM recips r CROSS JOIN due JOIN elders e ON e.id = due.elder_id LEFT JOIN care_partners cp ON cp.id = r.recipient_id AND r.recipient_role = 'care_partner' LEFT JOIN local_caregivers lc ON lc.id = r.recipient_id AND r.recipient_role = 'local_caregiver' LEFT JOIN doctors d ON d.id = r.recipient_id AND r.recipient_role = 'doctor'",
-        "resource": "database"
+        "query": "WITH due AS (SELECT s.id, s.elder_id, s.triggered_at, s.nudges_sent + 1 AS next_nudge_index FROM sos_events s WHERE s.status = 'open' AND s.nudges_sent < 3 AND now() > (SELECT MAX(n.sent_at) FROM sos_notifications n WHERE n.sos_event_id = s.id AND n.status = 'sent') + interval '2 minutes' ORDER BY s.triggered_at LIMIT 1), recips AS (SELECT DISTINCT n.recipient_role, n.recipient_id FROM sos_notifications n JOIN due ON n.sos_event_id = due.id WHERE n.status = 'sent') SELECT due.id AS sos_event_id, due.next_nudge_index, e.first_name AS elder_first_name, r.recipient_role::text AS recipient_role, r.recipient_id, CASE r.recipient_role WHEN 'care_partner' THEN cp.whatsapp_number WHEN 'local_caregiver' THEN lc.whatsapp_number WHEN 'doctor' THEN d.whatsapp_number END AS recipient_number, to_char(due.triggered_at AT TIME ZONE (CASE r.recipient_role WHEN 'care_partner' THEN cp.timezone ELSE e.timezone END), 'FMHH12:MI AM') AS triggered_label FROM recips r CROSS JOIN due JOIN elders e ON e.id = due.elder_id LEFT JOIN care_partners cp ON cp.id = r.recipient_id AND r.recipient_role = 'care_partner' LEFT JOIN local_caregivers lc ON lc.id = r.recipient_id AND r.recipient_role = 'local_caregiver' LEFT JOIN doctors d ON d.id = r.recipient_id AND r.recipient_role = 'doctor'"
       },
       "position": [
         224,
@@ -135,9 +134,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "loose"
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         448,
@@ -162,23 +164,18 @@
               "bodyParameters": {
                 "parameter": [
                   {
-                    "text": "={{ $json.elder_first_name }}",
-                    "type": "text"
+                    "text": "={{ $json.elder_first_name }}"
                   },
                   {
-                    "text": "={{ $json.triggered_label }}",
-                    "type": "text"
+                    "text": "={{ $json.triggered_label }}"
                   }
                 ]
-              },
-              "type": "body"
+              }
             }
           ]
         },
-        "operation": "sendTemplate",
         "phoneNumberId": "1084405194760141",
         "recipientPhoneNumber": "={{ $json.recipient_number }}",
-        "resource": "message",
         "template": "elderwise_sos_nudge|en"
       },
       "position": [
@@ -205,8 +202,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $('Any Nudge Due?').item.json.sos_event_id }},{{ $('Any Nudge Due?').item.json.recipient_role }},{{ $('Any Nudge Due?').item.json.recipient_id }},{{ $('Any Nudge Due?').item.json.next_nudge_index }},{{ $json.messages[0].id }}"
         },
-        "query": "INSERT INTO sos_notifications (sos_event_id, recipient_role, recipient_id, nudge_index, status, wa_message_id, sent_at) VALUES ($1::uuid, $2::sos_recipient_role, $3::uuid, $4::int, 'sent'::sos_notification_status, $5::text, now()) RETURNING id, nudge_index, recipient_role::text AS role",
-        "resource": "database"
+        "query": "INSERT INTO sos_notifications (sos_event_id, recipient_role, recipient_id, nudge_index, status, wa_message_id, sent_at) VALUES ($1::uuid, $2::sos_recipient_role, $3::uuid, $4::int, 'sent'::sos_notification_status, $5::text, now()) RETURNING id, nudge_index, recipient_role::text AS role"
       },
       "position": [
         896,
@@ -231,8 +227,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $('Any Nudge Due?').first().json.sos_event_id }}"
         },
-        "query": "UPDATE sos_events SET nudges_sent = nudges_sent + 1 WHERE id = $1::uuid AND status = 'open' AND nudges_sent < 3 RETURNING id AS sos_event_id, nudges_sent, status::text AS status",
-        "resource": "database"
+        "query": "UPDATE sos_events SET nudges_sent = nudges_sent + 1 WHERE id = $1::uuid AND status = 'open' AND nudges_sent < 3 RETURNING id AS sos_event_id, nudges_sent, status::text AS status"
       },
       "position": [
         1120,
