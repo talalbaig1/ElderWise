@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { VerifyConsole } from "@/components/verify/verify-console";
 import { VerifyGatePanel } from "@/components/verify/verify-gate-panel";
@@ -38,6 +39,12 @@ export default async function VerifyPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-2">
+        <Link
+          href="/dashboard"
+          className="inline-block text-sm font-semibold text-primary hover:underline"
+        >
+          ← Back to dashboard
+        </Link>
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           ElderWise · internal
         </p>
