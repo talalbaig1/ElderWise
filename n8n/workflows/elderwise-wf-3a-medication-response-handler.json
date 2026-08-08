@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "d284313f-145a-437b-8863-d92b5500be5b",
+  "activeVersionId": "d9016665-719c-476f-b0fa-64b07af1c6fe",
   "connections": {
     "Called By WF-2a": {
       "main": [
@@ -46,7 +46,25 @@
         [
           {
             "index": 0,
+            "node": "Response Written?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Response Written?": {
+      "main": [
+        [
+          {
+            "index": 0,
             "node": "Notify Care Partner (WF-6)",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Check-in Already Closed",
             "type": "main"
           }
         ]
@@ -166,11 +184,15 @@
           "__rl": true,
           "mode": "id",
           "value": "6I6OC7qJ5YhhUQxU"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {}
         }
       },
       "position": [
-        896,
-        0
+        1072,
+        -32
       ],
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3
@@ -182,6 +204,51 @@
       "position": [
         672,
         192
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
+      "id": "4c75e227-1299-4298-b4e0-f95486e6cb1a",
+      "name": "Response Written?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "17593196-3aa7-4efc-81c5-0470d7e891b0",
+              "leftValue": "={{ !!$json.checkin_id }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        864,
+        0
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "id": "e5e22e97-266c-4f88-935c-d2dfbb1efc24",
+      "name": "Check-in Already Closed",
+      "parameters": {},
+      "position": [
+        1072,
+        176
       ],
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1

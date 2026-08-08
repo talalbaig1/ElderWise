@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "d247665b-6bc6-4a1b-85b6-943c53d39dc0",
+  "activeVersionId": "a6ec172b-f7c9-4aae-ac0a-4206650bd039",
   "connections": {
     "Any Reminder Due?": {
       "main": [
@@ -282,9 +282,9 @@
         "operation": "executeQuery",
         "options": {
           "connectionTimeout": 10,
-          "queryReplacement": "={{ $('Find Due Reminders').item.json.checkin_id }}"
+          "queryReplacement": "={{ $('Find Due Reminders').item.json.checkin_id }},{{ $json.messages[0].id }}"
         },
-        "query": "UPDATE checkins SET status = 'reminded', reminder_sent_at = now() WHERE id = $1::uuid AND status = 'sent' RETURNING id AS checkin_id, status::text AS status_text, reminder_sent_at"
+        "query": "UPDATE checkins SET status = 'reminded', reminder_sent_at = now(), wa_message_id = $2::text WHERE id = $1::uuid AND status = 'sent' RETURNING id AS checkin_id, status::text AS status_text, reminder_sent_at, wa_message_id"
       },
       "position": [
         1120,

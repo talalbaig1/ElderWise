@@ -672,6 +672,7 @@
           "combinator": "and",
           "conditions": [
             {
+              "id": "20df833e-5f29-4855-b187-9c548ce770fc",
               "leftValue": "={{ !!$json.checkin_id }}",
               "operator": {
                 "operation": "true",
@@ -684,8 +685,8 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "loose",
-            "version": 1
+            "typeValidation": "strict",
+            "version": 3
           }
         },
         "options": {}
