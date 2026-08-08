@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.17 |
+| **Document** | Rules.md — v1.18 |
 | **Date** | 8 August 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
@@ -144,6 +144,8 @@ From `Architecture.md` §1 (P1). These are the walls that let ten people work in
 - [ ] **Verify enum-vs-text before writing.** `response_value` is plain TEXT with no constraint; the database will not catch a wrong value. Only the human-facing template will, and only if someone reads it. (`checkins.response_channel` is `button | voice` — not `whatsapp`.)
 - [ ] **Two branches off one trigger satisfy "one writer per state transition" ONLY when their selection sets are mutually exclusive by construction.** WF-3c's missed branch selects **enabled** routines and its cancel branch selects **disabled** ones; they cannot overlap, and each UPDATE re-checks status so a mid-run flag flip is safe in either execution order.
 - [ ] **Adding an enum value is a FRONTEND-BREAKING change.** The DB-to-UI mapper is an exhaustive switch with **no default**: update the TypeScript union and deploy **before** any workflow writes the new value, or the mapper returns `undefined` at runtime and the status pill renders blank or throws. This deliberately inverts the docs-first / code-second habit — **and the inversion is correct** for enum additions.
+- [ ] **`ON CONFLICT` cannot infer a partial unique index without its predicate.** If the index is `UNIQUE (col) WHERE col IS NOT NULL`, then `ON CONFLICT (col) DO NOTHING` fails at runtime — *"there is no unique or exclusion constraint matching the ON CONFLICT specification"*. Write `ON CONFLICT (col) WHERE col IS NOT NULL DO NOTHING`. A bare `ON CONFLICT DO NOTHING` also works but silently swallows every other unique violation on the table, so prefer the explicit predicate. Cost of getting this wrong is total, not partial: the statement fails on **every** insert, not only on duplicates.
+- [ ] **A POST to Supabase Storage does not overwrite.** Posting to an object key that already exists returns **409 Duplicate**. If a deterministic key is used for idempotency, add the `x-upsert: true` header — otherwise a retry-enabled node burns its retries and fires the error workflow.
 
 
 ## 7. Security rules
@@ -323,6 +325,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 8 Aug 2026 | 1.18 | **§6a — two findings added** from the WF-5 A-25 build. `ON CONFLICT` against a **partial** unique index must repeat the index predicate or the statement fails on every insert. A **POST to Supabase Storage 409s rather than overwriting**; deterministic object keys need `x-upsert: true`. |
 | 8 Aug 2026 | 1.17 | **C12 + W7 from 8 August defects.** **C12** — when a shared Zod schema gains a required field, enumerate every `.safeParse(` / `.parse(` consumer before merge (`tsc` cannot see hand-built `unknown` payloads; Wave 2 `daysOfWeek` broke all three dashboard routine upserts). **W7** — `n8n/workflows/` JSON is a read-only snapshot; never re-import (rotates `webhookId` and can silently kill Meta inbound on WF-2). |
 | 4 Aug 2026 | 1.16 | **C11 — verification console.** Fixed security surface: no free-text, SQL, `.rpc()`, read-path writes, or imports of `createAdminClient` / dashboard analytics / mappers; §9 grep block is the standing check (`Architecture.md` §11.2). |
 | 4 Aug 2026 | 1.15 | **C10 added** — `src/`-directory projects must place Next.js root-convention files in `src/`; root placement compiles silently to nothing (`Architecture.md` A-32). |
