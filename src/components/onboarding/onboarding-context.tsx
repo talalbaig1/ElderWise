@@ -25,7 +25,10 @@ import {
   type OnboardingDraft,
   type OnboardingStepId,
 } from "@/lib/onboarding";
-import { loadOnboardingResume } from "@/lib/data/onboarding-actions";
+import {
+  loadCarePartnerOnboardingDefaults,
+  loadOnboardingResume,
+} from "@/lib/data/onboarding-actions";
 import { useElderWiseStore } from "@/lib/store";
 
 interface OnboardingContextValue {
@@ -59,21 +62,35 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     if (!storeHydrated || !accountId) return;
     let cancelled = false;
 
-    // First-time onboarding: name/email only — CT still enters WhatsApp + TZ.
-    // Additional Loved One: seed WA + TZ from store (loaded from care_partners).
-    const seed = {
-      firstName: store.carePartner?.firstName,
-      lastName: store.carePartner?.lastName,
-      email: store.session.email ?? store.carePartner?.email,
-      ...(additionalMode && store.carePartner
-        ? {
-            whatsappNumber: store.carePartner.whatsappNumber,
-            timeZone: store.carePartner.timeZone,
-          }
-        : {}),
-    };
-
     void (async () => {
+      // First-time: name/email from session only — CT still enters WhatsApp + TZ.
+      // Additional: WA + TZ from care_partners (onboarding has no AppDataProvider).
+      let seed: {
+        firstName?: string;
+        lastName?: string;
+        email?: string;
+        whatsappNumber?: string;
+        timeZone?: string;
+      } = {
+        firstName: store.carePartner?.firstName,
+        lastName: store.carePartner?.lastName,
+        email: store.session.email ?? store.carePartner?.email,
+      };
+
+      if (additionalMode) {
+        const cp = await loadCarePartnerOnboardingDefaults();
+        if (cancelled) return;
+        if (cp.ok) {
+          seed = {
+            firstName: cp.firstName || seed.firstName,
+            lastName: cp.lastName || seed.lastName,
+            email: cp.email || seed.email,
+            whatsappNumber: cp.whatsappNumber,
+            timeZone: cp.timeZone,
+          };
+        }
+      }
+
       if (forceFresh) {
         clearOnboardingDraft();
         const next = createDefaultDraft(accountId, seed);
@@ -90,13 +107,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         // Backfill CP WhatsApp/TZ if an older additional draft was saved empty.
         let next = existing;
-        if (additionalMode && store.carePartner) {
+        if (additionalMode && seed.whatsappNumber) {
           const whatsappNumber =
-            existing.carePartner.whatsappNumber ||
-            store.carePartner.whatsappNumber ||
-            "";
-          const timeZone =
-            store.carePartner.timeZone || existing.carePartner.timeZone;
+            existing.carePartner.whatsappNumber || seed.whatsappNumber || "";
+          const timeZone = seed.timeZone || existing.carePartner.timeZone;
           if (
             whatsappNumber !== existing.carePartner.whatsappNumber ||
             timeZone !== existing.carePartner.timeZone
@@ -145,6 +159,13 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
           if (wizardStepAhead(existing.currentStepId, next.currentStepId)) {
             next.currentStepId = existing.currentStepId;
           }
+        }
+        // Additional mode: prefer DB CP WA/TZ when resume/local left them empty.
+        if (additionalMode && seed.whatsappNumber && !next.carePartner.whatsappNumber) {
+          next.carePartner = {
+            whatsappNumber: seed.whatsappNumber,
+            timeZone: seed.timeZone || next.carePartner.timeZone,
+          };
         }
         saveOnboardingDraft(next);
         setDraft(next);

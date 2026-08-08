@@ -634,6 +634,43 @@ export type OnboardingResumePayload = {
 };
 
 /**
+ * Care Partner WhatsApp + timezone from care_partners (additional-Loved-One path).
+ * /onboarding is outside AppDataProvider, so the client store has no domain CP row.
+ */
+export async function loadCarePartnerOnboardingDefaults(): Promise<
+  | {
+      ok: true;
+      whatsappNumber: string;
+      timeZone: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+    }
+  | { ok: false; error: string }
+> {
+  const { supabase, user, error: authErr } = await requireUser();
+  if (authErr || !user) return { ok: false, error: authErr ?? "Not signed in" };
+
+  const { data, error } = await supabase
+    .from("care_partners")
+    .select("first_name, last_name, email, whatsapp_number, timezone")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Care Partner profile not found" };
+
+  return {
+    ok: true,
+    firstName: data.first_name ?? "",
+    lastName: data.last_name ?? "",
+    email: data.email ?? "",
+    whatsappNumber: data.whatsapp_number ?? "",
+    timeZone: data.timezone ?? "",
+  };
+}
+
+/**
  * Resume from an inactive elder when localStorage draft is gone.
  * Buddy / doctor presence is row presence only (Architecture §5.7).
  */
