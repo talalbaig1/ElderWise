@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "54c7fcaf-63e5-48c8-b4a9-2cfebcc07bd0",
+  "activeVersionId": "6950477d-8c2c-4218-b2ad-50eb9022a310",
   "connections": {
     "Answer Clear?": {
       "main": [
@@ -57,6 +57,17 @@
         ]
       ]
     },
+    "Find Elder For Re-prompt": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send No Check-in Reply",
+            "type": "main"
+          }
+        ]
+      ]
+    },
     "Get Media URL": {
       "main": [
         [
@@ -91,7 +102,7 @@
         [
           {
             "index": 0,
-            "node": "No Open Check-in For This Voice Note",
+            "node": "Find Elder For Re-prompt",
             "type": "main"
           }
         ]
@@ -306,7 +317,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ [ $json.sender_e164, $json.context_wamid || \"\" ] }}"
         },
-        "query": "SELECT c.id AS checkin_id, c.elder_id, c.domain::text AS domain, e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp, COALESCE(h.question, CASE c.domain WHEN 'food' THEN 'Have you had your ' || COALESCE(f.meal_name,'meal') || ' today?' ELSE 'Did you take your medicines?' END) AS question, COALESCE((SELECT MAX(v.reask_count) FROM voice_replies v WHERE v.checkin_id = c.id), 0) AS prior_reasks FROM checkins c JOIN elders e ON e.id = c.elder_id LEFT JOIN food_routines f ON f.id = c.food_routine_id LEFT JOIN health_routines h ON h.id = c.health_routine_id WHERE e.whatsapp_number = $1::text AND e.active AND c.status IN ('sent','reminded') AND ($2::text = '' OR c.wa_message_id = $2::text) ORDER BY c.sent_at DESC LIMIT 1"
+        "query": "SELECT c.id AS checkin_id, c.elder_id, c.domain::text AS domain, e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp, COALESCE(h.question, CASE c.domain WHEN 'food' THEN 'Have you had your ' || COALESCE(f.meal_name,'meal') || ' today?' ELSE 'Did you take your medicines?' END) AS question, COALESCE((SELECT MAX(v.reask_count) FROM voice_replies v WHERE v.checkin_id = c.id), 0) AS prior_reasks FROM checkins c JOIN elders e ON e.id = c.elder_id LEFT JOIN food_routines f ON f.id = c.food_routine_id LEFT JOIN health_routines h ON h.id = c.health_routine_id WHERE e.whatsapp_number = $1::text AND e.active AND e.consent_confirmed_at IS NOT NULL AND e.consent_declined_at IS NULL AND c.status IN ('sent','reminded') AND ($2::text = '' OR c.wa_message_id = $2::text) ORDER BY c.sent_at DESC LIMIT 1"
       },
       "position": [
         448,
@@ -401,17 +412,6 @@
       "retryOnFail": true,
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4
-    },
-    {
-      "id": "4a25ecb5-c2f3-4cae-a0dc-198b8b0bb74f",
-      "name": "No Open Check-in For This Voice Note",
-      "parameters": {},
-      "position": [
-        896,
-        480
-      ],
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1
     },
     {
       "id": "8b451eb3-b830-42a4-846f-8d2c3b050298",
@@ -708,6 +708,14 @@
           "__rl": true,
           "mode": "id",
           "value": "6I6OC7qJ5YhhUQxU"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [],
+          "value": {}
         }
       },
       "position": [
@@ -831,11 +839,62 @@
       ],
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1
+    },
+    {
+      "alwaysOutputData": false,
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "f6f259c1-b146-4020-b964-2b199554fab4",
+      "name": "Find Elder For Re-prompt",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ [ $('Called With Voice Message').first().json.sender_e164 ] }}"
+        },
+        "query": "SELECT e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp\nFROM elders e\nWHERE e.whatsapp_number = $1::text\n  AND e.active\n  AND e.consent_confirmed_at IS NOT NULL\n  AND e.consent_declined_at IS NULL\nLIMIT 1"
+      },
+      "position": [
+        896,
+        480
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Khl54gAdR4rvZaUO",
+          "name": "WhatsApp 966503330619"
+        }
+      },
+      "id": "27f7625a-4bbd-4f16-b00e-42c11bb70e29",
+      "name": "Send No Check-in Reply",
+      "parameters": {
+        "additionalFields": {},
+        "operation": "send",
+        "phoneNumberId": "1084405194760141",
+        "recipientPhoneNumber": "={{ $json.elder_whatsapp }}",
+        "textBody": "={{ \"Thank you for your message, \" + $json.elder_first_name + \". I don't have anything to check with you right now — I'll be in touch at your next check-in time.\" }}"
+      },
+      "position": [
+        1120,
+        480
+      ],
+      "retryOnFail": true,
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "webhookId": "1c3298d0-0c55-4914-81f4-bc7b48aaa006"
     }
   ],
   "settings": {
     "binaryMode": "separate",
     "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "uvBstI6J42nNhIYz",
     "executionOrder": "v1",
     "executionTimeout": 300,
     "timeSavedMode": "fixed"

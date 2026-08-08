@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "8b9ddffe-c5b9-4232-9b6d-3c83df95bfe1",
+  "activeVersionId": "d247665b-6bc6-4a1b-85b6-943c53d39dc0",
   "connections": {
     "Any Reminder Due?": {
       "main": [
@@ -405,6 +405,9 @@
                 "parameter": [
                   {
                     "text": "={{ $json.elder_first_name }}"
+                  },
+                  {
+                    "text": "={{ $json.routine_name }}"
                   }
                 ]
               }
@@ -413,7 +416,7 @@
         },
         "phoneNumberId": "1084405194760141",
         "recipientPhoneNumber": "={{ $json.elder_whatsapp }}",
-        "template": "elderwise_ep_health_reminder|en"
+        "template": "elderwise_ep_health_reminder_v2|en"
       },
       "position": [
         1120,

@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "178ee066-6450-4c41-a72a-30e2a4ac141b",
+  "activeVersionId": "11de1ec6-e466-449a-8c6e-1a0e2e295fe7",
   "connections": {
     "Any Due?": {
       "main": [
@@ -188,6 +188,9 @@
                 "parameter": [
                   {
                     "text": "={{ $json.elder_first_name }}"
+                  },
+                  {
+                    "text": "={{ $json.routine_name }}"
                   }
                 ]
               }
@@ -196,7 +199,7 @@
         },
         "phoneNumberId": "1084405194760141",
         "recipientPhoneNumber": "={{ $json.elder_whatsapp }}",
-        "template": "elderwise_ep_health_checkin|en"
+        "template": "elderwise_ep_health_checkin_v2|en"
       },
       "position": [
         896,
