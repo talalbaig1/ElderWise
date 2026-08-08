@@ -248,13 +248,6 @@ export function MedicationTab({
                 </Field>
               </div>
               <div className="space-y-2">
-                <Label>Repeats on</Label>
-                <DayChips
-                  value={editing.daysOfWeek}
-                  onChange={(daysOfWeek) => setEditing({ ...editing, daysOfWeek })}
-                />
-              </div>
-              <div className="space-y-2">
                 <div className="grid gap-3 sm:grid-cols-3">
                   <Field label="Timing with meal">
                     <Select
@@ -316,6 +309,13 @@ export function MedicationTab({
                 {editing.notifyCarePartner === "not_required" ? (
                   <NotRequiredWarning variant="medication" />
                 ) : null}
+              </div>
+              <div className="space-y-2">
+                <Label>Repeats on</Label>
+                <DayChips
+                  value={editing.daysOfWeek}
+                  onChange={(daysOfWeek) => setEditing({ ...editing, daysOfWeek })}
+                />
               </div>
             </div>
           ) : null}
