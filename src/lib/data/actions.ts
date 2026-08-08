@@ -27,16 +27,6 @@ export type ActionResult =
   | { ok: true }
   | { ok: false; error: string };
 
-const DAYS = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
-] as const;
-
 function fail(error: string): ActionResult {
   return { ok: false, error };
 }
@@ -406,6 +396,7 @@ export async function upsertMedication(med: Medication): Promise<ActionResult> {
     times: med.times,
     startDate: med.startDate,
     endDate: med.endDate,
+    daysOfWeek: med.daysOfWeek,
     notifyCarePartner: med.notifyCarePartner,
     escalationMinutes: med.escalationMinutes,
   });
@@ -424,7 +415,7 @@ export async function upsertMedication(med: Medication): Promise<ActionResult> {
     dosage: parsed.data.dosage,
     dosage_unit: parsed.data.dosageUnit,
     times: parsed.data.times,
-    days_of_week: med.daysOfWeek?.length ? med.daysOfWeek : [...DAYS],
+    days_of_week: parsed.data.daysOfWeek,
     start_date: parsed.data.startDate,
     end_date: parsed.data.endDate || null,
     timing_preference: med.timingPreference || "no_preference",
@@ -493,6 +484,7 @@ export async function upsertFoodRoutine(item: FoodRoutine): Promise<ActionResult
     checkInTime: item.checkInTime,
     startDate: item.startDate,
     endDate: item.endDate,
+    daysOfWeek: item.daysOfWeek,
     notifyCarePartner: item.notifyCarePartner,
   });
   if (!parsed.success) {
@@ -511,7 +503,7 @@ export async function upsertFoodRoutine(item: FoodRoutine): Promise<ActionResult
     check_in_time: parsed.data.checkInTime,
     start_date: parsed.data.startDate,
     end_date: parsed.data.endDate || null,
-    days_of_week: item.daysOfWeek?.length ? item.daysOfWeek : [...DAYS],
+    days_of_week: parsed.data.daysOfWeek,
     frequency: "daily",
     notify_care_partner: parsed.data.notifyCarePartner,
     escalation_minutes: item.escalationMinutes ?? 45,
@@ -577,6 +569,7 @@ export async function upsertHealthRoutine(item: HealthRoutine): Promise<ActionRe
     time: item.time,
     startDate: item.startDate,
     endDate: item.endDate,
+    daysOfWeek: item.daysOfWeek,
     notifyCarePartner: item.notifyCarePartner,
   });
   if (!parsed.success) {
@@ -596,7 +589,7 @@ export async function upsertHealthRoutine(item: HealthRoutine): Promise<ActionRe
     time: parsed.data.time,
     start_date: parsed.data.startDate,
     end_date: parsed.data.endDate || null,
-    days_of_week: item.daysOfWeek?.length ? item.daysOfWeek : [...DAYS],
+    days_of_week: parsed.data.daysOfWeek,
     question: item.question || parsed.data.name,
     answer_type: item.answerType || "yes_no",
     notify_care_partner: parsed.data.notifyCarePartner,
