@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "5fb10c94-4105-4577-bd45-c3d6cf60d9ef",
+  "activeVersionId": "de2a251e-428a-4b7a-8879-ff2b9b5e739d",
   "connections": {
     "Already Processed?": {
       "main": [
@@ -529,7 +529,7 @@
       "id": "135d72c1-25be-4a8c-9aa6-d3bb50fe0567",
       "name": "Prepare Gate Prompt",
       "parameters": {
-        "jsCode": "const t = $input.first().json;\nconst ctx = $('Resolve Check-in').first().json;\nconst up = $('Upload To Voice Notes Bucket').first().json;\nconst transcript = String(t.text ?? '').trim();\nconst mediaId = String($('Called With Voice Message').first().json.media_id ?? '');\n\nconst prompt = 'You are reading a transcript of an elderly person spoken reply to the question: \"' + String(ctx.question) + '\". Answer with exactly one word - yes, no, or unclear. Use unclear if the transcript is ambiguous, empty, off-topic, or you are not confident. Never guess. Transcript: \"' + transcript + '\"';\n\nreturn [{ json: { prompt: prompt, transcript: transcript, audio_path: String(up.Key ?? ''), checkin_id: ctx.checkin_id, elder_id: ctx.elder_id, elder_first_name: ctx.elder_first_name, elder_whatsapp: ctx.elder_whatsapp, question: ctx.question, prior_reasks: ctx.prior_reasks, media_id: mediaId } }];"
+        "jsCode": "const t = $input.first().json;\nconst ctx = $('Resolve Check-in').first().json;\nconst transcript = String(t.text ?? '').trim();\nconst mediaId = String($('Called With Voice Message').first().json.media_id ?? '');\nconst audioPath = 'voice-notes/' + ctx.elder_id + '/' + ctx.checkin_id + '/' + mediaId + '.ogg';\n\nconst prompt = 'You are reading a transcript of an elderly person spoken reply to the question: \"' + String(ctx.question) + '\". Answer with exactly one word - yes, no, or unclear. Use unclear if the transcript is ambiguous, empty, off-topic, or you are not confident. Never guess. Transcript: \"' + transcript + '\"';\n\nreturn [{ json: { prompt: prompt, transcript: transcript, audio_path: audioPath, checkin_id: ctx.checkin_id, elder_id: ctx.elder_id, elder_first_name: ctx.elder_first_name, elder_whatsapp: ctx.elder_whatsapp, question: ctx.question, prior_reasks: ctx.prior_reasks, media_id: mediaId } }];"
       },
       "position": [
         2016,
@@ -986,7 +986,7 @@
       },
       "position": [
         1792,
-        576
+        224
       ],
       "retryOnFail": true,
       "type": "n8n-nodes-base.httpRequest",

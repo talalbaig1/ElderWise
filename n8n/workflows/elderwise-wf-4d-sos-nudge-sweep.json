@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "f5b73e58-9fab-4112-81db-d4f8cd779bd3",
+  "activeVersionId": "fabd1479-9414-4d5d-91b6-f7777dda0f21",
   "connections": {
     "Any Nudge Due?": {
       "main": [
@@ -104,7 +104,7 @@
       "parameters": {
         "operation": "executeQuery",
         "options": {
-          "connectionTimeout": 15
+          "connectionTimeout": 20
         },
         "query": "WITH due AS (SELECT s.id, s.elder_id, s.triggered_at, s.nudges_sent + 1 AS next_nudge_index FROM sos_events s WHERE s.status = 'open' AND s.nudges_sent < 3 AND now() > (SELECT MAX(n.sent_at) FROM sos_notifications n WHERE n.sos_event_id = s.id AND n.status = 'sent') + interval '2 minutes' ORDER BY s.triggered_at LIMIT 1), recips AS (SELECT DISTINCT n.recipient_role, n.recipient_id FROM sos_notifications n JOIN due ON n.sos_event_id = due.id WHERE n.status = 'sent') SELECT due.id AS sos_event_id, due.next_nudge_index, e.first_name AS elder_first_name, r.recipient_role::text AS recipient_role, r.recipient_id, CASE r.recipient_role WHEN 'care_partner' THEN cp.whatsapp_number WHEN 'local_caregiver' THEN lc.whatsapp_number WHEN 'doctor' THEN d.whatsapp_number END AS recipient_number, to_char(due.triggered_at AT TIME ZONE (CASE r.recipient_role WHEN 'care_partner' THEN cp.timezone ELSE e.timezone END), 'FMHH12:MI AM') AS triggered_label FROM recips r CROSS JOIN due JOIN elders e ON e.id = due.elder_id LEFT JOIN care_partners cp ON cp.id = r.recipient_id AND r.recipient_role = 'care_partner' LEFT JOIN local_caregivers lc ON lc.id = r.recipient_id AND r.recipient_role = 'local_caregiver' LEFT JOIN doctors d ON d.id = r.recipient_id AND r.recipient_role = 'doctor'"
       },

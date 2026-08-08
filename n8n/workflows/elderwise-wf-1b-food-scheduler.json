@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "5a603b73-8312-4a84-96c6-907a13087349",
+  "activeVersionId": "52a4f272-f972-4efe-b1c3-bdd640895eaf",
   "connections": {
     "Any Due?": {
       "main": [
@@ -106,8 +106,7 @@
         "options": {
           "connectionTimeout": 10
         },
-        "query": "WITH ins AS (INSERT INTO checkins (elder_id, domain, food_routine_id, scheduled_for, status) SELECT e.id, 'food'::care_domain, f.id, (((now() AT TIME ZONE e.timezone)::date + f.check_in_time) AT TIME ZONE e.timezone), 'scheduled'::checkin_status FROM elders e JOIN food_routines f ON f.elder_id = e.id AND f.enabled WHERE e.active AND e.consent_confirmed_at IS NOT NULL AND f.start_date <= (now() AT TIME ZONE e.timezone)::date AND (f.end_date IS NULL OR f.end_date >= (now() AT TIME ZONE e.timezone)::date) AND (cardinality(f.days_of_week) = 0 OR (ARRAY['sunday','monday','tuesday','wednesday','thursday','friday','saturday'])[extract(dow from (now() AT TIME ZONE e.timezone)::date)::int + 1] = ANY(f.days_of_week)) AND NOT EXISTS (SELECT 1 FROM checkins c WHERE c.food_routine_id = f.id AND c.scheduled_for = (((now() AT TIME ZONE e.timezone)::date + f.check_in_time) AT TIME ZONE e.timezone)) RETURNING 1) SELECT count(*)::int AS materialised FROM ins",
-        "resource": "database"
+        "query": "WITH ins AS (INSERT INTO checkins (elder_id, domain, food_routine_id, scheduled_for, status) SELECT e.id, 'food'::care_domain, f.id, (((now() AT TIME ZONE e.timezone)::date + f.check_in_time) AT TIME ZONE e.timezone), 'scheduled'::checkin_status FROM elders e JOIN food_routines f ON f.elder_id = e.id AND f.enabled WHERE e.active AND e.consent_confirmed_at IS NOT NULL AND f.start_date <= (now() AT TIME ZONE e.timezone)::date AND (f.end_date IS NULL OR f.end_date >= (now() AT TIME ZONE e.timezone)::date) AND (cardinality(f.days_of_week) = 0 OR (ARRAY['sunday','monday','tuesday','wednesday','thursday','friday','saturday'])[extract(dow from (now() AT TIME ZONE e.timezone)::date)::int + 1] = ANY(f.days_of_week)) AND NOT EXISTS (SELECT 1 FROM checkins c WHERE c.food_routine_id = f.id AND c.scheduled_for = (((now() AT TIME ZONE e.timezone)::date + f.check_in_time) AT TIME ZONE e.timezone)) RETURNING 1) SELECT count(*)::int AS materialised FROM ins"
       },
       "position": [
         224,
@@ -128,10 +127,9 @@
       "parameters": {
         "operation": "executeQuery",
         "options": {
-          "connectionTimeout": 10
+          "connectionTimeout": 15
         },
-        "query": "SELECT c.id AS checkin_id, e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp, f.meal_name FROM checkins c JOIN elders e ON e.id = c.elder_id JOIN food_routines f ON f.id = c.food_routine_id AND f.enabled WHERE c.status = 'scheduled' AND c.domain = 'food' AND e.active AND e.consent_confirmed_at IS NOT NULL AND c.scheduled_for <= now() AND now() <= c.scheduled_for + make_interval(mins => f.escalation_minutes) ORDER BY c.scheduled_for LIMIT 10",
-        "resource": "database"
+        "query": "SELECT c.id AS checkin_id, e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp, f.meal_name FROM checkins c JOIN elders e ON e.id = c.elder_id JOIN food_routines f ON f.id = c.food_routine_id AND f.enabled WHERE c.status = 'scheduled' AND c.domain = 'food' AND e.active AND e.consent_confirmed_at IS NOT NULL AND c.scheduled_for <= now() AND now() <= c.scheduled_for + make_interval(mins => f.escalation_minutes) ORDER BY c.scheduled_for LIMIT 10"
       },
       "position": [
         448,
@@ -159,9 +157,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "loose"
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         672,
@@ -186,23 +187,18 @@
               "bodyParameters": {
                 "parameter": [
                   {
-                    "text": "={{ $json.elder_first_name }}",
-                    "type": "text"
+                    "text": "={{ $json.elder_first_name }}"
                   },
                   {
-                    "text": "={{ $json.meal_name }}",
-                    "type": "text"
+                    "text": "={{ $json.meal_name }}"
                   }
                 ]
-              },
-              "type": "body"
+              }
             }
           ]
         },
-        "operation": "sendTemplate",
         "phoneNumberId": "1084405194760141",
         "recipientPhoneNumber": "={{ $json.elder_whatsapp }}",
-        "resource": "message",
         "template": "elderwise_ep_food_checkin|en"
       },
       "position": [
@@ -229,8 +225,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $('Find Due Food Check-ins').item.json.checkin_id }},{{ $json.messages[0].id }}"
         },
-        "query": "UPDATE checkins SET status = 'sent', sent_at = now(), wa_message_id = $2::text WHERE id = $1::uuid AND status = 'scheduled' RETURNING id AS checkin_id, status, sent_at, wa_message_id",
-        "resource": "database"
+        "query": "UPDATE checkins SET status = 'sent', sent_at = now(), wa_message_id = $2::text WHERE id = $1::uuid AND status = 'scheduled' RETURNING id AS checkin_id, status, sent_at, wa_message_id"
       },
       "position": [
         1120,
