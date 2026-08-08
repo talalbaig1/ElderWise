@@ -5,8 +5,8 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.24 |
-| **Date** | 4 August 2026 |
+| **Document** | Architecture.md — v1.25 |
+| **Date** | 8 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
 
@@ -987,6 +987,10 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 | **A microservices split** | 10 people, 6 weeks. Two systems and one database. |
 | **WhatsApp Flows** | Flows **can** be sent as templates without an open 24-hour window — a genuine path to multi-select outside the window. But it is an entire additional Meta surface to learn, build, and get approved. **v2. Not now.** |
 
+### Known limitations
+
+> **Account-scoped Care Partner contact (R-4).** `care_partners.whatsapp_number` and `care_partners.timezone` are one row per Care Partner account, keyed by auth uid. Every Loved One under that account resolves Care Partner notifications through that single row. Changing it changes routing for all of them. There is no per-elder override column anywhere in the schema.
+
 ---
 
 ## 14. Risks
@@ -1048,6 +1052,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | Date | Version | Change |
 |---|---|---|
+| 8 Aug 2026 | 1.25 | **Wave 1 / Wave 2 rulings recorded** (Talal Baig, 8 August 2026). **R-1** day-of-week on all six routine forms (default all seven; WF-1/1b/1c already honour `days_of_week`) — Wave 2. **R-2** `food_routines.frequency` / `health_routines.frequency` retained but reserved; writers must stop emitting `'custom'`; no migration before Demo Day (Case 21 inert, 7 Aug). **R-3** `/onboarding?mode=additional` Care Partner card read-only + Settings link — Wave 2. **R-4** per-elder Care Partner WhatsApp out of MVP scope; account-scoped contact recorded as known limitation (§13). **R-5** wellbeing status derived in app code (reuse `src/lib/sos.ts` rule); labels pending Sama — Wave 2. **R-6** `WellbeingStatus` type authoritative over filter labels (`stable`/`attention`/`urgent`); remove laundering `as` cast — Wave 1. **R-7** `elders.updated_at` not added; mapper stops presenting `created_at` as `updatedAt` — Wave 2. |
 | 4 Aug 2026 | 1.24 | **Verification console delivered.** New §11.2: `src/app/verify/` outside `(app)`; `console_access` approval gate (admin-side only); closed `CheckId` registry; RLS-scoped reads; `VERIFY_CONSOLE_ENABLED` server-only default false; Case 40 and Case 115 / `notification_ownership` limitations. §12.1 layout updated. |
 | 4 Aug 2026 | 1.23 | **Sentry installed.** §11.1: as-built record — server/edge only, no client SDK, scrubbing proven against a live event, phone-regex tradeoff recorded, edge config dead until A-32. A-32 opened: root `middleware.ts` never registered, so Supabase session refresh has never run in production. |
 | 4 Aug 2026 | 1.22 | **Sentry scope ruled.** §11 heading ambiguity resolved (P2 = build task, table = event severity). New §11.1: Sentry covers Next.js only; Track B stays on the n8n error workflow; per-event coverage table; X9 scrubbing named as a prerequisite with the `/share/[token]` leak vector. A-30 (±5-min P1 unreported) and A-31 (n8n→Sentry deferred) opened. |
