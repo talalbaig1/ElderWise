@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.27 |
+| **Document** | Architecture.md — v1.28 |
 | **Date** | 8 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
@@ -339,12 +339,15 @@ Index: `(elder_id, domain, scheduled_for)` and `(status, scheduled_for)` — the
 |---|---|---|
 | `id` | uuid PK | |
 | `checkin_id` | uuid FK | |
-| `audio_path` | text | Supabase Storage object path in bucket **`voice-notes`** — **never a URL**. Path shape `{elder_id}/{checkin_id}/{unix_ms}.ogg`. Signed URLs on demand only. |
+| `media_id` | text | **Meta's media identifier — the idempotency key** (A-25). Nullable; the ten pre-existing rows predate the column. Backed by a **partial** unique index `voice_replies_media_id_key ON (media_id) WHERE media_id IS NOT NULL`, so historical NULLs do not collide. |
+| `audio_path` | text | Supabase Storage object path in bucket **`voice-notes`** — **never a URL**. Path shape `{elder_id}/{checkin_id}/{media_id}.ogg`. Signed URLs on demand only. Path shape changed from `{unix_ms}` to `{media_id}` on 8 August 2026 (A-25) so a redelivery overwrites the same object instead of accumulating orphans. |
 | `transcript` | text | |
 | `confidence` | numeric | **Diagnostic only** — may hold Whisper `avg_logprob`. **Must not** gate the re-ask (see A-2 / WF-5). |
 | `provider` | text | `openai_whisper` (column stays `text` — no enum migration) |
 | `reask_count` | integer | default 0, max 1 |
 | `created_at` | timestamptz | |
+
+> **`ON CONFLICT` against this index must carry the index predicate** — `ON CONFLICT (media_id) WHERE media_id IS NOT NULL DO NOTHING`. Postgres cannot infer a partial unique index from a bare conflict target; without the `WHERE` clause the statement fails at runtime with *"there is no unique or exclusion constraint matching the ON CONFLICT specification"*. Proven against this database on 8 August 2026.
 
 **`sos_events`**
 
@@ -764,10 +767,11 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 
 - **Trigger:** sub-workflow (from WF-2a `voice_note` route). **`waitForSubWorkflow: false`** on the WF-2a call.
 - **Ordering constraint (load-bearing):** **Resolve Check-in runs before any media fetch.** An elder with no open check-in never has audio downloaded or stored. That ordering — not the WF-2a consent gate alone — is the real safeguard. Reordering would remove the protection silently (`Rules.md` §6a).
+- **Idempotency (A-25, closed 8 August 2026).** `media_id` is the dedup key, checked at three layers. **(1) Early exit:** `Already Processed?` (`SELECT EXISTS`, `alwaysOutputData: true`) → `New Delivery?` sits between `Open Check-in Found?` and `Get Media URL`; a redelivery terminates at the `Duplicate Delivery - Ignored` NoOp before any Meta media fetch, storage write, or Whisper call. **(2) Insert dedup:** `Record Voice Reply` carries `ON CONFLICT (media_id) WHERE media_id IS NOT NULL DO NOTHING`; a conflict returns zero rows and the existing `Voice Reply Stored?` guard halts the chain, so no duplicate CT notification. **(3) Deterministic object key:** the upload path ends in `{media_id}.ogg` with an `x-upsert: true` header, so a concurrent race overwrites rather than 409s or orphans.
 - **Chain:** WhatsApp `mediaUrlGet` → authenticated HTTP download → upload to private Supabase bucket **`voice-notes`** (25 MB max, MIME-restricted to audio types) → **OpenAI Whisper** → LLM gate returning `yes` | `no` | `unclear`.
 - **On `yes` / `no`:** update `checkins` with `response_channel = 'voice'`, write `voice_replies`, call **WF-6** when notify rules require it.
 - **On `unclear`:** send **one** free-form re-ask and increment `voice_replies.reask_count`. A **second** unclear does **not** re-ask — the check-in follows the missed path. **Re-ask cap proven 4 August 2026** (see `Phases.md` B3.1 correction).
-- **UI-maintained:** WF-5's two **HTTP Request** nodes lose their credentials on every SDK update — treat WF-5 as **effectively UI-maintained** for credential binding.
+- **UI-maintained:** WF-5's two **HTTP Request** nodes lose their credentials on every SDK update — treat WF-5 as **effectively UI-maintained** for credential binding. Confirmed again on both SDK writes of 8 August 2026 — `Download Audio` and `Upload To Voice Notes Bucket` were reported skipped by credential auto-assignment on each write and re-bound by hand.
 
 #### Voice → medication mapping (load-bearing)
 
@@ -791,7 +795,7 @@ The LLM gate emits three values; medication has three **different** stored value
 | Property | Value |
 |---|---|
 | **Bucket** | `voice-notes` — private, 25 MB, MIME-restricted to audio types |
-| **Object path** | `{elder_id}/{checkin_id}/{unix_ms}.ogg` |
+| **Object path** | `{elder_id}/{checkin_id}/{media_id}.ogg` |
 | **`voice_replies.audio_path`** | Bucket-prefixed key — **never a URL**; signed URLs on demand |
 
 ### WF-6 · Care Partner Notifications (All Domains) (`6I6OC7qJ5YhhUQxU`)
@@ -1037,7 +1041,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 | A-22 | **Voice upload uses service-role key via n8n Header Auth**, bypassing RLS on an instance shared with ~26 personal workflows. Pass 2 item alongside A-14 and A-17. | Talal |
 | A-23 | **Audio retention undecided.** Proposed 30 days; nothing currently deletes objects in `voice-notes`. | Talal |
 | A-24 | **`consent_confirmed_at` covers daily check-ins, not storing recordings of the elder's voice.** Separate consent may be needed for voice retention — undecided. | Talal |
-| A-25 | **WF-5 is NOT idempotent.** No dedup on `media_id`. Verified 3 August: one `media_id` replayed produced four `voice_replies` rows and four distinct stored objects, because `$now.toMillis()` is in the upload path. A duplicate webhook delivery means a duplicate recording stored and a duplicate row. | Talal |
+| A-25 | ~~**WF-5 is NOT idempotent.**~~ — **CLOSED 8 August 2026.** `voice_replies.media_id` + partial unique index (applied by Talal); WF-5 gained a three-layer dedup — early exit before any media fetch, `ON CONFLICT` on insert, and a deterministic `{media_id}.ogg` object key with `x-upsert`. Published as `activeVersionId 83a6a60e` and verified against the live workflow. | Closed |
 | A-26 | ~~**Voice note with no open check-in is silent to the elder.**~~ — **CLOSED 8 August 2026** (Claude / Track B, F-7): WF-5 sends a reply on the no-open-check-in path. | Talal |
 | A-27 | **The ≤60 s window.** WF-3a, WF-3d and WF-5 resolve check-ins by elder + status and do **not** filter on routine `enabled`. Between a routine being disabled and WF-3c cancelling the orphan, a reply is still accepted. **ACCEPTED DEVIATION** (Talal, 4 Aug 2026) — closing it would require a slot-match join in three resolvers for a one-minute window. | Talal |
 | A-28 | **`checkins_medication_slot_uniq` slot occupancy.** `UNIQUE (elder_id, scheduled_for) WHERE domain = 'medication'`. A **`cancelled` row still occupies its slot**, so disabling and re-enabling a routine the same day will **not** restore that day's check-in. Ruled acceptable; recorded so it is not rediscovered as a bug. | Talal |
@@ -1045,6 +1049,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 | **A-30** | **The ±5-minute dispatch P1 is reported by nothing.** A late or never-sent check-in is not a node error, so the n8n error workflow never fires, and Next.js cannot see it. §11 lists it as P1 and nothing satisfies that. Pre-dates this ruling; made visible by it. Needs a detector or a recorded acceptance. | Talal |
 | **A-31** | **n8n → Sentry deferred (4 Aug 2026).** One HTTP Request node on `uvBstI6J42nNhIYz` would put every Track B failure into Sentry with severity from the failing workflow's name. Deferred as unnecessary at current volume. If revisited: the DSN lives in an n8n **header-auth credential**, never in a node URL — the hourly export strips credentials, not URLs, and a DSN in a URL reaches the public repo within the hour. Payload must be a hand-built envelope (workflow name, node name, execution ID, timestamp, error class) — **never** `execution.error.message`, which is A-19. | Talal |
 | A-32 | ~~**`middleware.ts` has never run in production.**~~ — **CLOSED 8 August 2026 by Talal Baig.** Moved to `src/middleware.ts`. **Both verification checks passed**, including check 2 — the 70-minute tab-close test confirming a session survives access-token expiry. (Originally: root placement under a `src/` project left `.next/server/middleware-manifest.json` empty, so `supabase.auth.getUser()` session refresh never ran; newly runs on `/share/[token]` as well.) | Talal |
+| **A-33** | **Redelivery after check-in closure produces a spurious elder message.** The A-25 early exit sits *after* `Resolve Check-in`. If a redelivery arrives once the original check-in has already closed, `Resolve Check-in` returns zero rows, `Open Check-in Found?` goes false, and the elder receives the no-open-check-in reply (A-26) instead of silent suppression — the dedup is never consulted on that path. Fix would be to move `Already Processed?` ahead of `Resolve Check-in`, directly after `Valid media_id?`; the node depends only on `media_id` from the trigger, so it does not need check-in context. Costs one more SDK cycle and another HTTP credential re-bind. **P3 — a confusing message, not data corruption.** | Talal |
 
 ---
 
@@ -1052,6 +1057,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | Date | Version | Change |
 |---|---|---|
+| 8 Aug 2026 | 1.28 | **A-25 closed — WF-5 voice-note idempotency.** §5.2 `voice_replies` gains `media_id` (partial unique index `WHERE media_id IS NOT NULL`); `audio_path` shape changed `{unix_ms}` → `{media_id}`. §8 WF-5: three-layer dedup documented (early exit before any media fetch; `ON CONFLICT (media_id) WHERE media_id IS NOT NULL DO NOTHING`; deterministic object key with `x-upsert: true`). `Derive Answer` discriminator made explicit (`resource: text` / `operation: response`) after runtime evidence confirmed the Responses API path — no behaviour change. Published `activeVersionId 83a6a60e`, verified against the live workflow. **A-33 opened:** redelivery arriving after check-in closure still reaches the no-open-check-in reply, because the early exit sits after `Resolve Check-in` (P3). |
 | 8 Aug 2026 | 1.27 | **A-32 closed** (Talal Baig, 8 August 2026): middleware registered at `src/middleware.ts`; both verification checks passed, including the 70-minute tab-close / access-token-expiry survival test. §11.1 Sentry edge note corrected — `sentry.edge.config.ts` is active (no longer described as dead code pending A-32). |
 | 8 Aug 2026 | 1.26 | **Wave 2 frontend + wellbeing vocabulary.** Sama (8 Aug): status vocabulary locked — `stable`→Doing well · `attention`→Needs attention · `urgent`→Urgent · `unknown`→No data yet (pill + Loved Ones filter). **D-5 / F-4** wellbeing derived in app code from SOS + recent missed check-ins (not stored). **F-1** day-of-week wired into all six routine forms (Cases 17/18). **F-1a / D-2** writers stop emitting `frequency: 'custom'`. **F-4c / D-7** mapper stops fabricating `elders.updatedAt` from `created_at`. **Track B (Claude, same day):** WF-5 consent predicate (F-8), no-open-check-in reply closing **A-26** (F-7), error-workflow binding (F-9). **Namespace:** Wave 1/2 decision refs renamed **R-1…R-7 → D-1…D-7** so they do not collide with §14 Risks `R1`–`R9`. |
 | 8 Aug 2026 | 1.25 | **Wave 1 / Wave 2 decisions recorded** (Talal Baig, 8 August 2026). **D-1** day-of-week on all six routine forms (default all seven; WF-1/1b/1c already honour `days_of_week`) — Wave 2. **D-2** `food_routines.frequency` / `health_routines.frequency` retained but reserved; writers must stop emitting `'custom'`; no migration before Demo Day (Case 21 inert, 7 Aug). **D-3** `/onboarding?mode=additional` Care Partner card read-only + Settings link — Wave 2. **D-4** per-elder Care Partner WhatsApp out of MVP scope; account-scoped contact recorded as known limitation (§13). **D-5** wellbeing status derived in app code (reuse `src/lib/sos.ts` rule); labels pending Sama — Wave 2. **D-6** `WellbeingStatus` type authoritative over filter labels (`stable`/`attention`/`urgent`); remove laundering `as` cast — Wave 1. **D-7** `elders.updated_at` not added; mapper stops presenting `created_at` as `updatedAt` — Wave 2. *(Refs originally published as R-1…R-7; renamed to D-1…D-7 in v1.26 to avoid collision with §14 Risks.)* |
