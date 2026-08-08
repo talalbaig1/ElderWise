@@ -4,16 +4,16 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · Team Lead: Talal Baig |
-| **Document** | Templates.md — v1.10 |
-| **Date** | 3 August 2026 |
+| **Document** | Templates.md — v1.11 |
+| **Date** | 7 August 2026 |
 | **Purpose** | Every message ElderWise sends. **Reconciled against the live Meta WABA — this document now records what Meta actually approved, not what was drafted.** |
 | **WABA** | `1495493002256968` · display number **966503330619** |
 | **Owner** | Talal (submission) · Sama + Reema (copy & tone) |
-| **Status** | 🟢 **ALL 14 APPROVED** — full message set cleared by Meta |
+| **Status** | 🟢 **ALL 16 APPROVED** — full message set cleared by Meta, including the health v2 pair |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Phases.md` |
 
 > **⚠️ Authority note.** §4–6 below are **transcribed verbatim from the Meta Graph API**
-> (`GET /v23.0/1495493002256968/message_templates`, re-verified 2 August 2026). Where this
+> (`GET /v23.0/1495493002256968/message_templates`, re-verified 7 August 2026). Where this
 > document and Meta disagree, **Meta wins** and this document is wrong. Do not edit the
 > body text here to make it read better — edit it in Meta first, accept the re-review, then
 > transcribe the result back.
@@ -99,13 +99,14 @@ review, and the SOS set must not be disturbed.
 | Template | Defect | Ruling |
 |---|---|---|
 | `elderwise_ep_food_reminder` | Body opens **"Hay *{{1}}*"** — typo for "Hi". A T5 violation shipped. | **Accepted for demo** (Talal, 28 Jul). Fix post-demo. |
-| `elderwise_ep_health_reminder` | Body ends **"Are you feeling well today?👍"** — an emoji appended to a question. OT-6 was still open. | **Accepted for demo.** Resolves OT-6 by default; revisit for v2. |
+| `elderwise_ep_health_reminder` | Body ends **"Are you feeling well today?👍"** — an emoji appended to a question. OT-6 was still open. | **Superseded 7 Aug 2026.** `elderwise_ep_health_reminder_v2` drops the trailing 👍. Template 6 stays in the account but is no longer sent once WF-3b switches. |
+| `elderwise_ep_health_reminder_v2` | Body reads **"reminder about your health check *{{2}}*"**. With `{{2}} = health_routines.name` (e.g. `BP check`) this renders as "your health check BP check earlier" — a stutter. | **Accepted as-is** (Talal, 7 Aug). Rewording means a fresh Meta review cycle on a template that just cleared. Fix post-demo. |
 
 ---
 
 ## 3. Template registry — live status
 
-Retrieved from Meta **2 August 2026**. All 14 APPROVED.
+Retrieved from Meta **7 August 2026** via the read-only audit workflow `PADE2m75e6xVGS2e` (execution `40237`). All 16 APPROVED.
 
 | # | Template name | Audience | Status | Vars | Buttons | Meta template ID |
 |---|---|---|---|---|---|---|
@@ -123,18 +124,33 @@ Retrieved from Meta **2 August 2026**. All 14 APPROVED.
 | 12 | `elderwise_sos_alert_doctor` | Doctor | ✅ APPROVED | **7** | 1 | `2431697744021678` |
 | 13 | `elderwise_sos_nudge` | CT / LCT / DR | ✅ APPROVED | 2 | 1 | `2044073236223703` |
 | 14 | `elderwise_sos_resolved` | CT / LCT / DR | ✅ APPROVED | 3 | 0 | `1380761780602851` |
+| 15 | `elderwise_ep_health_checkin_v2` | Elder | ✅ APPROVED | 2 | 2 | `1736094100935290` |
+| 16 | `elderwise_ep_health_reminder_v2` | Elder | ✅ APPROVED | 2 | 2 | `1057601289992008` |
 
 **Also present in the account:** `hello_world` (Meta's sample, `en_US`). Not ours, not used,
 harmless. Do not delete it — it is Meta's connectivity test message.
 
-### 3.0 Pending submissions — health v2 pair (3 August 2026)
+### 3.0 Health v2 pair — ✅ APPROVED 7 August 2026
 
-**Submitted to Meta 3 August 2026 — pending review.** New names, not edits. Templates **3** and **6** remain approved and in service until the v2 pair clears. Both keep `Yes` / `No` buttons — no routing change needed.
+**Submitted 3 August 2026, approved by Meta and verified live 7 August 2026.** New names, not edits — templates **3** and **6** were never touched and remain APPROVED in the account. Both v2 templates are `UTILITY`, language **`en`**, and keep `Yes` / `No` buttons byte-identical to v1, so §3.2 matching and the WF-2a / WF-3x response routing are unaffected.
 
-| Name | Vars | Body |
-|---|---|---|
-| `elderwise_ep_health_checkin_v2` | 2 | Hello {{1}} — it's time for your {{2}}. Are you feeling well today? |
-| `elderwise_ep_health_reminder_v2` | 2 | Hi *{{1}}*, reminder about your health check *{{2}}* earlier — no rush at all. Are you feeling well today? |
+| Name | Meta ID | Header (static TEXT) | Vars | Body |
+|---|---|---|---|---|
+| `elderwise_ep_health_checkin_v2` | `1736094100935290` | `Health Checkin` | 2 | Hello *{{1}}* — it's time for your *{{2}}*. Are you feeling well today? |
+| `elderwise_ep_health_reminder_v2` | `1057601289992008` | `Health Reminder` | 2 | Hi *{{1}}*, reminder about your health check *{{2}}* earlier — no rush at all. Are you feeling well today? |
+
+> **⚠️ v1.10 recorded both bodies without the bold markers and recorded no headers.** Meta approved `*{{1}}*` and `*{{2}}*` on **both** templates, and both carry a static TEXT header. The rows above are the transcription from the live Graph API; v1.10 was wrong on both counts.
+
+**Static headers need no n8n parameter.** All 16 templates in this WABA carry a TEXT header with no variables. The existing WhatsApp nodes send `bodyParameters` only and have always worked, so the v2 swap adds no header component.
+
+**Cutover — the two nodes that send these.** Neither needs a query change; both source queries already emit `routine_name`.
+
+| Workflow | Node | From | To |
+|---|---|---|---|
+| WF-1c `2HgbXGM0Z5XQArf1` | `Send Health Check-in` | `elderwise_ep_health_checkin\|en` · 1 param | `elderwise_ep_health_checkin_v2\|en` · 2 params |
+| WF-3b `5P19E5CPhA14K6fo` | `Send Health Reminder` | `elderwise_ep_health_reminder\|en` · 1 param | `elderwise_ep_health_reminder_v2\|en` · 2 params |
+
+**Do not delete templates 3 and 6** until a v2 send has landed on a real handset with `{{2}}` rendering the routine name correctly.
 
 **Why (health check-in):** templates 3 and 6 carry only `{{1}}`, so a health check-in cannot name the routine — an elder with two health routines receives identical messages for both. Food does not have this problem; template 4 carries `{{2}} = meal_name`.
 
@@ -165,6 +181,8 @@ case silently fails to route, and on the SOS path that is a dropped emergency.
 | `elderwise_ep_medication_reminder` | `Yes, All` · `Some of them` · `Not Yet` |
 | `elderwise_ep_health_checkin` | `Yes` · `No` |
 | `elderwise_ep_health_reminder` | `Yes` · `No` |
+| `elderwise_ep_health_checkin_v2` | `Yes` · `No` |
+| `elderwise_ep_health_reminder_v2` | `Yes` · `No` |
 | `elderwise_ep_food_checkin` | `Yes` · `No` |
 | `elderwise_ep_food_reminder` | `Yes` · `No` |
 | `elderwise_sos_alert_ct` | `I Am Responding` |
@@ -291,6 +309,10 @@ protected by the §7.3 click-through gate against WhatsApp's link-preview crawle
 | 14 resolved | `{{1}}` | `elders.first_name` | — |
 | | `{{2}}` | resolver's first name | — |
 | | `{{3}}` | `sos_events.resolved_at` | recipient's (per role, as above) |
+| 15 health check-in v2 | `{{1}}` | `elders.first_name` | — |
+| | `{{2}}` | `health_routines.name` | — |
+| 16 health reminder v2 | `{{1}}` | `elders.first_name` | — |
+| | `{{2}}` | `health_routines.name` | — |
 
 > **Doctor timezone (B-2).** `doctors.timezone` is **no longer collected** (A4) and must not
 > drive display. Doctor-facing timestamps render in the **elder's** IANA zone, matching the
@@ -382,6 +404,28 @@ protected by the §7.3 click-through gate against WhatsApp's link-preview crawle
 
 **Samples:** `Fatima` · `Lunch` · **Buttons:** `Yes` · `No`
 *("Hay" — known accepted defect, §2.1. Do not silently correct it here; the approved text is what sends.)*
+
+---
+
+### 15 · `elderwise_ep_health_checkin_v2` — ✅ APPROVED
+**Header:** `Health Checkin` · **Supersedes template 3**
+
+> Hello *{{1}}* — it's time for your *{{2}}*. Are you feeling well today?
+
+**Samples:** `Fatima` · `BP Check` · **Buttons:** `Yes` · `No`
+**Why:** template 3 carries only `{{1}}`, so an elder with two health routines received identical messages for both. `{{2}}` names the routine.
+**Note:** a **voice note** is an equally valid reply (M4a) — transcribed and treated exactly like a button tap.
+
+---
+
+### 16 · `elderwise_ep_health_reminder_v2` — ✅ APPROVED
+**Header:** `Health Reminder` · **Supersedes template 6**
+
+> Hi *{{1}}*, reminder about your health check *{{2}}* earlier — no rush at all. Are you feeling well today?
+
+**Samples:** `Fatima` · `BP Check` · **Buttons:** `Yes` · `No`
+**Why the wording differs from the original draft:** Meta classified *"I didn't hear back"* as a re-engagement prompt and therefore **MARKETING** rather than **UTILITY**. The approved phrasing states the fact without the re-engagement framing. **Reusable finding — avoid re-engagement language in UTILITY templates.**
+*("your health check {{2}}" stutter — known accepted defect, §2.1. Do not silently correct it here; the approved text is what sends.)*
 
 ---
 
@@ -568,6 +612,29 @@ variants must stay parallel.
 
 **Never** an error code. **Never** silence.
 
+### 7.5 Voice note with no open check-in *(A-26 — closed 8 August 2026)*
+Sent when an elder records a voice note and there is **no** check-in at `sent` or `reminded`
+waiting for a reply. **Free-form, not a template** — the elder's own voice note opens the
+24-hour customer service window, so no Meta submission is required.
+
+> Thank you for your message, {{first_name}}. I don't have anything to check with you right
+> now — I'll be in touch at your next check-in time.
+
+**Approved by Sama, 8 August 2026.** She ruled explicitly that the message must **not** name a
+specific next check-in time and must **not** carry any additional guidance — no SOS mention, no
+instructions. The closing clause is generic reassurance, not a scheduled time.
+
+**Why this exists.** WF-5's `No Open Check-in For This Voice Note` node was a `noOp`, so the
+elder received **nothing at all** — confirmed on a live handset by Talal, 7 August 2026
+(test Case 75). Architecture §8 WF-2a has always required *"a gentle, plain-language re-prompt.
+Never a silent drop."* This closes that gap.
+
+**Send conditions — silence is correct in these cases.** The message is sent only after a
+lookup confirms the sender is an **active, consented, non-declined elder**. A voice note from
+an unknown number, or from an elder who is pending or declined consent, produces **no reply**.
+A zero-row `SELECT` halts the chain, which is the intended behaviour here — we do not message
+people who are not consented elders.
+
 ---
 
 ## 8. Open items
@@ -577,7 +644,7 @@ variants must stay parallel.
 | ~~OT-8~~ | ~~`elderwise_sos_alert_doctor` PENDING~~ — **CLOSED 2 Aug 2026. Approved unchanged.** All 14 templates now approved. | Closed | Talal |
 | ~~OT-7~~ | ~~The "No, thank you" path must actually be built.~~ — **CLOSED 3 Aug 2026.** Decline path verified on real WhatsApp (Phases B1.5). | Closed | Robert / Sandy |
 | ~~OT-9~~ | ~~Period label derivation (B-3)~~ — **CLOSED 3 Aug 2026 (implemented):** `< 12:00 Morning`, `< 17:00 Afternoon`, `< 21:00 Evening`, else `Night`. **Sama has not signed off the wording.** | Closed (wording: Sama) | Sandy + Sama |
-| **OT-10** | **Template 8 `{{2}}` asymmetry across domains.** Spec = "routine label + period" (e.g. `Medication (Morning)`). Food names the meal ("Dinner"); health will pass `h.name` once v2 templates clear Meta; medication shows a **derived period** because a medication check-in is scoped to a **time slot** and may cover several medicines. Two of three domains name the routine; one does not. **Parked with Sama** alongside OT-9 period-label wording sign-off. | Parked | Sama |
+| **OT-10** | **Template 8 `{{2}}` asymmetry across domains.** Spec = "routine label + period" (e.g. `Medication (Morning)`). Food names the meal ("Dinner"); health passes `h.name` (v2 approved 7 Aug); medication shows a **derived period** because a medication check-in is scoped to a **time slot** and may cover several medicines. Two of three domains name the routine; one does not. **Parked with Sama** alongside OT-9 period-label wording sign-off. | Parked | Sama |
 | **OT-4** | Language of the elder's WhatsApp — MVP is English only. Cosmetic for the demo; real for the product. | Medium | Team |
 | **OT-5** | Telegram equivalents — parked. Telegram needs no approval, so copy lifts directly from here. | Parked | Talal |
 | **OT-6** | ~~Emoji usage~~ — **CLOSED by default 28 Jul.** Emoji shipped in approved templates (🚨 ✅ 👍 💚 👋). Revisit for v2. | Closed | Sama |
@@ -593,7 +660,8 @@ variants must stay parallel.
 | By 26 July | Submit 8, 9, 14 · resubmit rejections | ✅ Done |
 | **27 July** | **All 14 submitted.** Several reformatted during upload to clear Meta validation errors. | ✅ Done |
 | **28 July** | **13 approved.** `elderwise_sos_alert_doctor` still in review. Live state reconciled into this document. | ✅ Done |
-| **2 August** | **All 14 approved.** `elderwise_sos_alert_doctor` cleared review unchanged. Verified via Graph API. | ▶️ Current |
+| **2 August** | **All 14 approved.** `elderwise_sos_alert_doctor` cleared review unchanged. Verified via Graph API. | ✅ Done |
+| **7 August** | **Health v2 pair approved.** `elderwise_ep_health_checkin_v2` and `elderwise_ep_health_reminder_v2` cleared review as `UTILITY` / `en`. 16 approved. Verified via Graph API. | ▶️ Current |
 | **🚦 9 August** | **Channel go/no-go.** Full set approved → **WhatsApp as planned.** | ✅ Cleared early |
 | ~~By 16 August~~ | ~~Template 12 approved, or SOS demo runs on the CT + LCT path alone~~ | ✅ Closed 2 Aug |
 
@@ -617,6 +685,7 @@ placeholder count not matching the samples · buttons over 20 characters.
 | 4 Aug 2026 | **OT-10 opened (no version bump).** Template 8 `{{2}}` domain asymmetry — medication uses derived period label; food/health name the routine/meal. Parked with Sama alongside OT-9 wording sign-off. **No §4–6 body edits.** |
 | 3 Aug 2026 | **1.10** | **Health v2 pair submitted (pending Meta).** §3.0 records `elderwise_ep_health_checkin_v2` and `_reminder_v2` — two vars, routine name in body; reminder wording avoids re-engagement MARKETING classification. Templates 3 and 6 remain in service. **No §4–6 body edits.** |
 | 3 Aug 2026 | **1.9** | **Round 2 doc pass.** §1 WABA verification date restored to 28 Jul (re-verified 2 Aug). §13 nudge numbering aligned to `nudge_index` 1–3 (alert = 0). |
+| 7 Aug 2026 | **1.11** | **Health v2 pair APPROVED and transcribed.** §3.0 rewritten from pending to approved with Meta IDs `1736094100935290` / `1057601289992008`, both `UTILITY` / `en`, both with static TEXT headers. **Two v1.10 transcription errors corrected:** bodies were recorded without the bold `*{{1}}*` / `*{{2}}*` markers Meta actually approved, and headers were omitted entirely. Registry now 16; new §4 entries 15 and 16; §3.2 and §3.5 extended. §2.1 records the `"health check {{2}}"` stutter as **accepted for demo** (Talal, 7 Aug) and marks the trailing 👍 superseded. §3.0 records the WF-1c / WF-3b cutover — **no query change needed, both source queries already emit `routine_name`**. Templates 3 and 6 retained until a v2 send is confirmed on a live handset. **New §7.5** free-form reply when a voice note arrives with no open check-in — closes **A-26**, copy approved by Sama 8 Aug (no named time, no extra guidance); sent only to active, consented, non-declined elders, silence otherwise. **No change to any other template's body, variables, or buttons.** |
 | 3 Aug 2026 | **1.8** | **WF-4 SOS docs.** §3.2 callout names all four resolution labels + apostrophe-strip order. §3.4 reuse-before-mint struck (always mint). §7.3 elder acknowledgement rewritten as four variants with no `NA` (T3); pending Sama sign-off. |
 | 3 Aug 2026 | **1.7** | **Track B build of 3 Aug.** OT-7 closed (decline path live). OT-9 closed (period labels implemented; Sama wording sign-off pending). §7.1 medicine list marked **not built** (Talal scope reduction); *Some of them* records `some_of_them` + CT notify only. |
 | 2 Aug 2026 | **1.6** | **All 14 templates APPROVED** — `elderwise_sos_alert_doctor` cleared Meta review on 2 Aug, unchanged from submission (same body, seven variables, `Acknowledge` button). Registry, §6 heading, §8 OT-8 and §9 submission table updated. Template-12 rejection contingency removed as moot; the `skipped` path remains for the real case (no doctor / no number). Re-verified against the live WABA via Graph API. **No body text, variable, or button changed anywhere in this revision** — §3.2, §3.3, §3.4 and §3.5 stand exactly as written in v1.5. | 
@@ -629,5 +698,5 @@ placeholder count not matching the samples · buttons over 20 characters.
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 3 August 2026.*
-*Template bodies transcribed verbatim from Meta Graph API, WABA `1495493002256968` — transcribed 28 July 2026, statuses re-verified 2 August 2026 (all 14 APPROVED).*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 7 August 2026.*
+*Template bodies transcribed verbatim from Meta Graph API, WABA `1495493002256968` — transcribed 28 July 2026, health v2 pair transcribed and all statuses re-verified 7 August 2026 (all 16 APPROVED).*
