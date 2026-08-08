@@ -11,6 +11,7 @@ import type {
   SOSTimelineEntry,
 } from "@/types";
 import { formatViewerClock, formatViewerDateTime } from "@/lib/time/display";
+import { deriveWellbeingStatus } from "@/lib/wellbeing";
 
 const ROLE_ORDER: SOSCascadeRole[] = [
   "loved_one",
@@ -503,13 +504,15 @@ export function applySosToStore(
 
   const lovedOnes = store.lovedOnes.map((lo) => {
     if (lo.id !== event.lovedOneId) return lo;
-    const wellbeingStatus =
-      event.status === "active" || event.status === "acknowledged"
-        ? ("urgent" as const)
-        : lo.wellbeingStatus === "urgent"
-          ? ("attention" as const)
-          : lo.wellbeingStatus;
-    return { ...lo, wellbeingStatus, updatedAt: new Date().toISOString() };
+    const wellbeingStatus = deriveWellbeingStatus({
+      sosStatuses: sosEvents
+        .filter((s) => s.lovedOneId === lo.id)
+        .map((s) => s.status),
+      checkIns: store.checkIns
+        .filter((c) => c.lovedOneId === lo.id)
+        .map((c) => ({ status: c.status, scheduledAt: c.scheduledAt })),
+    });
+    return { ...lo, wellbeingStatus };
   });
 
   let notifications = store.notifications;

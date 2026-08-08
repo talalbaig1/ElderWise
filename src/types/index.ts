@@ -157,7 +157,8 @@ export interface LovedOne {
    */
   consentConfirmedAt: string | null;
   createdAt: string;
-  updatedAt: string;
+  /** Optional — `elders` has no `updated_at` column (D-7). Omit rather than fabricate. */
+  updatedAt?: string;
 }
 
 export interface LocalBuddy {

@@ -110,7 +110,10 @@ export interface ElderRow {
   created_at: string;
 }
 
-export function lovedOneFromElderRow(row: ElderRow): LovedOne {
+export function lovedOneFromElderRow(
+  row: ElderRow,
+  wellbeingStatus: LovedOne["wellbeingStatus"] = "unknown",
+): LovedOne {
   return {
     id: row.id,
     carePartnerId: row.care_partner_id,
@@ -123,12 +126,11 @@ export function lovedOneFromElderRow(row: ElderRow): LovedOne {
     address: row.address,
     timeZone: row.timezone,
     relationshipToCarePartner: row.relationship_to_care_partner,
-    wellbeingStatus: "unknown",
+    wellbeingStatus,
     consentAttestedByCarePartner: row.consent_attested_by_ct,
     consentAttestedAt: row.consent_attested_at ?? "",
     consentConfirmedAt: row.consent_confirmed_at,
     createdAt: row.created_at,
-    updatedAt: row.created_at,
   };
 }
 

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import Link from "next/link";
 import { FieldError, WhatsAppNumberInput } from "@/components/onboarding/fields";
 import { useOnboarding } from "@/components/onboarding/onboarding-context";
 import { WizardShell } from "@/components/onboarding/wizard-shell";
@@ -35,6 +36,7 @@ import {
 import {
   validateOptionalWhatsAppNumber,
   validateRequiredWhatsAppNumber,
+  WHATSAPP_PLACEHOLDER,
 } from "@/lib/whatsapp-e164";
 
 function issuesToErrors(prefix: string, issues: { path: PropertyKey[]; message: string }[]) {
@@ -47,7 +49,7 @@ function issuesToErrors(prefix: string, issues: { path: PropertyKey[]; message: 
 }
 
 export function CareCircleStep() {
-  const { draft, patchDraft, setStepId } = useOnboarding();
+  const { draft, patchDraft, setStepId, additionalMode } = useOnboarding();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [conflictOpen, setConflictOpen] = useState(false);
@@ -255,39 +257,69 @@ export function CareCircleStep() {
             </p>
             {draft.carePartnerProfile.email ? <p>{draft.carePartnerProfile.email}</p> : null}
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="cp-wa">WhatsApp number</Label>
-              <WhatsAppNumberInput
-                id="cp-wa"
-                value={carePartner.whatsappNumber}
-                onChange={(whatsappNumber) =>
-                  patchDraft({ carePartner: { ...carePartner, whatsappNumber } })
-                }
-                onBlurError={(message) =>
-                  setErrors((prev) => {
-                    const next = { ...prev };
-                    if (message) next["carePartner.whatsappNumber"] = message;
-                    else delete next["carePartner.whatsappNumber"];
-                    return next;
-                  })
-                }
-                error={errors["carePartner.whatsappNumber"]}
-              />
+          {additionalMode ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                These details apply to every Loved One on the account.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">WhatsApp number</p>
+                  <p className="font-mono text-sm text-muted-foreground">
+                    {carePartner.whatsappNumber || "—"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">Time zone</p>
+                  <p className="font-mono text-sm text-muted-foreground">
+                    {carePartner.timeZone || "—"}
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm">
+                <Link
+                  href="/settings"
+                  className="font-semibold text-primary hover:underline"
+                >
+                  Change in Settings
+                </Link>
+              </p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="cp-tz">Time zone</Label>
-              <Input
-                id="cp-tz"
-                placeholder="Asia/Kolkata"
-                value={carePartner.timeZone}
-                onChange={(e) =>
-                  patchDraft({ carePartner: { ...carePartner, timeZone: e.target.value } })
-                }
-              />
-              <FieldError message={errors["carePartner.timeZone"]} />
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="cp-wa">WhatsApp number</Label>
+                <WhatsAppNumberInput
+                  id="cp-wa"
+                  value={carePartner.whatsappNumber}
+                  onChange={(whatsappNumber) =>
+                    patchDraft({ carePartner: { ...carePartner, whatsappNumber } })
+                  }
+                  onBlurError={(message) =>
+                    setErrors((prev) => {
+                      const next = { ...prev };
+                      if (message) next["carePartner.whatsappNumber"] = message;
+                      else delete next["carePartner.whatsappNumber"];
+                      return next;
+                    })
+                  }
+                  error={errors["carePartner.whatsappNumber"]}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cp-tz">Time zone</Label>
+                <Input
+                  id="cp-tz"
+                  placeholder="Asia/Kolkata"
+                  value={carePartner.timeZone}
+                  onChange={(e) =>
+                    patchDraft({ carePartner: { ...carePartner, timeZone: e.target.value } })
+                  }
+                />
+                <FieldError message={errors["carePartner.timeZone"]} />
+              </div>
             </div>
-          </div>
+          )}
         </section>
 
         <section className="space-y-4 rounded-2xl border bg-background/70 p-4">
@@ -296,7 +328,7 @@ export function CareCircleStep() {
             <Label htmlFor="lo-wa">WhatsApp number</Label>
             <WhatsAppNumberInput
               id="lo-wa"
-              placeholder="We'll send check-ins here — e.g. +966 5XX XXX XXX"
+              placeholder={`We'll send check-ins here — e.g. ${WHATSAPP_PLACEHOLDER}`}
               value={lovedOne.whatsappNumber}
               onChange={(whatsappNumber) =>
                 patchDraft({ lovedOne: { ...lovedOne, whatsappNumber } })

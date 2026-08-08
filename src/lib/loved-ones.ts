@@ -8,6 +8,7 @@ import type {
   ElderWiseStore,
 } from "@/types";
 import { ALL_DAYS } from "@/lib/onboarding";
+import { deriveWellbeingStatus } from "@/lib/wellbeing";
 
 /** Postgres uuid PK — never prefix; `med-…` / `food-…` fail UUID cast. */
 function newId() {
@@ -32,7 +33,7 @@ export function createBlankLovedOne(carePartnerId: string): LovedOne {
     address: "",
     timeZone,
     relationshipToCarePartner: "",
-    wellbeingStatus: "unknown",
+    wellbeingStatus: deriveWellbeingStatus({ sosStatuses: [], checkIns: [] }),
     carePartnerId,
     consentAttestedByCarePartner: false,
     consentAttestedAt: "",
@@ -85,7 +86,7 @@ export function createBlankFood(lovedOneId: string): FoodRoutine {
     startDate: today,
     endDate: undefined,
     daysOfWeek: [...ALL_DAYS],
-    frequency: "custom",
+    frequency: "daily",
     whatsappMessageTemplate: "Hi {name}, have you had breakfast today?",
     notifyCarePartner: "only_missed",
     escalationMinutes: 45,
@@ -103,7 +104,7 @@ export function createBlankHealth(lovedOneId: string): HealthRoutine {
     enabled: true,
     name: "Wellness check-in",
     type: "general_wellness",
-    frequency: "custom",
+    frequency: "daily",
     time: "10:30",
     startDate: today,
     endDate: undefined,

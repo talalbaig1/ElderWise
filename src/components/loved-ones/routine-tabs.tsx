@@ -3,7 +3,11 @@
 import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { NotRequiredWarning, NOTIFY_SELECT_OPTIONS } from "@/components/onboarding/fields";
+import {
+  DayChips,
+  NotRequiredWarning,
+  NOTIFY_SELECT_OPTIONS,
+} from "@/components/onboarding/fields";
 import { TimePicker } from "@/components/shared/time-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -80,6 +84,10 @@ export function MedicationTab({
   const [busy, setBusy] = useState(false);
 
   const save = async (med: Medication) => {
+    if (!med.daysOfWeek?.length) {
+      toast.error("Select at least one day");
+      return;
+    }
     setBusy(true);
     try {
       const normalized: Medication = {
@@ -240,6 +248,13 @@ export function MedicationTab({
                 </Field>
               </div>
               <div className="space-y-2">
+                <Label>Repeats on</Label>
+                <DayChips
+                  value={editing.daysOfWeek}
+                  onChange={(daysOfWeek) => setEditing({ ...editing, daysOfWeek })}
+                />
+              </div>
+              <div className="space-y-2">
                 <div className="grid gap-3 sm:grid-cols-3">
                   <Field label="Timing with meal">
                     <Select
@@ -328,6 +343,10 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
   const [busy, setBusy] = useState(false);
 
   const save = async (item: FoodRoutine) => {
+    if (!item.daysOfWeek?.length) {
+      toast.error("Select at least one day");
+      return;
+    }
     setBusy(true);
     try {
       const result = await upsertFoodRoutine(item);
@@ -421,6 +440,13 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
                   />
                 </Field>
               </div>
+              <div className="space-y-2">
+                <Label>Repeats on</Label>
+                <DayChips
+                  value={editing.daysOfWeek}
+                  onChange={(daysOfWeek) => setEditing({ ...editing, daysOfWeek })}
+                />
+              </div>
               {editing.notifyCarePartner === "not_required" ? (
                 <NotRequiredWarning variant="food" />
               ) : null}
@@ -450,6 +476,10 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
   const [busy, setBusy] = useState(false);
 
   const save = async (item: HealthRoutine) => {
+    if (!item.daysOfWeek?.length) {
+      toast.error("Select at least one day");
+      return;
+    }
     setBusy(true);
     try {
       const result = await upsertHealthRoutine(item);
@@ -549,6 +579,13 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
                     }
                   />
                 </Field>
+              </div>
+              <div className="space-y-2">
+                <Label>Repeats on</Label>
+                <DayChips
+                  value={editing.daysOfWeek}
+                  onChange={(daysOfWeek) => setEditing({ ...editing, daysOfWeek })}
+                />
               </div>
               {editing.notifyCarePartner === "not_required" ? (
                 <NotRequiredWarning variant="health" />

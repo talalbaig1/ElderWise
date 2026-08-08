@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { Copy, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { NotRequiredWarning, NOTIFY_SELECT_OPTIONS } from "@/components/onboarding/fields";
+import {
+  DayChips,
+  NotRequiredWarning,
+  NOTIFY_SELECT_OPTIONS,
+} from "@/components/onboarding/fields";
 import { useOnboarding } from "@/components/onboarding/onboarding-context";
 import { WizardShell } from "@/components/onboarding/wizard-shell";
 import { Button } from "@/components/ui/button";
@@ -302,6 +306,14 @@ export function WellnessDetailsStep() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label>Repeats on</Label>
+                  <DayChips
+                    value={item.daysOfWeek}
+                    onChange={(daysOfWeek) => updateMedication(item.id, { daysOfWeek })}
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <div className={THREE_COL}>
                     <div className="space-y-2">
                       <Label>Timing with meal</Label>
@@ -436,6 +448,13 @@ export function WellnessDetailsStep() {
                     />
                   </div>
                 </div>
+                <div className="space-y-2">
+                  <Label>Repeats on</Label>
+                  <DayChips
+                    value={item.daysOfWeek}
+                    onChange={(daysOfWeek) => updateFood(item.id, { daysOfWeek })}
+                  />
+                </div>
                 {item.notifyCarePartner === "not_required" ? (
                   <NotRequiredWarning variant="food" />
                 ) : null}
@@ -518,6 +537,13 @@ export function WellnessDetailsStep() {
                       }
                     />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Repeats on</Label>
+                  <DayChips
+                    value={item.daysOfWeek}
+                    onChange={(daysOfWeek) => updateHealth(item.id, { daysOfWeek })}
+                  />
                 </div>
                 {item.notifyCarePartner === "not_required" ? (
                   <NotRequiredWarning variant="health" />

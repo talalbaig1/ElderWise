@@ -20,10 +20,10 @@ const checkInMap: Record<CheckInStatus, StatusMeta> = {
 };
 
 const wellbeingMap: Record<WellbeingStatus, StatusMeta> = {
-  stable: { label: "Stable", variant: "success" },
+  stable: { label: "Doing well", variant: "success" },
   attention: { label: "Needs attention", variant: "warning" },
   urgent: { label: "Urgent", variant: "destructive" },
-  unknown: { label: "Unknown", variant: "muted" },
+  unknown: { label: "No data yet", variant: "muted" },
 };
 
 const sosMap: Record<SOSStatus, StatusMeta> = {

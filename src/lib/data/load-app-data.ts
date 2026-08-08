@@ -7,6 +7,7 @@ import type {
   HealthRoutine,
   CheckInResponse,
   SOSEvent,
+  SOSStatus,
   AppNotification,
   LocalBuddy,
   FamilyDoctor,
@@ -39,6 +40,7 @@ import {
   type SosNotificationRow,
   type CtNotificationRow,
 } from "@/lib/supabase/mappers";
+import { deriveWellbeingStatus } from "@/lib/wellbeing";
 
 export interface AppReadModel {
   carePartner: CarePartner | null;
@@ -129,9 +131,6 @@ export async function loadAppData(
   const carePartner = cpRes.data
     ? carePartnerFromRow(cpRes.data as CarePartnerRow)
     : null;
-  const lovedOnes = (eldersRes.data ?? []).map((r) =>
-    lovedOneFromElderRow(r as ElderRow),
-  );
   const localBuddies = (lctRes.data ?? []).map((r) =>
     localBuddyFromRow(r as LocalCaregiverRow),
   );
@@ -149,13 +148,33 @@ export async function loadAppData(
     checkInFromRow(r as CheckinRow),
   );
 
+  const elderRows = (eldersRes.data ?? []) as ElderRow[];
+  const sosNotifications = (sosNotifRes.data ?? []) as SosNotificationRow[];
+  const sosEventRows = (sosRes.data ?? []) as SosEventRow[];
+
+  const lovedOnes = elderRows.map((r) => {
+    const elderCheckIns = checkIns.filter((c) => c.lovedOneId === r.id);
+    const elderSosStatuses = sosEventRows
+      .filter((ev) => ev.elder_id === r.id)
+      .map((ev) => ev.status as SOSStatus);
+    return lovedOneFromElderRow(
+      r,
+      deriveWellbeingStatus({
+        sosStatuses: elderSosStatuses,
+        checkIns: elderCheckIns.map((c) => ({
+          status: c.status,
+          scheduledAt: c.scheduledAt,
+        })),
+      }),
+    );
+  });
+
   const elderName = (id: string) => {
     const lo = lovedOnes.find((e) => e.id === id);
     return lo ? `${lo.firstName} ${lo.lastName}`.trim() : undefined;
   };
 
-  const sosNotifications = (sosNotifRes.data ?? []) as SosNotificationRow[];
-  const sosEvents = ((sosRes.data ?? []) as SosEventRow[]).map((ev) => {
+  const sosEvents = sosEventRows.map((ev) => {
     const buddy = localBuddies.find((b) => b.lovedOneId === ev.elder_id);
     const doc = doctors.find((d) => d.lovedOneId === ev.elder_id);
     const elder = lovedOnes.find((e) => e.id === ev.elder_id);

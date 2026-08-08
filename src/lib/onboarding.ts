@@ -13,6 +13,7 @@ import type {
   NotificationMethod,
 } from "@/types";
 import { readStorage, removeStorage, STORAGE_KEYS, writeStorage } from "@/lib/storage";
+import { deriveWellbeingStatus } from "@/lib/wellbeing";
 import { optionalWhatsAppE164Schema, requiredWhatsAppE164Schema } from "@/lib/whatsapp-e164";
 
 export const DAYS: { value: DayOfWeek; label: string }[] = [
@@ -26,6 +27,21 @@ export const DAYS: { value: DayOfWeek; label: string }[] = [
 ];
 
 export const ALL_DAYS: DayOfWeek[] = DAYS.map((d) => d.value);
+
+const dayOfWeekSchema = z.enum([
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+]);
+
+/** At least one day required — empty selection would never fire (silent failure). */
+export const daysOfWeekSchema = z
+  .array(dayOfWeekSchema)
+  .min(1, "Select at least one day");
 
 /** Post-auth counted steps (PRD §7.1). Completion is not counted. */
 export const ONBOARDING_WIZARD_STEPS = [
@@ -158,6 +174,7 @@ export const medicationDraftSchema = z.object({
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().optional(),
   mealTiming: z.enum(["before_food", "after_food"]),
+  daysOfWeek: daysOfWeekSchema,
   notifyCarePartner: z.enum(NOTIFY_MODES),
   escalationMinutes: z.coerce.number().min(5).max(240),
 });
@@ -167,6 +184,7 @@ export const foodRoutineDraftSchema = z.object({
   enabled: z.boolean(),
   mealName: z.string().trim().min(1, "Meal name is required"),
   checkInTime: z.string().min(1, "Time is required"),
+  daysOfWeek: daysOfWeekSchema,
   notifyCarePartner: z.enum(NOTIFY_MODES),
 });
 
@@ -175,6 +193,7 @@ export const healthRoutineDraftSchema = z.object({
   enabled: z.boolean(),
   name: z.string().trim().min(1, "Routine name is required"),
   time: z.string().min(1, "Time is required"),
+  daysOfWeek: daysOfWeekSchema,
   notifyCarePartner: z.enum(NOTIFY_MODES),
 });
 
@@ -188,6 +207,7 @@ export const medicationSchema = z.object({
   times: z.array(z.string().min(1)).length(1, "One time per medication"),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().optional(),
+  daysOfWeek: daysOfWeekSchema,
   notifyCarePartner: z.enum(NOTIFY_MODES),
   escalationMinutes: z.coerce.number().min(5).max(240),
 });
@@ -199,6 +219,7 @@ export const foodRoutineSchema = z.object({
   checkInTime: z.string().min(1, "Time is required"),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().optional(),
+  daysOfWeek: daysOfWeekSchema,
   notifyCarePartner: z.enum(NOTIFY_MODES),
 });
 
@@ -209,6 +230,7 @@ export const healthRoutineSchema = z.object({
   time: z.string().min(1, "Time is required"),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().optional(),
+  daysOfWeek: daysOfWeekSchema,
   notifyCarePartner: z.enum(NOTIFY_MODES),
 });
 
@@ -255,6 +277,7 @@ export function createEmptyFood(): FoodRoutineDraft {
     enabled: true,
     mealName: "Breakfast",
     checkInTime: "09:00",
+    daysOfWeek: [...ALL_DAYS],
     notifyCarePartner: "only_missed",
   };
 }
@@ -270,6 +293,7 @@ export function createEmptyMedication(elderTimeZone = "Asia/Kolkata"): Medicatio
     startDate: todayInTimeZone(elderTimeZone),
     endDate: "",
     mealTiming: "after_food",
+    daysOfWeek: [...ALL_DAYS],
     notifyCarePartner: "only_missed",
     escalationMinutes: 30,
   };
@@ -281,6 +305,7 @@ export function createEmptyHealth(): HealthRoutineDraft {
     enabled: true,
     name: "Morning wellness",
     time: "10:30",
+    daysOfWeek: [...ALL_DAYS],
     notifyCarePartner: "only_missed",
   };
 }
@@ -430,7 +455,7 @@ export function applyOnboardingDraft(
     address: draft.lovedOne.address,
     timeZone: draft.lovedOne.timeZone,
     relationshipToCarePartner: draft.lovedOne.relationshipToCarePartner,
-    wellbeingStatus: "stable",
+    wellbeingStatus: deriveWellbeingStatus({ sosStatuses: [], checkIns: [] }),
     carePartnerId,
     localBuddyId: buddyId,
     doctorId,
@@ -477,7 +502,7 @@ export function applyOnboardingDraft(
     times: [item.time],
     startDate: item.startDate,
     endDate: item.endDate || undefined,
-    daysOfWeek: [...ALL_DAYS],
+    daysOfWeek: item.daysOfWeek?.length ? [...item.daysOfWeek] : [...ALL_DAYS],
     timingPreference: item.mealTiming,
     notifyCarePartner:
       item.notifyCarePartner === "not_required" ? "only_missed" : item.notifyCarePartner,
@@ -495,8 +520,8 @@ export function applyOnboardingDraft(
     mealType: "custom",
     checkInTime: item.checkInTime,
     startDate: todayInTimeZone(draft.lovedOne.timeZone),
-    daysOfWeek: [...ALL_DAYS],
-    frequency: "custom",
+    daysOfWeek: item.daysOfWeek?.length ? [...item.daysOfWeek] : [...ALL_DAYS],
+    frequency: "daily",
     whatsappMessageTemplate: `Hi {name}, have you had ${item.mealName.toLowerCase()} today?`,
     notifyCarePartner:
       item.notifyCarePartner === "not_required" ? "only_missed" : item.notifyCarePartner,
@@ -511,10 +536,10 @@ export function applyOnboardingDraft(
     enabled: item.enabled,
     name: item.name,
     type: "general_wellness",
-    frequency: "custom",
+    frequency: "daily",
     time: item.time,
     startDate: todayInTimeZone(draft.lovedOne.timeZone),
-    daysOfWeek: [...ALL_DAYS],
+    daysOfWeek: item.daysOfWeek?.length ? [...item.daysOfWeek] : [...ALL_DAYS],
     question: "How are you feeling today?",
     answerType: "yes_no",
     notifyCarePartner:

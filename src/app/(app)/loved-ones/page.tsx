@@ -54,6 +54,7 @@ function isWellbeingFilter(value: string): value is WellbeingFilter {
 }
 
 /** Dropdown options — values must be WellbeingStatus members (not "all" / "unknown"). */
+/** Labels locked with status-pill (Sama, 8 August 2026). */
 const WELLBEING_SELECT_ITEMS = [
   { value: "stable", label: "Doing well" },
   { value: "attention", label: "Needs attention" },

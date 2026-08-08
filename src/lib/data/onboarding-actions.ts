@@ -12,6 +12,7 @@ import {
   type MedicationDraft,
   type OnboardingStepId,
 } from "@/lib/onboarding";
+import type { DayOfWeek } from "@/types";
 import { createClient } from "@/lib/supabase/server";
 import { syncDomainConfig } from "@/lib/data/actions";
 import {
@@ -110,7 +111,7 @@ export async function saveOnboardingFoodRoutines(input: {
           check_in_time: parsed.data.checkInTime,
           start_date: startDate,
           end_date: null,
-          days_of_week: [...ALL_DAYS],
+          days_of_week: parsed.data.daysOfWeek,
           frequency: "daily",
           notify_care_partner: parsed.data.notifyCarePartner,
           escalation_minutes: 45,
@@ -169,7 +170,7 @@ export async function saveOnboardingMedications(input: {
           dosage: parsed.data.dosage,
           dosage_unit: parsed.data.dosageUnit,
           times: [parsed.data.time],
-          days_of_week: [...ALL_DAYS],
+          days_of_week: parsed.data.daysOfWeek,
           start_date: parsed.data.startDate,
           end_date: parsed.data.endDate || null,
           timing_preference: parsed.data.mealTiming,
@@ -237,7 +238,7 @@ export async function saveOnboardingHealthRoutines(input: {
           time: parsed.data.time,
           start_date: startDate,
           end_date: null,
-          days_of_week: [...ALL_DAYS],
+          days_of_week: parsed.data.daysOfWeek,
           question: "How are you feeling today?",
           answer_type: "yes_no",
           notify_care_partner: parsed.data.notifyCarePartner,
@@ -686,6 +687,11 @@ export async function loadOnboardingResume(): Promise<
     return (allowed.includes(u as (typeof allowed)[number]) ? u : "TAB") as MedicationDraft["dosageUnit"];
   };
 
+  const daysOfWeek = (raw: unknown): DayOfWeek[] => {
+    const arr = Array.isArray(raw) ? (raw as string[]) : [];
+    return arr.length > 0 ? (arr as DayOfWeek[]) : [...ALL_DAYS];
+  };
+
   return {
     ok: true,
     resume: {
@@ -729,6 +735,7 @@ export async function loadOnboardingResume(): Promise<
         enabled: f.enabled,
         mealName: f.meal_name,
         checkInTime: String(f.check_in_time).slice(0, 5),
+        daysOfWeek: daysOfWeek(f.days_of_week),
         notifyCarePartner: notify(f.notify_care_partner),
       })),
       medications: meds.map((m) => {
@@ -747,6 +754,7 @@ export async function loadOnboardingResume(): Promise<
           startDate: m.start_date,
           endDate: m.end_date ?? "",
           mealTiming: meal as MedicationDraft["mealTiming"],
+          daysOfWeek: daysOfWeek(m.days_of_week),
           notifyCarePartner: notify(m.notify_care_partner),
           escalationMinutes: m.escalation_minutes,
         };
@@ -756,6 +764,7 @@ export async function loadOnboardingResume(): Promise<
         enabled: h.enabled,
         name: h.name,
         time: String(h.time).slice(0, 5),
+        daysOfWeek: daysOfWeek(h.days_of_week),
         notifyCarePartner: notify(h.notify_care_partner),
       })),
     },
