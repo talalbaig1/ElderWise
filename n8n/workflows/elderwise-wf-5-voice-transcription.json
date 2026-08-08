@@ -1,6 +1,17 @@
 {
-  "activeVersionId": "6950477d-8c2c-4218-b2ad-50eb9022a310",
+  "activeVersionId": "5fb10c94-4105-4577-bd45-c3d6cf60d9ef",
   "connections": {
+    "Already Processed?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "New Delivery?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
     "Answer Clear?": {
       "main": [
         [
@@ -46,12 +57,12 @@
         [
           {
             "index": 0,
-            "node": "Upload To Voice Notes Bucket",
+            "node": "Transcribe Voice Note",
             "type": "main"
           },
           {
             "index": 0,
-            "node": "Transcribe Voice Note",
+            "node": "Upload To Voice Notes Bucket",
             "type": "main"
           }
         ]
@@ -79,6 +90,24 @@
         ]
       ]
     },
+    "New Delivery?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Get Media URL",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Duplicate Delivery - Ignored",
+            "type": "main"
+          }
+        ]
+      ]
+    },
     "Normalise Gate Answer": {
       "main": [
         [
@@ -95,7 +124,7 @@
         [
           {
             "index": 0,
-            "node": "Get Media URL",
+            "node": "Already Processed?",
             "type": "main"
           }
         ],
@@ -247,7 +276,7 @@
       ]
     }
   },
-  "description": "WF-5 complete. Phase 2 adds the yes|no|unclear gate, records the response with response_channel=voice, notifies the Care Partner, and re-asks once when unclear. All queryReplacement values now use the array form.",
+  "description": "WF-5 voice transcription with media_id idempotency (A-25): early exit on redelivery, ON CONFLICT dedup on insert, deterministic storage path with x-upsert, and an explicit resource/operation discriminator on Derive Answer.",
   "id": "IC6oR4fuQd2VMkfQ",
   "meta": {
     "aiBuilderAssisted": true,
@@ -256,20 +285,20 @@
   "name": "ElderWise WF-5 - Voice Transcription",
   "nodes": [
     {
-      "id": "7232dadf-42bc-40c5-aa8c-aa22f03e8729",
+      "id": "1d6d8040-3d37-4e7b-ac19-7577aae54f65",
       "name": "Called With Voice Message",
       "parameters": {
         "inputSource": "passthrough"
       },
       "position": [
         0,
-        480
+        768
       ],
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1
     },
     {
-      "id": "45c29cce-ee39-4a95-885b-eaaf7977c8a5",
+      "id": "d4cbacd1-5335-4e73-b5ed-72f0a48768d8",
       "name": "Valid media_id?",
       "parameters": {
         "conditions": {
@@ -296,7 +325,7 @@
       },
       "position": [
         224,
-        480
+        768
       ],
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3
@@ -309,7 +338,7 @@
           "name": "ElderWise Supabase (Postgres)"
         }
       },
-      "id": "2308408c-01fc-41ae-adcf-331d4de20db5",
+      "id": "3426c217-dfa7-4927-9a2c-fb842f4abc81",
       "name": "Resolve Check-in",
       "parameters": {
         "operation": "executeQuery",
@@ -321,13 +350,13 @@
       },
       "position": [
         448,
-        384
+        672
       ],
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6
     },
     {
-      "id": "13b3364d-64e0-44a8-aac5-484dc7202c28",
+      "id": "f8066d88-dedd-4f0a-929e-f0992417759a",
       "name": "Open Check-in Found?",
       "parameters": {
         "conditions": {
@@ -355,7 +384,65 @@
       },
       "position": [
         672,
-        384
+        672
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "ce7e7138-14e1-4e8c-8264-28764212a3ea",
+      "name": "Already Processed?",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ [ $('Called With Voice Message').first().json.media_id ] }}"
+        },
+        "query": "SELECT EXISTS (\n  SELECT 1 FROM voice_replies WHERE media_id = $1::text\n) AS already_processed"
+      },
+      "position": [
+        896,
+        576
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "e1105561-06ab-4477-a790-2dc1a1fa1ecc",
+      "name": "New Delivery?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !$json.already_processed }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        1120,
+        576
       ],
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3
@@ -367,7 +454,7 @@
           "name": "WhatsApp 966503330619"
         }
       },
-      "id": "6d61ecc7-ea5c-4df1-9a03-8e227e42dcd0",
+      "id": "0294dd85-0e62-4296-9900-7679b2a0f18a",
       "name": "Get Media URL",
       "parameters": {
         "mediaGetId": "={{ $('Called With Voice Message').first().json.media_id }}",
@@ -375,13 +462,13 @@
         "resource": "media"
       },
       "position": [
-        896,
-        288
+        1344,
+        480
       ],
       "retryOnFail": true,
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1.1,
-      "webhookId": "7d7763b5-45d4-4b5d-b418-a469b2c7c513"
+      "webhookId": "dfa181b6-36fc-497c-92ee-7f2f3e98bc50"
     },
     {
       "credentials": {
@@ -390,7 +477,7 @@
           "name": "WhatsApp 966503330619"
         }
       },
-      "id": "30584972-fa0e-466f-a93f-d419a22dc77f",
+      "id": "d519e6d2-99e1-484a-b676-9f7070f671ea",
       "name": "Download Audio",
       "parameters": {
         "authentication": "predefinedCredentialType",
@@ -406,57 +493,8 @@
         "url": "={{ $json.url }}"
       },
       "position": [
-        1120,
-        288
-      ],
-      "retryOnFail": true,
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4
-    },
-    {
-      "id": "8b451eb3-b830-42a4-846f-8d2c3b050298",
-      "name": "No media_id - Nothing To Transcribe",
-      "parameters": {},
-      "position": [
-        448,
-        576
-      ],
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1
-    },
-    {
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "zCSNxbk4gbu3H4of",
-          "name": "Supabase Voice Bucket"
-        }
-      },
-      "id": "539f4240-9ecd-4ba1-a697-56371a61b847",
-      "name": "Upload To Voice Notes Bucket",
-      "parameters": {
-        "authentication": "genericCredentialType",
-        "contentType": "binaryData",
-        "genericAuthType": "httpHeaderAuth",
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "audio/ogg"
-            }
-          ]
-        },
-        "inputDataFieldName": "data",
-        "method": "POST",
-        "options": {
-          "timeout": 20000
-        },
-        "sendBody": true,
-        "sendHeaders": true,
-        "url": "={{ 'https://vkrjupjqwdeghvpjsvai.supabase.co/storage/v1/object/voice-notes/' + $('Resolve Check-in').first().json.elder_id + '/' + $('Resolve Check-in').first().json.checkin_id + '/' + $now.toMillis() + '.ogg' }}"
-      },
-      "position": [
-        1344,
-        192
+        1568,
+        480
       ],
       "retryOnFail": true,
       "type": "n8n-nodes-base.httpRequest",
@@ -469,7 +507,7 @@
           "name": "OpenAi account"
         }
       },
-      "id": "74068f39-474d-4772-b180-d215762110ec",
+      "id": "e919770d-a642-4768-910a-548a272a8fe8",
       "name": "Transcribe Voice Note",
       "parameters": {
         "operation": "transcribe",
@@ -480,7 +518,7 @@
         "resource": "audio"
       },
       "position": [
-        1344,
+        1792,
         384
       ],
       "retryOnFail": true,
@@ -488,13 +526,13 @@
       "typeVersion": 2.3
     },
     {
-      "id": "77c0c509-8b39-4f96-bc74-eefd21975431",
+      "id": "135d72c1-25be-4a8c-9aa6-d3bb50fe0567",
       "name": "Prepare Gate Prompt",
       "parameters": {
-        "jsCode": "const t = $input.first().json;\nconst ctx = $('Resolve Check-in').first().json;\nconst up = $('Upload To Voice Notes Bucket').first().json;\nconst transcript = String(t.text ?? '').trim();\n\nconst prompt = 'You are reading a transcript of an elderly person spoken reply to the question: \"' + String(ctx.question) + '\". Answer with exactly one word - yes, no, or unclear. Use unclear if the transcript is ambiguous, empty, off-topic, or you are not confident. Never guess. Transcript: \"' + transcript + '\"';\n\nreturn [{ json: { prompt: prompt, transcript: transcript, audio_path: String(up.Key ?? ''), checkin_id: ctx.checkin_id, elder_id: ctx.elder_id, elder_first_name: ctx.elder_first_name, elder_whatsapp: ctx.elder_whatsapp, question: ctx.question, prior_reasks: ctx.prior_reasks } }];"
+        "jsCode": "const t = $input.first().json;\nconst ctx = $('Resolve Check-in').first().json;\nconst up = $('Upload To Voice Notes Bucket').first().json;\nconst transcript = String(t.text ?? '').trim();\nconst mediaId = String($('Called With Voice Message').first().json.media_id ?? '');\n\nconst prompt = 'You are reading a transcript of an elderly person spoken reply to the question: \"' + String(ctx.question) + '\". Answer with exactly one word - yes, no, or unclear. Use unclear if the transcript is ambiguous, empty, off-topic, or you are not confident. Never guess. Transcript: \"' + transcript + '\"';\n\nreturn [{ json: { prompt: prompt, transcript: transcript, audio_path: String(up.Key ?? ''), checkin_id: ctx.checkin_id, elder_id: ctx.elder_id, elder_first_name: ctx.elder_first_name, elder_whatsapp: ctx.elder_whatsapp, question: ctx.question, prior_reasks: ctx.prior_reasks, media_id: mediaId } }];"
       },
       "position": [
-        1568,
+        2016,
         384
       ],
       "type": "n8n-nodes-base.code",
@@ -507,25 +545,25 @@
           "name": "ElderWise Supabase (Postgres)"
         }
       },
-      "id": "e10fdb1d-4996-4142-b083-930f3622d59c",
+      "id": "50ac5f93-3b24-4cb6-8b51-2abe1c6cd3f6",
       "name": "Record Voice Reply",
       "parameters": {
         "operation": "executeQuery",
         "options": {
           "connectionTimeout": 10,
-          "queryReplacement": "={{ [ $json.checkin_id, $json.audio_path, $json.transcript, $json.prior_reasks ] }}"
+          "queryReplacement": "={{ [ $json.checkin_id, $json.audio_path, $json.transcript, $json.prior_reasks, $json.media_id ] }}"
         },
-        "query": "INSERT INTO voice_replies (checkin_id, audio_path, transcript, provider, reask_count) VALUES ($1::uuid, $2::text, $3::text, 'openai_whisper', $4::int) RETURNING id AS voice_reply_id, checkin_id, audio_path, transcript, reask_count"
+        "query": "INSERT INTO voice_replies (checkin_id, audio_path, transcript, provider, reask_count, media_id) VALUES ($1::uuid, $2::text, $3::text, 'openai_whisper', $4::int, $5::text) ON CONFLICT (media_id) WHERE media_id IS NOT NULL DO NOTHING RETURNING id AS voice_reply_id, checkin_id, audio_path, transcript, reask_count"
       },
       "position": [
-        1792,
+        2240,
         384
       ],
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6
     },
     {
-      "id": "7851211a-1abe-4ad1-9c29-8c2acdd53b47",
+      "id": "2d637c28-4bf9-42c5-afbf-70d1900eae39",
       "name": "Voice Reply Stored?",
       "parameters": {
         "conditions": {
@@ -551,7 +589,7 @@
         "options": {}
       },
       "position": [
-        2016,
+        2464,
         384
       ],
       "type": "n8n-nodes-base.if",
@@ -564,7 +602,7 @@
           "name": "OpenAi account"
         }
       },
-      "id": "96cddf88-cfdd-4bd0-93bf-5c6d22003b85",
+      "id": "5bb172ab-37a8-407d-ad37-d3cc4d221caa",
       "name": "Derive Answer",
       "parameters": {
         "builtInTools": {},
@@ -586,7 +624,7 @@
         }
       },
       "position": [
-        2240,
+        2688,
         288
       ],
       "retryOnFail": true,
@@ -594,20 +632,20 @@
       "typeVersion": 2.3
     },
     {
-      "id": "446ddf3a-2b38-495d-985e-4bb909076795",
+      "id": "25f98b30-1f57-4600-b4ee-91ae09a1e7d7",
       "name": "Normalise Gate Answer",
       "parameters": {
         "jsCode": "const raw = $input.first().json;\nconst ctx = $('Prepare Gate Prompt').first().json;\nconst vr = $('Voice Reply Stored?').first().json;\n\n// The node output shape varies; try every plausible field rather than assume one.\nconst text = String(raw.output?.[0]?.content?.[0]?.text ?? raw.content ?? raw.text ?? raw.message ?? '').toLowerCase().replace(/[^a-z]+/g, ' ').trim();\n// N3 / X10: default to unclear. The model returns a word; code decides.\nlet answer = 'unclear';\nif (text === 'yes' || text.indexOf('yes') === 0) { answer = 'yes'; }\nelse if (text === 'no' || text.indexOf('no') === 0) { answer = 'no'; }\n\nreturn [{ json: { answer: answer, is_clear: answer !== 'unclear', gate_raw: text, voice_reply_id: vr.voice_reply_id, checkin_id: ctx.checkin_id, elder_first_name: ctx.elder_first_name, elder_whatsapp: ctx.elder_whatsapp, question: ctx.question, prior_reasks: ctx.prior_reasks } }];"
       },
       "position": [
-        2592,
+        3040,
         288
       ],
       "type": "n8n-nodes-base.code",
       "typeVersion": 2
     },
     {
-      "id": "ece0fb85-4114-4f44-9202-98953342a6c0",
+      "id": "86de366e-21f8-4ee1-8cda-6d4dff0e23e7",
       "name": "Answer Clear?",
       "parameters": {
         "conditions": {
@@ -633,7 +671,7 @@
         "options": {}
       },
       "position": [
-        2816,
+        3264,
         288
       ],
       "type": "n8n-nodes-base.if",
@@ -646,7 +684,7 @@
           "name": "ElderWise Supabase (Postgres)"
         }
       },
-      "id": "e54b85bf-2bfa-4893-b014-8f2e065b1cc3",
+      "id": "d5dec942-a221-468a-9fcf-93147a65f8aa",
       "name": "Record Voice Response",
       "parameters": {
         "operation": "executeQuery",
@@ -657,7 +695,7 @@
         "query": "WITH upd AS (\n  UPDATE checkins c\n  SET response_value = CASE WHEN c.domain = 'medication'::care_domain\n                            THEN CASE $2::text WHEN 'yes' THEN 'yes_all'\n                                               WHEN 'no'  THEN 'not_yet'\n                                               ELSE 'unknown' END\n                            ELSE $2::text END,\n      response_channel = 'voice'::response_channel,\n      responded_at = now(),\n      status = CASE WHEN c.domain = 'medication'::care_domain AND $2::text = 'no'\n                    THEN c.status\n                    ELSE 'responded'::checkin_status END\n  WHERE c.id = $1::uuid AND c.status IN ('sent','reminded')\n  RETURNING c.id, c.elder_id, c.scheduled_for, c.response_value, c.status::text AS status_text\n), items AS (\n  INSERT INTO checkin_medication_items (checkin_id, medication_id, taken)\n  SELECT u.id, m.id, true\n  FROM upd u\n  JOIN elders e ON e.id = u.elder_id\n  JOIN medications m ON m.elder_id = e.id AND m.enabled AND m.active\n       AND to_char(u.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times)\n  WHERE u.response_value = 'yes_all'\n  RETURNING 1\n)\nSELECT (SELECT id           FROM upd)   AS checkin_id,\n       (SELECT response_value FROM upd) AS response_value,\n       (SELECT status_text  FROM upd)   AS status_text,\n       (SELECT status_text  FROM upd)   AS status,\n       (SELECT count(*)::int FROM items) AS medicines_recorded,\n       'interaction' AS notification_type"
       },
       "position": [
-        3040,
+        3488,
         96
       ],
       "retryOnFail": true,
@@ -665,7 +703,7 @@
       "typeVersion": 2.6
     },
     {
-      "id": "1f0fb189-95c3-4fbd-90fc-97f43cac50fb",
+      "id": "a8d15f08-0f5b-4a6a-bd7e-d8971ac19e82",
       "name": "Response Written?",
       "parameters": {
         "conditions": {
@@ -692,14 +730,14 @@
         "options": {}
       },
       "position": [
-        3264,
+        3712,
         96
       ],
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3
     },
     {
-      "id": "66493252-5e5c-40a0-a0d3-d44bf218e71a",
+      "id": "647faafe-0f1b-4ce7-b3d3-57864b4a9f90",
       "name": "Notify Care Partner (WF-6)",
       "parameters": {
         "options": {
@@ -720,7 +758,7 @@
         }
       },
       "position": [
-        3488,
+        3936,
         0
       ],
       "retryOnFail": true,
@@ -728,18 +766,18 @@
       "typeVersion": 1.3
     },
     {
-      "id": "403d4f31-1d59-494d-b91a-28ab9065a169",
+      "id": "13b88733-57ee-4000-94de-d8021742add7",
       "name": "Check-in Already Closed",
       "parameters": {},
       "position": [
-        3488,
+        3936,
         192
       ],
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1
     },
     {
-      "id": "e42e7d1d-1d17-4ca8-b5df-db52d3984b17",
+      "id": "94a7c5b5-2ad1-4180-b6a1-1cb1735bb416",
       "name": "Re-ask Allowed?",
       "parameters": {
         "conditions": {
@@ -764,7 +802,7 @@
         "options": {}
       },
       "position": [
-        3040,
+        3488,
         480
       ],
       "type": "n8n-nodes-base.if",
@@ -777,7 +815,7 @@
           "name": "WhatsApp 966503330619"
         }
       },
-      "id": "709d1ce7-f01d-43fe-9c8a-f76d4508fd9d",
+      "id": "ed6822dd-02fd-4b6f-9419-6562fb91033e",
       "name": "Send Re-ask",
       "parameters": {
         "additionalFields": {},
@@ -787,13 +825,13 @@
         "textBody": "={{ 'Sorry ' + $json.elder_first_name + ', I did not quite catch that. ' + $json.question }}"
       },
       "position": [
-        3264,
+        3712,
         384
       ],
       "retryOnFail": true,
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1.1,
-      "webhookId": "1c3298d0-0c55-4914-81f4-bc7b48aaa006"
+      "webhookId": "3ca23d68-aed0-45d6-b542-de8025ff7359"
     },
     {
       "credentials": {
@@ -802,7 +840,7 @@
           "name": "ElderWise Supabase (Postgres)"
         }
       },
-      "id": "f0b48f3b-e941-4981-8af4-bd8a05b0eff1",
+      "id": "833726b9-1e39-4db0-8ec3-f849f1e431a3",
       "name": "Increment Re-ask Count",
       "parameters": {
         "operation": "executeQuery",
@@ -813,43 +851,53 @@
         "query": "UPDATE voice_replies SET reask_count = reask_count + 1 WHERE id = $1::uuid RETURNING id AS voice_reply_id, reask_count"
       },
       "position": [
-        3488,
+        3936,
         384
       ],
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6
     },
     {
-      "id": "bc40901f-75b0-4984-9957-bf79e0ec1017",
+      "id": "7f6be8e2-16be-4009-b1fe-d6a07423377d",
       "name": "Re-ask Already Used - Falls To Missed Path",
       "parameters": {},
       "position": [
-        3264,
+        3712,
         576
       ],
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1
     },
     {
-      "id": "2e3777f4-4fa7-4851-b9eb-759cb353cecb",
+      "id": "5854480e-dbcb-410f-9f56-92e0c4a4c0d2",
       "name": "Voice Reply Not Stored",
       "parameters": {},
       "position": [
-        2304,
+        2752,
         480
       ],
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1
     },
     {
-      "alwaysOutputData": false,
+      "id": "4bae986d-fc21-40e8-953b-237709e39171",
+      "name": "Duplicate Delivery - Ignored",
+      "parameters": {},
+      "position": [
+        1344,
+        672
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
       "credentials": {
         "postgres": {
           "id": "WH9oLDfKfOX6KW5F",
           "name": "ElderWise Supabase (Postgres)"
         }
       },
-      "id": "f6f259c1-b146-4020-b964-2b199554fab4",
+      "id": "83f3cb94-aaee-4b07-b6e6-e51ec1831033",
       "name": "Find Elder For Re-prompt",
       "parameters": {
         "operation": "executeQuery",
@@ -861,7 +909,7 @@
       },
       "position": [
         896,
-        480
+        768
       ],
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6
@@ -873,7 +921,7 @@
           "name": "WhatsApp 966503330619"
         }
       },
-      "id": "27f7625a-4bbd-4f16-b00e-42c11bb70e29",
+      "id": "ce803620-a952-457c-9c9e-1fd0b3da3303",
       "name": "Send No Check-in Reply",
       "parameters": {
         "additionalFields": {},
@@ -884,12 +932,65 @@
       },
       "position": [
         1120,
-        480
+        768
       ],
       "retryOnFail": true,
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1.1,
-      "webhookId": "1c3298d0-0c55-4914-81f4-bc7b48aaa006"
+      "webhookId": "5e7da81f-ed5a-46ab-ae27-1c2c8c22cfaa"
+    },
+    {
+      "id": "bd7ffeba-4e41-418a-a4e4-42f64f891f2d",
+      "name": "No media_id - Nothing To Transcribe",
+      "parameters": {},
+      "position": [
+        448,
+        864
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "zCSNxbk4gbu3H4of",
+          "name": "Supabase Voice Bucket"
+        }
+      },
+      "id": "23f9fa49-6b29-4b36-ad11-56744efe1699",
+      "name": "Upload To Voice Notes Bucket",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "contentType": "binaryData",
+        "genericAuthType": "httpHeaderAuth",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "audio/ogg"
+            },
+            {
+              "name": "x-upsert",
+              "value": "true"
+            }
+          ]
+        },
+        "inputDataFieldName": "data",
+        "method": "POST",
+        "options": {
+          "timeout": 20000
+        },
+        "sendBody": true,
+        "sendHeaders": true,
+        "url": "={{ 'https://vkrjupjqwdeghvpjsvai.supabase.co/storage/v1/object/voice-notes/' + $('Resolve Check-in').first().json.elder_id + '/' + $('Resolve Check-in').first().json.checkin_id + '/' + $('Called With Voice Message').first().json.media_id + '.ogg' }}"
+      },
+      "position": [
+        1792,
+        576
+      ],
+      "retryOnFail": true,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4
     }
   ],
   "settings": {
