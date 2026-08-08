@@ -335,12 +335,20 @@ export function isDoctorEngaged(doctor: DoctorCircleDraft): boolean {
 
 export function createDefaultDraft(
   accountId: string,
-  seed?: { firstName?: string; lastName?: string; email?: string },
+  seed?: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    /** Care Partner only — used when adding another Loved One (additional mode). */
+    whatsappNumber?: string;
+    timeZone?: string;
+  },
 ): OnboardingDraft {
-  const timeZone =
+  const browserTimeZone =
     typeof Intl !== "undefined"
       ? Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata"
       : "Asia/Kolkata";
+  const carePartnerTimeZone = seed?.timeZone?.trim() || browserTimeZone;
 
   return {
     version: 3,
@@ -353,22 +361,22 @@ export function createDefaultDraft(
       email: seed?.email ?? "",
     },
     carePartner: {
-      whatsappNumber: "",
-      timeZone,
+      whatsappNumber: seed?.whatsappNumber?.trim() || "",
+      timeZone: carePartnerTimeZone,
     },
     lovedOne: {
       whatsappNumber: "",
       firstName: "",
       lastName: "",
       age: 70,
-      timeZone,
+      timeZone: browserTimeZone,
       relationshipToCarePartner: "Parent",
       address: "",
     },
     localBuddy: emptyLocalBuddy(),
     doctor: emptyDoctor(),
     foodRoutines: [createEmptyFood()],
-    medications: [createEmptyMedication(timeZone)],
+    medications: [createEmptyMedication(browserTimeZone)],
     healthRoutines: [createEmptyHealth()],
     updatedAt: new Date().toISOString(),
   };

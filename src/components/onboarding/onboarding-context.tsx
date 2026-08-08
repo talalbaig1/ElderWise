@@ -59,10 +59,18 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     if (!storeHydrated || !accountId) return;
     let cancelled = false;
 
+    // First-time onboarding: name/email only — CT still enters WhatsApp + TZ.
+    // Additional Loved One: seed WA + TZ from store (loaded from care_partners).
     const seed = {
       firstName: store.carePartner?.firstName,
       lastName: store.carePartner?.lastName,
       email: store.session.email ?? store.carePartner?.email,
+      ...(additionalMode && store.carePartner
+        ? {
+            whatsappNumber: store.carePartner.whatsappNumber,
+            timeZone: store.carePartner.timeZone,
+          }
+        : {}),
     };
 
     void (async () => {
@@ -80,8 +88,29 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       const existing = loadOnboardingDraft(accountId);
       if (existing?.elderId) {
         if (cancelled) return;
-        setDraft(existing);
-        setLastSavedAt(existing.updatedAt);
+        // Backfill CP WhatsApp/TZ if an older additional draft was saved empty.
+        let next = existing;
+        if (additionalMode && store.carePartner) {
+          const whatsappNumber =
+            existing.carePartner.whatsappNumber ||
+            store.carePartner.whatsappNumber ||
+            "";
+          const timeZone =
+            store.carePartner.timeZone || existing.carePartner.timeZone;
+          if (
+            whatsappNumber !== existing.carePartner.whatsappNumber ||
+            timeZone !== existing.carePartner.timeZone
+          ) {
+            next = {
+              ...existing,
+              carePartner: { whatsappNumber, timeZone },
+              updatedAt: new Date().toISOString(),
+            };
+            saveOnboardingDraft(next);
+          }
+        }
+        setDraft(next);
+        setLastSavedAt(next.updatedAt);
         setHydrated(true);
         return;
       }
@@ -139,6 +168,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     store.carePartner,
     store.session.email,
     forceFresh,
+    additionalMode,
   ]);
 
   const persist = useCallback((next: OnboardingDraft) => {
