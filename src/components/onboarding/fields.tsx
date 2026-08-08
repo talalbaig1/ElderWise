@@ -13,6 +13,7 @@ import {
   validateOptionalWhatsAppNumber,
   validateRequiredWhatsAppNumber,
   WHATSAPP_E164_ERROR,
+  WHATSAPP_PLACEHOLDER,
 } from "@/lib/whatsapp-e164";
 import type { DayOfWeek } from "@/types";
 import { Input } from "@/components/ui/input";
@@ -171,7 +172,7 @@ export function WhatsAppNumberInput({
   onBlurError,
   error,
   optional = false,
-  placeholder = "+966569362418",
+  placeholder = WHATSAPP_PLACEHOLDER,
   disabled,
 }: {
   id?: string;

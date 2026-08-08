@@ -3,8 +3,11 @@ import { z } from "zod";
 /** Strict E.164 — leading +, country code 1–9, 8–15 digits total. */
 export const E164_WHATSAPP_REGEX = /^\+[1-9][0-9]{7,14}$/;
 
+/** Masked example only — never a real in-service number. */
+export const WHATSAPP_PLACEHOLDER = "+966 5XX XXX XXX";
+
 export const WHATSAPP_E164_ERROR =
-  "Please enter the number with the country code, for example +966569362418.";
+  `Please enter the number with the country code, for example ${WHATSAPP_PLACEHOLDER}.`;
 
 /** Strip only whitespace, hyphens, brackets, and parentheses. */
 function stripWhatsAppSeparators(raw: string): string {

@@ -39,10 +39,31 @@ import { useDomainStore } from "@/components/data/app-data-provider";
 import { cn, initials } from "@/lib/utils";
 import type { WellbeingStatus } from "@/types";
 
+const WELLBEING_FILTER_VALUES = [
+  "all",
+  "stable",
+  "attention",
+  "urgent",
+  "unknown",
+] as const satisfies ReadonlyArray<"all" | WellbeingStatus>;
+
+type WellbeingFilter = (typeof WELLBEING_FILTER_VALUES)[number];
+
+function isWellbeingFilter(value: string): value is WellbeingFilter {
+  return (WELLBEING_FILTER_VALUES as readonly string[]).includes(value);
+}
+
+/** Dropdown options — values must be WellbeingStatus members (not "all" / "unknown"). */
+const WELLBEING_SELECT_ITEMS = [
+  { value: "stable", label: "Doing well" },
+  { value: "attention", label: "Needs attention" },
+  { value: "urgent", label: "Urgent" },
+] as const satisfies ReadonlyArray<{ value: WellbeingStatus; label: string }>;
+
 export default function LovedOnesPage() {
   const { store, setSelectedLovedOneId, hydrated, viewerTimeZone } = useDomainStore();
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | WellbeingStatus>("all");
+  const [statusFilter, setStatusFilter] = useState<WellbeingFilter>("all");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -95,16 +116,20 @@ export default function LovedOnesPage() {
         </div>
         <Select
           value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v as "all" | WellbeingStatus)}
+          onValueChange={(v) => {
+            if (isWellbeingFilter(v)) setStatusFilter(v);
+          }}
         >
           <SelectTrigger className="w-[160px]" aria-label="Filter by wellbeing">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="green">Doing well</SelectItem>
-            <SelectItem value="amber">Needs attention</SelectItem>
-            <SelectItem value="red">Urgent</SelectItem>
+            {WELLBEING_SELECT_ITEMS.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <div className="flex gap-1 rounded-xl border p-1">

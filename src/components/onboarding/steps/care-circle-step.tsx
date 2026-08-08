@@ -296,7 +296,7 @@ export function CareCircleStep() {
             <Label htmlFor="lo-wa">WhatsApp number</Label>
             <WhatsAppNumberInput
               id="lo-wa"
-              placeholder="We'll send check-ins here — e.g. +966569362418"
+              placeholder="We'll send check-ins here — e.g. +966 5XX XXX XXX"
               value={lovedOne.whatsappNumber}
               onChange={(whatsappNumber) =>
                 patchDraft({ lovedOne: { ...lovedOne, whatsappNumber } })

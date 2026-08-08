@@ -2,14 +2,20 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { useDomainStore } from "@/components/data/app-data-provider";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { PageFade } from "@/components/shared/page-fade";
 import { SkipLink } from "@/components/shared/skip-link";
-import { useElderWiseStore } from "@/lib/store";
+
+const UUID_SEGMENT =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function titleFromSegment(segment: string) {
+  if (UUID_SEGMENT.test(segment)) {
+    return "Loved One";
+  }
   return segment
     .split("-")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -18,7 +24,7 @@ function titleFromSegment(segment: string) {
 
 export function AuthenticatedLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { store } = useElderWiseStore();
+  const { store } = useDomainStore();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
