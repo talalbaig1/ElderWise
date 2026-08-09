@@ -6,7 +6,7 @@
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
 | **Document** | Architecture.md — v1.30 |
-| **Date** | 8 August 2026 |
+| **Date** | 9 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
 
@@ -488,9 +488,8 @@ Columns that remain in the schema but are **not collected or relied on by produc
 | `care_partners` | `address`, `secondary_contact` | Unused by any screen. |
 | `elders` | `gender` | Collected nowhere. |
 | `local_caregivers` | `action_plan` | Unused. |
-| `medications` | `days_of_week` | Not collected by UI. |
-| `food_routines` | `meal_type`, `frequency`, `days_of_week`, `notes` | Defaulted / unused. |
-| `health_routines` | `type`, `frequency`, `days_of_week`, `question`, `answer_type`, `typical_bedtime`, `typical_wake_time` | Defaulted / unused. |
+| `food_routines` | `meal_type`, `frequency`, `notes` | Defaulted / unused. |
+| `health_routines` | `type`, `frequency`, `question`, `answer_type`, `typical_bedtime`, `typical_wake_time` | Defaulted / unused. |
 
 `doctors.timezone` is **not** in this register — the column still exists and is readable, but onboarding **stops collecting** it and the share page must render in the **elder's** timezone (§10).
 
@@ -666,7 +665,7 @@ The n8n instance carried **20 workflows** as of 9 August 2026: 17 operational, t
 - **On response:** write to `checkins` (+ `checkin_medication_items` when *Yes, All*), set `status = responded`.
 - Fire **WF-6** when the owning routine's `notify_care_partner` requires a CT notice (see WF-6).
 
-> **⚠️ DEFECT (P1, not yet fixed — 4 Aug 2026):** WF-3a's **Record Response** connects directly to **Notify Care Partner (WF-6)** with **no guard**. The query is CTE-based with scalar subqueries in the outer SELECT, so a zero-row UPDATE returns **one row of NULLs**, not `[]`. WF-6 is then invoked with `checkin_id` NULL. Reachable via a double-tap or a race with WF-3c. Violates `Rules.md` §6a — *guard every node that consumes a Postgres result*.
+> Guard present (F-7 / D-9 closed 9 August 2026). Record Response → Response Written? (IF on `!!$json.checkin_id`) → true: Notify Care Partner (WF-6); false: Check-in Already Closed (NoOp). Verified on live workflow version `d9016665`. Needed because the CTE query uses scalar subqueries in the outer SELECT, so a zero-row UPDATE returns one row of NULLs, not `[]` — without the guard WF-6 would be invoked with `checkin_id` NULL. Satisfies `Rules.md` §6a. The equivalent guard on the food/health side (WF-3d) was observed firing in production in execution 56991, 9 August 2026.
 
 ### WF-3b · Reminder Sweep (All Domains) (`5P19E5CPhA14K6fo`)
 - **Scope:** **all three domains** — templates **2** (medication), **5** (food), **6** (health) by domain.
@@ -919,7 +918,7 @@ A **read-only witness** for approved testers — not part of the dashboard analy
 
 | Case | Limitation |
 |---|---|
-| **40** | A `ct_notifications` row with a **wrong `care_partner_id`** (defect D-9) is **invisible under RLS** — the console shows zero rows, indistinguishable from a true absence. That assertion cannot be delegated to testers; it stays with the team lead. |
+| **40** | A `ct_notifications` row with a **wrong `care_partner_id`** is **invisible under RLS** — the console shows zero rows, indistinguishable from a true absence. That assertion cannot be delegated to testers; it stays with the team lead. **D-9 is closed**; the RLS blind spot remains a console limitation. |
 | **115** / **`notification_ownership`** | The check is retained for catalogue mapping but **can only ever return zero rows** here: live RLS on `ct_notifications` requires both `care_partner_id = auth.uid()` and elder ownership, so a mismatched row is never visible to the caller. A zero-row result is **not evidence** of correctness. |
 
 ---
@@ -1064,7 +1063,7 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 | A-23 | **Audio retention undecided.** Proposed 30 days; nothing currently deletes objects in `voice-notes`. | Talal |
 | A-24 | **`consent_confirmed_at` covers daily check-ins, not storing recordings of the elder's voice.** Separate consent may be needed for voice retention — undecided. | Talal |
 | A-25 | ~~**WF-5 is NOT idempotent.**~~ — **CLOSED 8 August 2026.** `voice_replies.media_id` + partial unique index (applied by Talal); WF-5 gained a three-layer dedup — early exit before any media fetch, `ON CONFLICT` on insert, and a deterministic `{media_id}.ogg` object key with `x-upsert`. Published as `activeVersionId 83a6a60e` and verified against the live workflow. | Closed |
-| A-26 | ~~**Voice note with no open check-in is silent to the elder.**~~ — **CLOSED 8 August 2026** (Claude / Track B, F-7): WF-5 sends a reply on the no-open-check-in path. | Talal |
+| A-26 | ~~**Voice note with no open check-in is silent to the elder.**~~ — **CLOSED 8 August 2026** (Claude / Track B, F-7): WF-5 sends a reply on the no-open-check-in path. | Closed |
 | A-27 | **The ≤60 s window.** WF-3a, WF-3d and WF-5 resolve check-ins by elder + status and do **not** filter on routine `enabled`. Between a routine being disabled and WF-3c cancelling the orphan, a reply is still accepted. **ACCEPTED DEVIATION** (Talal, 4 Aug 2026) — closing it would require a slot-match join in three resolvers for a one-minute window. | Talal |
 | A-28 | **`checkins_medication_slot_uniq` slot occupancy.** `UNIQUE (elder_id, scheduled_for) WHERE domain = 'medication'`. A **`cancelled` row still occupies its slot**, so disabling and re-enabling a routine the same day will **not** restore that day's check-in. Ruled acceptable; recorded so it is not rediscovered as a bug. | Talal |
 | A-29 | **Frontend `statusBreakdown` divergence + raw labels.** `report-analytics.ts` counts `cancelled` explicitly; `dashboard-analytics.ts` drops it (its `Record<string, number>` has no else branch for `cancelled`). Same concept, different behaviour on two screens. Share page and PDF render the raw lowercase DB status `cancelled` rather than a formatted label. **`adherence()` in both files** builds numerator and denominator from an explicit inclusion filter (`taken \| missed \| delayed`) — **`cancelled` is excluded from both automatically**; left deliberately unchanged (commit `25114ed`). | Talal |
@@ -1081,7 +1080,7 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 
 | Date | Version | Change |
 |---|---|---|
-| 9 Aug 2026 | 1.30 | **Workflow map completed and two items closed.** Full enumeration found 20 workflows against 16 in the working map; WF-3d (Food/Health Response Handler), WF-4c (SOS Resolution Broadcast), WF-4d (SOS Nudge Sweep) and the read-only Credential Check utility documented in §8. WF-3d's zero-row guard verified live in execution 56991. **E3 closed — not a defect:** the `chore(n8n): export` commits are a deliberate hourly cron on the Contabo VPS, now documented; the flow is one-directional n8n → repo and re-import remains forbidden under Rules W7. **D2 closed** — Sentry alert rule proven by a real firing. Postgres connection timeouts raised from 10 s to 15 s (WF-1b materialise) and 20 s (WF-4d nudge select) after the 8 August failures. |
+| 9 Aug 2026 | 1.30 | **Workflow map completed and two items closed.** Full enumeration found 20 workflows against 16 in the working map; WF-3d (Food/Health Response Handler), WF-4c (SOS Resolution Broadcast), WF-4d (SOS Nudge Sweep) and the read-only Credential Check utility documented in §8. WF-3d's zero-row guard verified live in execution 56991. **E3 closed — not a defect:** the `chore(n8n): export` commits are a deliberate hourly cron on the Contabo VPS, now documented; the flow is one-directional n8n → repo and re-import remains forbidden under Rules W7. **D2 closed** — Sentry alert rule proven by a real firing. Postgres connection timeouts raised from 10 s to 15 s (WF-1b materialise) and 20 s (WF-4d nudge select) after the 8 August failures. Two stale passages corrected: §8 WF-3a no longer describes the unguarded WF-6 call as an open P1 (guard verified on version `d9016665`; F-7 / D-9 closed), and §5.6 no longer lists `days_of_week` as uncollected — it is collected by all six routine forms (D-1) and honoured by WF-1/1b/1c. Test-catalogue finding F-1 can be retired. |
 | 9 Aug 2026 | 1.29 | **Post-demo deferral register created.** `PostDemoEnhancements.md` v1.0 records PD-1 to PD-8 — routine-table timestamps, fabricated `createdAt`/`updatedAt` in `mappers.ts`, C3 scope correction, D-7 revisit, the dashboard `ALL_DAYS` fallback, A-33, E2 and A-23 — deferred by ruling of the Team Lead on the basis that no item has a user-facing consumer and the remedies carry more risk than the defects while the test run is incomplete. **T-1 closed: no defect found** — all six routine forms verified against D-1 on 8 August; the reported Monday-only default was a tester setup artefact, not a code path. |
 | 8 Aug 2026 | 1.28 | **A-25 closed — WF-5 voice-note idempotency.** §5.2 `voice_replies` gains `media_id` (partial unique index `WHERE media_id IS NOT NULL`); `audio_path` shape changed `{unix_ms}` → `{media_id}`. §8 WF-5: three-layer dedup documented (early exit before any media fetch; `ON CONFLICT (media_id) WHERE media_id IS NOT NULL DO NOTHING`; deterministic object key with `x-upsert: true`). `Derive Answer` discriminator made explicit (`resource: text` / `operation: response`) after runtime evidence confirmed the Responses API path — no behaviour change. Published `activeVersionId 83a6a60e`, verified against the live workflow. **A-33 opened:** redelivery arriving after check-in closure still reaches the no-open-check-in reply, because the early exit sits after `Resolve Check-in` (P3). |
 | 8 Aug 2026 | 1.27 | **A-32 closed** (Talal Baig, 8 August 2026): middleware registered at `src/middleware.ts`; both verification checks passed, including the 70-minute tab-close / access-token-expiry survival test. §11.1 Sentry edge note corrected — `sentry.edge.config.ts` is active (no longer described as dead code pending A-32). |
@@ -1115,4 +1114,4 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 4 August 2026.*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 9 August 2026.*
