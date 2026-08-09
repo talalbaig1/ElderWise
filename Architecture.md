@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.29 |
+| **Document** | Architecture.md — v1.30 |
 | **Date** | 8 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
@@ -564,7 +564,7 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 
 ## 8. The message path (n8n)
 
-**Sixteen n8n workflows** (as of **4 August 2026**). WF-5 voice → STT built and proven end to end this date; WF-3a / WF-3b / WF-6 renamed (see table). Prior all-domain pass (3 Aug evening): +WF-1b/1c/3d; five materially changed (WF-1, WF-3b, WF-3c, WF-6, WF-2a).
+The n8n instance carried **20 workflows** as of 9 August 2026: 17 operational, the shared Error Workflow, and two read-only utilities (Template Audit, Credential Check). Verified by full enumeration. (Prior working map said sixteen as of 4 August 2026 — WF-5 voice → STT proven that date; the gap was incomplete documentation, not missing builds.)
 
 | Workflow | n8n ID | Trigger | Role |
 |---|---|---|---|
@@ -577,7 +577,7 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 | **WF-3a** Medication Response Handler | `j0CWtHYyzplmad09` | sub-workflow | Records medication button replies |
 | **WF-3b** Reminder Sweep (All Domains) | `5P19E5CPhA14K6fo` | cron 1 min | One reminder after `escalation_minutes` — **all three domains** (templates 2/5/6 by domain) |
 | **WF-3c** Missed Sweep (All Domains) | `A3Z7yjrxLRZ6pI5r` | cron 1 min | **Sole owner** of the `missed` transition **and** the `cancelled` transition (orphan cleanup); two parallel branches off one trigger |
-| **WF-3d** Food & Health Response Handler | `Mx035ogWEoY1MEdU` | sub-workflow | Records food/health `Yes`/`No`; calls WF-6 |
+| **WF-3d** Food & Health Response Handler | `Mx035ogWEoY1MEdU` | sub-workflow | Records food/health `Yes`/`No`; calls WF-6 with `notification_type=interaction` |
 | **WF-5** Voice Reply → STT | `IC6oR4fuQd2VMkfQ` | sub-workflow | Whisper + LLM gate; voice storage; re-ask once |
 | **WF-4** SOS Orchestrator | `HSEp1YhQFHjga9qa` | sub-workflow | Create/reuse `sos_events`, load care circle, mint share link, dispatch templates 10/11/12 at `nudge_index 0`, acknowledge the elder |
 | **WF-4a** SOS Resolution Receiver | `jeNrf7b7ne3JX2Xu` | webhook | A2.7 dashboard → n8n stop-nudges |
@@ -585,8 +585,11 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 | **WF-4c** SOS Resolution Broadcast | `Baydb7saYNyAayMC` | sub-workflow | Template 14 to every recipient of a `sent` alert |
 | **WF-4d** SOS Nudge Sweep | `EY36qDhdv5FqfL0W` | **cron 1 min** | Nudge rounds 1–3, template 13 |
 | **WF-6** Care Partner Notifications (All Domains) | `6I6OC7qJ5YhhUQxU` | sub-workflow | Templates 8 and 9 |
+| **Error Workflow** | `uvBstI6J42nNhIYz` | error trigger | Shared Track B failure path → Telegram + Gmail (§11.1) |
+| **Template Audit** (read-only) | `PADE2m75e6xVGS2e` | Manual, inactive | Utility — not on the message path |
+| **Credential Check** (read-only) | `5nVL2BdvqeX2i0AU` | Manual, inactive | Verifies both Supabase credentials (Postgres query + Storage bucket listing) |
 
-**Track B message-path workflows: built** (4 August 2026). **Remaining:** Sentry (§11 P0); open items A-22–A-29; WF-3a guard defect (§8, P1); `some_of_them` fourth gate output (A-12).
+**Track B message-path workflows: built** (4 August 2026). **Remaining:** open items A-22–A-24, A-27–A-31, A-33; `some_of_them` fourth gate output (A-12).
 
 > **Three defects fixed this evening (3 Aug 2026) — record as defects, not design intent:**
 >
@@ -617,6 +620,7 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 - **Scope:** `domain = 'food'`. One check-in per enabled `food_routines` row.
 - **Trigger:** cron, every minute. Same consent gate and `days_of_week` rules as WF-1.
 - Materialises with `food_routine_id` set; dispatches template 4; does **not** mark missed — **WF-3c** owns that transition.
+- **Postgres `connectionTimeout`:** `Materialise Due Food Check-ins` is set to **15** seconds (OBSERVED 9 August 2026), raised from 10 after the connection-timeout failures of 8 August.
 
 ### WF-1c · Health Scheduler (`2HgbXGM0Z5XQArf1`)
 - **Scope:** `domain = 'health'`. One check-in per enabled `health_routines` row.
@@ -693,7 +697,9 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 - **Trigger:** sub-workflow (from WF-2a `food_health_response` route).
 - Attribute inbound `Yes`/`No` by **`context.id` → `checkins.wa_message_id`** (see WF-2a).
 - Write `status = responded`, `response_value`, `responded_at`, `response_channel = button`.
-- Fire **WF-6** when the owning routine's `notify_care_partner` requires a CT notice.
+- Calls **WF-6** with `notification_type=interaction` after recording, so an `every_time` food or health routine actually notifies the Care Partner. **WF-6 still applies the `not_required` mute.**
+- **Zero-row guard:** a CTE / write matching zero open check-ins can return `{success:true}`; an explicit `Response Written?` gate terminates at `No Open Check-in For This Reply` so no duplicate CT notification and no data change.
+- **Proven live 9 August 2026** in execution `56991` — a second button tap on a food check-in produced a zero-row write returning `{success:true}`, which that guard caught.
 
 ### WF-4 · SOS Orchestrator (`HSEp1YhQFHjga9qa`) — **built 3 August 2026** — **the critical path (P2)**
 
@@ -756,12 +762,14 @@ Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly
 ### WF-4c · SOS Resolution Broadcast (`Baydb7saYNyAayMC`) — **built 3 August 2026**
 - **Trigger:** sub-workflow (from WF-4b on WhatsApp resolution; also after dashboard resolution so both channels get the broadcast).
 - Sends **template 14** (`elderwise_sos_resolved`) to every recipient that received a **`sent`** alert, on **both** channels. Previously nobody sent it: WF-4a verifies only, and Next.js cannot send WhatsApp (B3).
+- **Guard:** a CTE SELECT returning zero rows emits `{success:true}`, so an **explicit gate sits before the send** (`Rules.md` §6a).
 - **Known gap (A-18):** template 14 sends cannot be logged under current schema constraints — see §15.
 
 ### WF-4d · SOS Nudge Sweep (`EY36qDhdv5FqfL0W`) — **built 3 August 2026**
 - **Trigger:** cron, every minute.
-- Finds open SOS events due for the next nudge round; sends template **13** for `nudge_index` 1–3; increments `nudges_sent` (0–3). Re-reads `sos_events.status` before every send (safety net).
-- **Must guard CTE-based SELECT results** (`Rules.md` §6a) — zero due rows must not run the WhatsApp node.
+- Finds open SOS events due for the next nudge round; sends template **13** for `nudge_index` 1–3; increments `nudges_sent` (0–3). Max **3** nudge rounds, **2 minutes** apart. Re-reads `sos_events.status` before every send (safety net).
+- **Must guard CTE-based SELECT results** (`Rules.md` §6a) — same zero-row `{success:true}` pattern as WF-4c; zero due rows must not run the WhatsApp node.
+- **Postgres `connectionTimeout`:** `Find Due Nudge Recipients` is set to **20** seconds (OBSERVED 9 August 2026), raised from 10 after the connection-timeout failures of 8 August.
 
 ### WF-5 · Voice Reply → STT (`IC6oR4fuQd2VMkfQ`) — **built 4 August 2026**
 
@@ -808,6 +816,11 @@ The LLM gate emits three values; medication has three **different** stored value
 - **`domain_configs.ct_notification` is derived/deprecated** — do not use it as the send decision. WF-6 never depended on it (A-9 closed).
 - On send: write `ct_notifications` with `wa_message_id`. Templates **8** and **9** only in this workflow.
 - **WhatsApp only** in the MVP. SMS / email / push are Could-have (C8).
+
+### Credential Check — read-only utility (`5nVL2BdvqeX2i0AU`)
+- **Trigger:** Manual. **Inactive** — not on the message path.
+- Verifies both Supabase credentials: a Postgres query plus a Storage bucket listing.
+- Companion utility: **Template Audit** (`PADE2m75e6xVGS2e`) — also Manual / inactive / read-only.
 
 ---
 
@@ -930,18 +943,25 @@ elderwise/
 │   ├── migrations/          # SQL — schema + RLS policies
 │   └── seed.sql
 ├── n8n/
-│   └── workflows/           # Exported JSON — version-controlled; export script owns this tree
+│   └── workflows/           # Exported JSON — version-controlled; export cron owns this tree
 ├── PRD.md                   # Spec — repository root (not docs/)
 ├── Architecture.md
 ├── Rules.md
 ├── Phases.md
 ├── Templates.md
+├── PostDemoEnhancements.md  # Deferred work after Demo Day
 ├── .cursor/
 │   └── rules/               # shared Cursor rules — all 10 build to one standard
 └── README.md
 ```
 
 **n8n workflows are exported to JSON and committed.** A workflow that exists only in one person's n8n UI is not part of the product.
+
+**n8n export cron.** An hourly cron job on the Contabo VPS exports every ElderWise workflow from the live n8n instance into `n8n/workflows/*.json` and commits to `main`. This produces `chore(n8n): export N workflow(s)` commits outside the docs-first flow; **this is intended and must not be changed.**
+
+The flow is **one-directional: n8n → repo.** The live n8n instance is the source of truth for workflow definitions; `n8n/workflows/*.json` is its committed record and is safe to read from. **Re-importing these files into n8n is forbidden** (Rules **W7**) — it rotates `webhookId` values and silently kills inbound WhatsApp traffic.
+
+**Merge consequence:** because this cron commits to `main` roughly hourly, any branch may go behind `main` between opening and merging. Always use a normal three-way merge; a rebase-force would revert the exported workflow JSON.
 
 ### 12.2 Branching
 Branch per member → PR → merge to a stable `main` (Akhil's directive). `main` is always demo-able. **Prerequisite: all 10 members need GitHub accounts** (open item A-6).
@@ -1052,6 +1072,8 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 | **A-31** | **n8n → Sentry deferred (4 Aug 2026).** One HTTP Request node on `uvBstI6J42nNhIYz` would put every Track B failure into Sentry with severity from the failing workflow's name. Deferred as unnecessary at current volume. If revisited: the DSN lives in an n8n **header-auth credential**, never in a node URL — the hourly export strips credentials, not URLs, and a DSN in a URL reaches the public repo within the hour. Payload must be a hand-built envelope (workflow name, node name, execution ID, timestamp, error class) — **never** `execution.error.message`, which is A-19. | Talal |
 | A-32 | ~~**`middleware.ts` has never run in production.**~~ — **CLOSED 8 August 2026 by Talal Baig.** Moved to `src/middleware.ts`. **Both verification checks passed**, including check 2 — the 70-minute tab-close test confirming a session survives access-token expiry. (Originally: root placement under a `src/` project left `.next/server/middleware-manifest.json` empty, so `supabase.auth.getUser()` session refresh never ran; newly runs on `/share/[token]` as well.) | Talal |
 | **A-33** | **Redelivery after check-in closure produces a spurious elder message.** The A-25 early exit sits *after* `Resolve Check-in`. If a redelivery arrives once the original check-in has already closed, `Resolve Check-in` returns zero rows, `Open Check-in Found?` goes false, and the elder receives the no-open-check-in reply (A-26) instead of silent suppression — the dedup is never consulted on that path. Fix would be to move `Already Processed?` ahead of `Resolve Check-in`, directly after `Valid media_id?`; the node depends only on `media_id` from the trigger, so it does not need check-in context. Costs one more SDK cycle and another HTTP credential re-bind. **P3 — a confusing message, not data corruption.** | Talal |
+| E3 | ~~Something auto-commits `chore(n8n): export N workflow(s)` to `main` outside the docs-first flow.~~ — **CLOSED 9 August 2026. Not a defect.** Identified as a deliberate hourly export cron on the Contabo VPS. Ruled by Talal: leave as is. Documented in §12.1. | Closed |
+| D2 | ~~Prove the Sentry alert rule fires.~~ — **CLOSED 8 August 2026.** A real alert was received and confirmed by Talal. | Closed |
 
 ---
 
@@ -1059,6 +1081,7 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 
 | Date | Version | Change |
 |---|---|---|
+| 9 Aug 2026 | 1.30 | **Workflow map completed and two items closed.** Full enumeration found 20 workflows against 16 in the working map; WF-3d (Food/Health Response Handler), WF-4c (SOS Resolution Broadcast), WF-4d (SOS Nudge Sweep) and the read-only Credential Check utility documented in §8. WF-3d's zero-row guard verified live in execution 56991. **E3 closed — not a defect:** the `chore(n8n): export` commits are a deliberate hourly cron on the Contabo VPS, now documented; the flow is one-directional n8n → repo and re-import remains forbidden under Rules W7. **D2 closed** — Sentry alert rule proven by a real firing. Postgres connection timeouts raised from 10 s to 15 s (WF-1b materialise) and 20 s (WF-4d nudge select) after the 8 August failures. |
 | 9 Aug 2026 | 1.29 | **Post-demo deferral register created.** `PostDemoEnhancements.md` v1.0 records PD-1 to PD-8 — routine-table timestamps, fabricated `createdAt`/`updatedAt` in `mappers.ts`, C3 scope correction, D-7 revisit, the dashboard `ALL_DAYS` fallback, A-33, E2 and A-23 — deferred by ruling of the Team Lead on the basis that no item has a user-facing consumer and the remedies carry more risk than the defects while the test run is incomplete. **T-1 closed: no defect found** — all six routine forms verified against D-1 on 8 August; the reported Monday-only default was a tester setup artefact, not a code path. |
 | 8 Aug 2026 | 1.28 | **A-25 closed — WF-5 voice-note idempotency.** §5.2 `voice_replies` gains `media_id` (partial unique index `WHERE media_id IS NOT NULL`); `audio_path` shape changed `{unix_ms}` → `{media_id}`. §8 WF-5: three-layer dedup documented (early exit before any media fetch; `ON CONFLICT (media_id) WHERE media_id IS NOT NULL DO NOTHING`; deterministic object key with `x-upsert: true`). `Derive Answer` discriminator made explicit (`resource: text` / `operation: response`) after runtime evidence confirmed the Responses API path — no behaviour change. Published `activeVersionId 83a6a60e`, verified against the live workflow. **A-33 opened:** redelivery arriving after check-in closure still reaches the no-open-check-in reply, because the early exit sits after `Resolve Check-in` (P3). |
 | 8 Aug 2026 | 1.27 | **A-32 closed** (Talal Baig, 8 August 2026): middleware registered at `src/middleware.ts`; both verification checks passed, including the 70-minute tab-close / access-token-expiry survival test. §11.1 Sentry edge note corrected — `sentry.edge.config.ts` is active (no longer described as dead code pending A-32). |
