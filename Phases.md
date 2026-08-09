@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.17 |
+| **Document** | Phases.md — v1.18 |
 | **Date** | 4 August 2026 |
 | **Demo Day** | **Saturday 29 August 2026** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Templates.md` |
@@ -279,6 +279,12 @@ The proposal was a **second channel (Telegram)** so the demo could run even if t
 
 ---
 
+## Post-Demo Day work (out of phase scope)
+
+Work deferred until after Demo Day (29 August 2026) is tracked in **`PostDemoEnhancements.md`** (PD-1–PD-8). It is **not** in scope for any current phase.
+
+---
+
 ## 8. Roles
 
 **10 members** (Patrick Correya has left the team).
@@ -332,6 +338,7 @@ The proposal was a **second channel (Telegram)** so the demo could run even if t
 
 | Date | Version | Change |
 |---|---|---|
+| 9 Aug 2026 | 1.18 | **Post-Demo Day register.** Deferred work lives in `PostDemoEnhancements.md` and is **not** in scope for any current phase (ruling 9 Aug 2026). |
 | 4 Aug 2026 | 1.17 | **Verification console delivered (Track A).** A2.9 DONE — read-only `/verify` console, `console_access` gate, Phase 4 behavioural tests green; `Architecture.md` §11.2, `Rules.md` C11. |
 | 4 Aug 2026 | 1.16 | **Cancelled check-ins DONE.** Two migrations; frontend `25114ed`; WF-3c cancel branch proven on `4af31e90`. A-27–A-29 opened. Remaining: Sentry, A-25, A-26, A-27–29, WF-3a guard, `some_of_them`, Sama copy. |
 | 4 Aug 2026 | 1.15 | **Voice pass DONE.** WF-5 built + E2E proven (medication `yes_all`, CT "Taken"). WF-2a audio branch; voice→medication mapping; renames (WF-3a/3b/6); harnesses archived. Re-ask cap correction: proven 4 Aug, not 3 Aug. Sixteen-workflow map. Remaining: Sentry, A-25, A-26, WF-3a guard, `some_of_them` gate, Sama copy. |

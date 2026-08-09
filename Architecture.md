@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.28 |
+| **Document** | Architecture.md — v1.29 |
 | **Date** | 8 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
@@ -1015,6 +1015,8 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 ## 15. Open items
 
+Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhancements.md`**, with the reasoning for each deferral. Items **A-33** and **A-23** appear there as **PD-6** and **PD-8**; they remain open here and are not closed by being scheduled.
+
 | # | Item | Owner |
 |---|---|---|
 | A-1 | ~~**STT provider** — Google Speech-to-Text vs ElevenLabs.~~ — **CLOSED 2 August 2026 by Talal:** **OpenAI Whisper** (OpenAI transcription API). Rationale in §3. | Closed |
@@ -1057,6 +1059,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 | Date | Version | Change |
 |---|---|---|
+| 9 Aug 2026 | 1.29 | **Post-demo deferral register created.** `PostDemoEnhancements.md` v1.0 records PD-1 to PD-8 — routine-table timestamps, fabricated `createdAt`/`updatedAt` in `mappers.ts`, C3 scope correction, D-7 revisit, the dashboard `ALL_DAYS` fallback, A-33, E2 and A-23 — deferred by ruling of the Team Lead on the basis that no item has a user-facing consumer and the remedies carry more risk than the defects while the test run is incomplete. **T-1 closed: no defect found** — all six routine forms verified against D-1 on 8 August; the reported Monday-only default was a tester setup artefact, not a code path. |
 | 8 Aug 2026 | 1.28 | **A-25 closed — WF-5 voice-note idempotency.** §5.2 `voice_replies` gains `media_id` (partial unique index `WHERE media_id IS NOT NULL`); `audio_path` shape changed `{unix_ms}` → `{media_id}`. §8 WF-5: three-layer dedup documented (early exit before any media fetch; `ON CONFLICT (media_id) WHERE media_id IS NOT NULL DO NOTHING`; deterministic object key with `x-upsert: true`). `Derive Answer` discriminator made explicit (`resource: text` / `operation: response`) after runtime evidence confirmed the Responses API path — no behaviour change. Published `activeVersionId 83a6a60e`, verified against the live workflow. **A-33 opened:** redelivery arriving after check-in closure still reaches the no-open-check-in reply, because the early exit sits after `Resolve Check-in` (P3). |
 | 8 Aug 2026 | 1.27 | **A-32 closed** (Talal Baig, 8 August 2026): middleware registered at `src/middleware.ts`; both verification checks passed, including the 70-minute tab-close / access-token-expiry survival test. §11.1 Sentry edge note corrected — `sentry.edge.config.ts` is active (no longer described as dead code pending A-32). |
 | 8 Aug 2026 | 1.26 | **Wave 2 frontend + wellbeing vocabulary.** Sama (8 Aug): status vocabulary locked — `stable`→Doing well · `attention`→Needs attention · `urgent`→Urgent · `unknown`→No data yet (pill + Loved Ones filter). **D-5 / F-4** wellbeing derived in app code from SOS + recent missed check-ins (not stored). **F-1** day-of-week wired into all six routine forms (Cases 17/18). **F-1a / D-2** writers stop emitting `frequency: 'custom'`. **F-4c / D-7** mapper stops fabricating `elders.updatedAt` from `created_at`. **Track B (Claude, same day):** WF-5 consent predicate (F-8), no-open-check-in reply closing **A-26** (F-7), error-workflow binding (F-9). **Namespace:** Wave 1/2 decision refs renamed **R-1…R-7 → D-1…D-7** so they do not collide with §14 Risks `R1`–`R9`. |
