@@ -1,0 +1,147 @@
+{
+  "activeVersionId": "135bab22-cf59-4cee-beae-f552328c7fd0",
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Find Overdue Dispatches",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Find Overdue Dispatches": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Alert Telegram",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Alert Email",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "description": "A-30 detector. Every 5 minutes, finds check-ins that are past due and were never sent (sent_at IS NULL, not cancelled, 15 min to 2 h overdue) and alerts Talal via Telegram and Gmail. Silent when nothing is overdue.",
+  "id": "8G8s8dNSVySDbPpm",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "name": "ElderWise WF-7 - Dispatch Watchdog",
+  "nodes": [
+    {
+      "id": "34ef8f95-9126-4a01-ac1c-a9205ba60b54",
+      "name": "Every 5 Minutes",
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        96
+      ],
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "605f1a79-463b-4b1a-b732-4327df88b9f3",
+      "name": "Find Overdue Dispatches",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 15
+        },
+        "query": "SELECT count(*)::int AS overdue_count,\n       to_char(min(c.scheduled_for) AT TIME ZONE 'Asia/Riyadh','YYYY-MM-DD HH24:MI') AS oldest_due_riyadh,\n       string_agg(DISTINCT c.domain::text, ', ') AS domains,\n       string_agg(DISTINCT e.first_name, ', ') AS elders\nFROM checkins c\nJOIN elders e ON e.id = c.elder_id\nWHERE c.sent_at IS NULL\n  AND c.cancelled_at IS NULL\n  AND e.active\n  AND e.consent_confirmed_at IS NOT NULL\n  AND c.scheduled_for < now() - interval '15 minutes'\n  AND c.scheduled_for > now() - interval '2 hours'\nHAVING count(*) > 0",
+        "resource": "database"
+      },
+      "position": [
+        224,
+        96
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "credentials": {
+        "telegramApi": {
+          "id": "kKnHoYC1CAK381fa",
+          "name": "Laila_neversleeps_bot"
+        }
+      },
+      "id": "f757eccf-c90b-455c-8c46-8a8801956e81",
+      "name": "Alert Telegram",
+      "parameters": {
+        "additionalFields": {
+          "appendAttribution": false
+        },
+        "chatId": "776765063",
+        "operation": "sendMessage",
+        "resource": "message",
+        "text": "=⚠️ ElderWise dispatch watchdog\n\n{{ $json.overdue_count }} check-in(s) are past due and were never sent.\n\nOldest due: {{ $json.oldest_due_riyadh }} (Riyadh)\nDomains: {{ $json.domains }}\nLoved Ones: {{ $json.elders }}\n\nArchitecture §11 P1 — A-30. Check WF-1 / WF-1b / WF-1c executions and Meta template status."
+      },
+      "position": [
+        448,
+        0
+      ],
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "webhookId": "9b992391-007a-4d43-a66a-8b3d50d9136f"
+    },
+    {
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "trL46GcpmkGxJNnm",
+          "name": "Gmail talalbaig@gmail.com"
+        }
+      },
+      "id": "15cf0004-8163-4e03-9368-5d22caa64df5",
+      "name": "Alert Email",
+      "parameters": {
+        "emailType": "text",
+        "message": "=⚠️ ElderWise dispatch watchdog\n\n{{ $json.overdue_count }} check-in(s) are past due and were never sent.\n\nOldest due: {{ $json.oldest_due_riyadh }} (Riyadh)\nDomains: {{ $json.domains }}\nLoved Ones: {{ $json.elders }}\n\nArchitecture §11 P1 — A-30. Check WF-1 / WF-1b / WF-1c executions and Meta template status.",
+        "operation": "send",
+        "options": {
+          "appendAttribution": false
+        },
+        "resource": "message",
+        "sendTo": "talalbaig@gmail.com",
+        "subject": "ElderWise P1 - check-ins past due and never sent"
+      },
+      "position": [
+        448,
+        192
+      ],
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "webhookId": "cb0a17e9-c90a-4e41-97c2-02707b5d1b4c"
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": {
+    "node:Every 5 Minutes": {
+      "recurrenceRules": []
+    }
+  }
+}
