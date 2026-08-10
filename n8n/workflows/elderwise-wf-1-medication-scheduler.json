@@ -258,6 +258,7 @@
   "settings": {
     "binaryMode": "separate",
     "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "uvBstI6J42nNhIYz",
     "executionOrder": "v1",
     "executionTimeout": 300,
     "timeSavedMode": "fixed"
