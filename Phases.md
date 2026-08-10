@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.18 |
-| **Date** | 4 August 2026 |
+| **Document** | Phases.md — v1.19 |
+| **Date** | 10 August 2026 |
 | **Demo Day** | **Saturday 29 August 2026** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Templates.md` |
 
@@ -41,7 +41,7 @@ The two tracks cannot block each other — that is the entire reason the archite
 
 1. **Screens with fake data** — screen by screen, sign off on design before touching a database.
 2. **Wire to Supabase — single seeded user, no login UI.**
-3. **Add the auth UI on top** — signup, signin, Google OAuth, multi-user.
+3. **Add the auth UI on top** — signup, signin (email + password), multi-user.
 
 > **The amendment, and why it matters.** Step 2 was originally "connect the database *without login*." That quietly means *build the tables with no RLS* — and RLS retrofitted afterwards is exactly how one family ends up seeing another family's data. **X1 (cross-family access) is a release blocker** in `Rules.md` §14.
 >
@@ -136,7 +136,7 @@ Because RLS and `auth.uid()` already exist, this is **UI work, not a security re
 
 | # | Task |
 |---|---|
-| A3.1 | ~~Signup / signin (Supabase Auth — email + password **and Google OAuth**)~~ — **DONE.** |
+| A3.1 | ~~Signup / signin (Supabase Auth — **email + password**)~~ — **DONE.** Google OAuth was never built; the placeholder buttons were removed 10 Aug 2026 and the feature is withdrawn from the MVP — see `Architecture.md` §7.1 (D-8) and `PostDemoEnhancements.md` PD-9. |
 | A3.2 | ~~Session handling (httpOnly cookies, SSR client), protected routes~~ — **DONE.** |
 | A3.3 | ~~Seeded-user auto-login removed~~ — **DONE.** |
 | A3.4 | ~~**Multi-user + multi-elder** — one CT with several EPs; elder selector~~ — **DONE.** |
@@ -281,7 +281,7 @@ The proposal was a **second channel (Telegram)** so the demo could run even if t
 
 ## Post-Demo Day work (out of phase scope)
 
-Work deferred until after Demo Day (29 August 2026) is tracked in **`PostDemoEnhancements.md`** (PD-1–PD-8). It is **not** in scope for any current phase.
+Work deferred until after Demo Day (29 August 2026) is tracked in **`PostDemoEnhancements.md`** (PD-1–PD-11). It is **not** in scope for any current phase.
 
 ---
 
@@ -338,6 +338,7 @@ Work deferred until after Demo Day (29 August 2026) is tracked in **`PostDemoEnh
 
 | Date | Version | Change |
 |---|---|---|
+| 10 Aug 2026 | 1.19 | **D-8 — Google OAuth withdrawn from the MVP.** §1.1 step 3 and A3.1 corrected: auth is email + password only. A3.1 previously claimed Google OAuth was **DONE** when it was never built — false-completion claim struck; placeholders removed 10 Aug; work deferred as `PostDemoEnhancements.md` PD-9. Post-demo range updated to PD-1–PD-11 (adds PD-9 / PD-10 / PD-11). |
 | 9 Aug 2026 | 1.18 | **Post-Demo Day register.** Deferred work lives in `PostDemoEnhancements.md` and is **not** in scope for any current phase (ruling 9 Aug 2026). |
 | 4 Aug 2026 | 1.17 | **Verification console delivered (Track A).** A2.9 DONE — read-only `/verify` console, `console_access` gate, Phase 4 behavioural tests green; `Architecture.md` §11.2, `Rules.md` C11. |
 | 4 Aug 2026 | 1.16 | **Cancelled check-ins DONE.** Two migrations; frontend `25114ed`; WF-3c cancel branch proven on `4af31e90`. A-27–A-29 opened. Remaining: Sentry, A-25, A-26, A-27–29, WF-3a guard, `some_of_them`, Sama copy. |

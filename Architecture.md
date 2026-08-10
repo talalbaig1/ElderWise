@@ -5,8 +5,8 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.30 |
-| **Date** | 9 August 2026 |
+| **Document** | Architecture.md — v1.31 |
+| **Date** | 10 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
 
@@ -540,7 +540,15 @@ create policy "CT reads own checkins" on checkins
 ## 7. Authentication
 
 ### 7.1 Care Partner
-Supabase Auth — **email + password, and Google OAuth**. Session in an httpOnly cookie via the Supabase SSR client. `auth.uid()` is the root of every RLS policy.
+Supabase Auth — **email + password only**. Session in an httpOnly cookie via the Supabase SSR client. `auth.uid()` is the root of every RLS policy.
+
+> **D-8 · Google OAuth withdrawn from the MVP (Talal Baig, 10 August 2026).** This reverses the earlier ruling (open item C1) that Google sign-in was a go for Demo Day. Simple email + password is sufficient for the MVP; the work is deferred to `PostDemoEnhancements.md` **PD-9**.
+>
+> **Why this is a redesign and not a configuration task — do not attempt to "just add a callback route".** Authentication and onboarding are currently one coupled flow. `postAuthPath()` in `src/lib/auth-routing.ts` can express exactly two states: `/dashboard` if the Care Partner owns an active elder, `/onboarding` otherwise. The `care_partners` profile row is created by `ensureCarePartnerProfile()` (`src/lib/data/ensure-care-partner.ts`), which is idempotent and runs on both sign-up and first sign-in — **but only when invoked from the two form submit handlers, and only because those handlers can supply `fullName` and `timeZone`.** An OAuth callback has neither a form nor those two inputs.
+>
+> OAuth therefore introduces a third state that routing cannot express: **authenticated, no profile row.** That state fails *silently*, because `countOwnActiveElders()` returns `0` on error — a missing profile is indistinguishable from a brand-new user. The blast radius is wider than the post-auth redirect: `hasOwnProductElder()` is consumed at three points in `src/components/auth/route-guards.tsx` and again in `src/app/(app)/layout.tsx`, so an affected user would be bounced from `/dashboard` to `/onboarding` on every app-layout render.
+>
+> Adding Google sign-in requires **separating authentication from onboarding**: a profile-creation path that does not depend on form input, a third routing state, and a gate that distinguishes "no profile" from "no elder". See PD-9.
 
 ### 7.2 Elderly Patient
 **None.** The EP never authenticates and never logs into anything. Their identity is their WhatsApp number, resolved on the inbound webhook. This is the entire premise of the product — do not add a login for the elder under any circumstances.
@@ -882,6 +890,8 @@ The LLM gate emits three values; medication has three **different** stored value
 | CT notification failure (**P2**) | n8n error workflow |
 | Dashboard errors (**P2**) · report generation (**P3**) | **Sentry** |
 
+> **Known limitation — a check-in that was never sent is still swept to `missed`, and the Care Partner is still notified (D-9, accepted 10 August 2026).** WF-3c transitions on elapsed schedule alone; it does not consult `sent_at`. WF-6 then sends `elderwise_ct_missed_notice`, whose approved body asserts "We sent a reminder and haven't heard back" as fixed template copy. Where a dispatch failed, that statement is false and the adherence record is wrong. Observed 9–10 August 2026 across eight medication check-ins during a Meta template review. The cause is not template-specific: rate limiting, a rotated credential, an invalid handset number, or the WhatsApp account itself going down (R1 / A-5) produce the same state. **Accepted for the MVP** — WF-3c is the sole owner of the `missed` transition, no terminal state is defined for a never-sent check-in, and the remedy carries more risk than the defect while the test run is incomplete. Deferred as **PD-10** (suppress the notice in WF-6) and **PD-11** (record the failure cause, which A-30 also needs).
+
 **Consequence to hold in mind:** the P0 tier is served by a push notification with no grouping, no state, and no history. A high-frequency error on a one-minute cron will bury a real alert in Telegram — the WF-4d zero-row case in `Rules.md` §6a would have fired ~1,400 times a day. If that ever happens in practice, revisit A-31 rather than muting the channel.
 
 **Scrubbing is a prerequisite, not a follow-up.** `Rules.md` §14.3 **X9** applies in full to the Next.js half on its own. In particular `/share/[token]` carries a **live doctor share token in the URL path**, and the Sentry SDK attaches request URLs to server-side events by default. Configure `sendDefaultPii: false` and a `beforeSend` scrubber **in the same commit as the SDK install**, never after.
@@ -1034,7 +1044,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 ## 15. Open items
 
-Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhancements.md`**, with the reasoning for each deferral. Items **A-33** and **A-23** appear there as **PD-6** and **PD-8**; they remain open here and are not closed by being scheduled.
+Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhancements.md`**, with the reasoning for each deferral. Items **A-33** and **A-23** appear there as **PD-6** and **PD-8**; they remain open here and are not closed by being scheduled. **PD-9** (Google OAuth / D-8), **PD-10** and **PD-11** (never-sent check-ins / D-9; feeds a real A-30 detector) are also recorded there.
 
 | # | Item | Owner |
 |---|---|---|
@@ -1080,6 +1090,7 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 
 | Date | Version | Change |
 |---|---|---|
+| 10 Aug 2026 | 1.31 | **Google OAuth withdrawn from the MVP (D-8); never-sent check-ins accepted as a known limitation (D-9).** §7.1 corrected — auth is email + password only; the earlier "and Google OAuth" wording is withdrawn along with open item C1. The auth/onboarding coupling recorded inline in §7.1 with its reasoning: `ensureCarePartnerProfile` depends on `fullName` + `timeZone` supplied by a form submit handler, so an OAuth callback produces an unroutable third state (authenticated, no profile row) that fails silently via `countOwnActiveElders`'s `0`-on-error return, across four call sites. Deferred to `PostDemoEnhancements.md` PD-9. `Phases.md` A3.1 corrected — it falsely marked Google OAuth complete. "Continue with Google" removed from the sign-in and sign-up UI. **§11:** a check-in that was never delivered is still swept to `missed` and still triggers the Care Partner Missed Notice, whose template copy asserts a reminder was sent — observed 9–10 Aug across eight medication check-ins during a Meta template review, and reachable by any dispatch failure, not only template ones. Accepted for the MVP by ruling; deferred as PD-10 (WF-6 guard) and PD-11 (persist the send-failure cause, which a real A-30 detector also requires). **Rules W-series:** approved WhatsApp templates must never be edited in place — see `Rules.md` v1.19. |
 | 9 Aug 2026 | 1.30 | **Workflow map completed and two items closed.** Full enumeration found 20 workflows against 16 in the working map; WF-3d (Food/Health Response Handler), WF-4c (SOS Resolution Broadcast), WF-4d (SOS Nudge Sweep) and the read-only Credential Check utility documented in §8. WF-3d's zero-row guard verified live in execution 56991. **E3 closed — not a defect:** the `chore(n8n): export` commits are a deliberate hourly cron on the Contabo VPS, now documented; the flow is one-directional n8n → repo and re-import remains forbidden under Rules W7. **D2 closed** — Sentry alert rule proven by a real firing. Postgres connection timeouts raised from 10 s to 15 s (WF-1b materialise) and 20 s (WF-4d nudge select) after the 8 August failures. Two stale passages corrected: §8 WF-3a no longer describes the unguarded WF-6 call as an open P1 (guard verified on version `d9016665`; F-7 / D-9 closed), and §5.6 no longer lists `days_of_week` as uncollected — it is collected by all six routine forms (D-1) and honoured by WF-1/1b/1c. Test-catalogue finding F-1 can be retired. |
 | 9 Aug 2026 | 1.29 | **Post-demo deferral register created.** `PostDemoEnhancements.md` v1.0 records PD-1 to PD-8 — routine-table timestamps, fabricated `createdAt`/`updatedAt` in `mappers.ts`, C3 scope correction, D-7 revisit, the dashboard `ALL_DAYS` fallback, A-33, E2 and A-23 — deferred by ruling of the Team Lead on the basis that no item has a user-facing consumer and the remedies carry more risk than the defects while the test run is incomplete. **T-1 closed: no defect found** — all six routine forms verified against D-1 on 8 August; the reported Monday-only default was a tester setup artefact, not a code path. |
 | 8 Aug 2026 | 1.28 | **A-25 closed — WF-5 voice-note idempotency.** §5.2 `voice_replies` gains `media_id` (partial unique index `WHERE media_id IS NOT NULL`); `audio_path` shape changed `{unix_ms}` → `{media_id}`. §8 WF-5: three-layer dedup documented (early exit before any media fetch; `ON CONFLICT (media_id) WHERE media_id IS NOT NULL DO NOTHING`; deterministic object key with `x-upsert: true`). `Derive Answer` discriminator made explicit (`resource: text` / `operation: response`) after runtime evidence confirmed the Responses API path — no behaviour change. Published `activeVersionId 83a6a60e`, verified against the live workflow. **A-33 opened:** redelivery arriving after check-in closure still reaches the no-open-check-in reply, because the early exit sits after `Resolve Check-in` (P3). |

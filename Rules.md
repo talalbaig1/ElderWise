@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.18 |
-| **Date** | 8 August 2026 |
+| **Document** | Rules.md — v1.19 |
+| **Date** | 10 August 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
 
@@ -121,6 +121,7 @@ From `Architecture.md` §1 (P1). These are the walls that let ten people work in
 | **W5** | **Dev and prod workflows are separate** inside the single n8n instance and point at different Supabase projects. Never test against prod. |
 | **W6** | **n8n uses the service-role key and therefore bypasses RLS.** This is deliberate — n8n is trusted infrastructure. It also means an n8n bug can touch *any* family's data. Write these workflows accordingly. |
 | **W7** | **The n8n instance is authoritative for workflows. The JSON under `n8n/workflows/` is a read-only snapshot and must never be re-imported.** Re-importing an export rotates trigger nodes' `webhookId` values. For WF-2, whose webhook is registered as the Meta WhatsApp callback, that **silently kills all inbound traffic** — messages stop arriving with no error anywhere. Use the exports for reading, diffing and review. To restore a workflow, rebuild it in the n8n UI. |
+| **W8** | **Never edit an approved WhatsApp template in place. Create a `_v2`, get it approved, then repoint the workflow.** Editing an approved template returns it to Meta review. While it is `PENDING`, every send against that name fails with **error 132001 / HTTP 404 — `template name does not exist in <language>`**, and the *previous* approved version is unavailable too. There is no rollback. This cost 22 hours of medication outage on 9–10 August 2026. A one-word copy change to `elderwise_ep_medication_checkin` (removing a time-of-day greeting) put it into review; WF-1 then failed once a minute for over 1,400 executions, every medication check-in in that window went undelivered and was subsequently marked `missed`, and five of a tester's eleven passing negative cases were invalidated because they asserted that no medication message would arrive. **The required sequence, every time:** (1) Create a new template with a versioned name — `<name>_v2`, `_v3`, and so on (pattern already used by `elderwise_ep_health_checkin_v2` and `elderwise_ep_health_reminder_v2`). (2) Submit it and wait for **APPROVED**. Confirm with the read-only Template Audit workflow (`PADE2m75e6xVGS2e`) — do not rely on the WhatsApp Manager UI alone. (3) Only then repoint the workflow's send node at the new `name`\|`language`. Where the node is a WhatsApp node inside a webhook-bearing workflow, edit in the UI (n8n finding #7). (4) Leave the old template in place. Do not delete it until the new one has been observed sending successfully in production. **Language codes are `en`, not `en_US`.** The one `en_US` template in the account is Meta's `hello_world` sample. Template changes are Talal's alone — he holds the sole Meta dashboard account. |
 
 ---
 
@@ -325,6 +326,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 10 Aug 2026 | 1.19 | **W8 — never edit an approved WhatsApp template in place.** Create a `_v2`, get it APPROVED, confirm via Template Audit (`PADE2m75e6xVGS2e`), then repoint the workflow. Caused by the 9–10 August 2026 medication outage: an in-place copy edit to `elderwise_ep_medication_checkin` put it into Meta review; sends failed with 132001 for ~22 hours (~1,400 WF-1 executions). Language codes are `en`, not `en_US`. |
 | 8 Aug 2026 | 1.18 | **§6a — two findings added** from the WF-5 A-25 build. `ON CONFLICT` against a **partial** unique index must repeat the index predicate or the statement fails on every insert. A **POST to Supabase Storage 409s rather than overwriting**; deterministic object keys need `x-upsert: true`. |
 | 8 Aug 2026 | 1.17 | **C12 + W7 from 8 August defects.** **C12** — when a shared Zod schema gains a required field, enumerate every `.safeParse(` / `.parse(` consumer before merge (`tsc` cannot see hand-built `unknown` payloads; Wave 2 `daysOfWeek` broke all three dashboard routine upserts). **W7** — `n8n/workflows/` JSON is a read-only snapshot; never re-import (rotates `webhookId` and can silently kill Meta inbound on WF-2). |
 | 4 Aug 2026 | 1.16 | **C11 — verification console.** Fixed security surface: no free-text, SQL, `.rpc()`, read-path writes, or imports of `createAdminClient` / dashboard analytics / mappers; §9 grep block is the standing check (`Architecture.md` §11.2). |
