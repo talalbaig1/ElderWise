@@ -1,8 +1,8 @@
 | Field | Value |
 | --- | --- |
-| **Document** | PostDemoEnhancements.md — v1.0 |
+| **Document** | PostDemoEnhancements.md — v1.1 |
 | **Project** | ElderWise · AIGF Cohort 7 · Group 7 |
-| **Date** | 9 August 2026 |
+| **Date** | 10 August 2026 |
 | **Status** | Deferred by ruling — scheduled to begin after Demo Day, 29 August 2026 |
 
 ## Purpose
@@ -91,6 +91,45 @@ WF-2's webhook id is committed in the repo. When the repository is made private 
 
 Nothing deletes objects from the private `voice-notes` bucket. Retention has never been ruled. The bucket holds recordings of elderly people's voices, so this is a data-protection decision before it is an engineering one.
 
+### PD-9 · Google OAuth — decouple authentication from onboarding
+
+**Layer:** Next.js (auth + routing) · **Owner:** Talal · **Priority:** P3
+
+Withdrawn from the MVP on 10 August 2026 (D-8), reversing open item C1. The "Continue with Google" buttons were placeholders that fired a toast and did nothing; they were removed from the sign-in and sign-up pages the same day.
+
+Adding it back is not a configuration change. `ensureCarePartnerProfile` can only run where `fullName` and `timeZone` are available from a form submit handler, so an OAuth callback lands a session with no `care_partners` row — a third state `postAuthPath()` cannot express, and one that fails silently because `countOwnActiveElders` returns `0` on error across four call sites.
+
+Remedy: a profile-creation path independent of form input, a third routing state distinguishing "no profile" from "no elder", and a decision on where the OAuth user supplies their timezone. Full reasoning in `Architecture.md` §7.1.
+
+### PD-10 · Care Partner is told a reminder was sent when nothing was delivered
+
+**Layer:** n8n (WF-6) · **Owner:** Talal / Claude · **Priority:** P2
+
+WF-3c sweeps a check-in to `missed` on elapsed schedule alone, without regard to whether it was ever delivered. WF-6 then dispatches `elderwise_ct_missed_notice`, whose approved body states "We sent a reminder and haven't heard back" — fixed template copy, not conditional logic, so it is false on every path where no message went out.
+
+Observed 9–10 August 2026: eight medication check-ins with `sent_at IS NULL` transitioned to `missed` roughly 30 minutes after `scheduled_for` while `elderwise_ep_medication_checkin` sat in Meta review, and Care Partners were notified. This is not specific to template problems — Meta rate limiting, a rotated credential, an invalid handset number, or the WhatsApp account going down (R1, unmitigated under A-5) all produce the identical state.
+
+**Ruled by Talal, 10 August 2026 (D-9): accepted for the MVP, deferred to after Demo Day.** WF-3c is the sole owner of the `missed` transition, there is no defined target state for a never-sent check-in, and the test run is incomplete — the remedy carries more risk than the defect before the 29th.
+
+Remedy (post-demo): leave WF-3c untouched. Guard **WF-6** so the Care Partner Missed Notice is suppressed when `sent_at IS NULL`. The row still records `missed`, ownership does not move, no enum or migration is needed. One guard IF on the existing zero-row-safe pattern. Revisit separately whether a never-sent check-in should carry a distinct terminal state, and whether Sama's Missed Notice copy should stop asserting that a reminder was sent.
+
+### PD-11 · A send failure has no recorded cause
+
+**Layer:** schema + n8n (WF-0 / WF-1 / WF-1b / WF-1c / WF-3b / WF-6) · **Owner:** Talal · **Priority:** P2
+
+`checkins.sent_at IS NULL` is currently the only evidence that a dispatch failed, and it is silent about *why*. Diagnosing the 9–10 August medication outage required reading n8n execution JSON by hand to reach Meta error 132001; nothing in the database, the dashboard, or the Verification Console could have surfaced it. Every distinct failure mode collapses into the same undifferentiated NULL:
+
+- template not approved, pending re-review after an in-place edit, or rejected (Meta 132001 / 132000 / 132005)
+- Meta rate limiting or throttling
+- rotated, revoked, or wrongly auto-assigned credential (see n8n finding #4)
+- invalid or unreachable handset number
+- WhatsApp Business account suspended or unavailable (R1 — no backup account, A-5)
+- 24-hour-window or opt-in state problems
+
+Remedy (post-demo): persist the cause of a failed dispatch — at minimum a nullable `send_failure_reason` (text) and `send_attempted_at` on `checkins`, written by the same nodes that would otherwise write `sent_at`, plus the Meta error code where one exists. This requires a migration, which stays with Talal. Once present it feeds three things that do not exist today: a real detector for **A-30** (the ±5-minute dispatch P1 that nothing currently reports), an accurate Missed Notice under PD-10, and a Verification Console check a tester could run without n8n access.
+
+Depends on: nothing. Blocks: a genuine A-30 detector.
+
 ## Explicitly NOT deferred
 
 Recorded here so nobody mistakes them for register items:
@@ -106,4 +145,5 @@ Recorded here so nobody mistakes them for register items:
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 10 Aug 2026 | 1.1 | **PD-9, PD-10, PD-11 added.** PD-9 — Google OAuth withdrawn from the MVP (D-8); requires decoupling auth from onboarding. PD-10 — suppress Care Partner Missed Notice when `sent_at IS NULL` (D-9 accepted for MVP). PD-11 — persist send-failure cause (feeds A-30 / PD-10). |
 | 9 Aug 2026 | 1.0 | Register created. PD-1 to PD-8 recorded and deferred to after Demo Day by ruling of the Team Lead. |

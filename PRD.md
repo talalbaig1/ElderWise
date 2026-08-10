@@ -4,9 +4,9 @@
 |---|---|
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
-| **Team** | Group 7 (11 members) · Team Lead: Talal Baig |
-| **Document** | PRD.md — v1.11 |
-| **Date** | 27 July 2026 |
+| **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
+| **Document** | PRD.md — v1.12 |
+| **Date** | 10 August 2026 |
 | **Format** | AIGF Framework 9 (F9) PRD structure + technical build sections |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Demo Day** | 29 August 2026 |
@@ -425,7 +425,7 @@ Locked in Meeting 12 (7 July 2026).
 | **Automation / agents** | **n8n** (schedule triggers, reminder dispatch, response handling, SOS routing) — Robert; three servers ready |
 | **Messaging** | **WhatsApp Business API** (Meta-approved templates with Yes/No buttons) — Talal is the account holder |
 | **AI / LLM** | Reminder agent, SOS care-circle assembly (**relational lookup**, not RAG), message generation |
-| **Speech-to-text** | **Google Speech-to-Text** or **ElevenLabs** — shortlisted; final pick pending (OQ-5b). Used for voice-reply transcription (M4a). Whisper is **not** the choice. |
+| **Speech-to-text** | **OpenAI Whisper** (OpenAI transcription API) — **locked 2 August 2026 by Talal**; in use in WF-5. Supersedes the earlier Google STT / ElevenLabs shortlist, and the prior "Whisper is not the choice" wording is withdrawn. Used for voice-reply transcription (M4a). Rationale in `Architecture.md` §3 (A-1). |
 | **Repo** | **GitHub** — branch per member → merge to stable `main` |
 | **Deployment** | Vercel (front-end) |
 | **Dev tooling** | Cursor · **Claude Code** (under exploration) |
@@ -523,9 +523,9 @@ Demo Day ships the **MVP**. Should- and Could-have items are not permitted to en
 | OQ-3 | ~~Check-in accuracy window~~ — **RESOLVED 14 Jul: ±5 minutes** (NFR-6). ~~Demo-window availability~~ — **RESOLVED 14 Jul: replaced by a demo-day readiness checklist** (NFR-10). | Closed | Talal |
 | OQ-4 | ~~Doctor auth~~ — **RESOLVED 14 Jul: revocable, tokenised, read-only share link scoped to one EP.** No account. Full doctor login → v2. | Closed | Talal |
 | OQ-5 | ~~Voice reply handling~~ — **RESOLVED 14 Jul: voice replies ARE transcribed in the MVP.** The answer must be determined accurately and acted on exactly as a button tap would be. STT is therefore a **Must-have** (M4a), not a Could-have. | Closed | Talal |
-| OQ-5b | **STT provider** — shortlisted to **Google Speech-to-Text** or **ElevenLabs**; final pick pending. Separately, the **confidence threshold** that triggers the "re-ask once" path (FR-RH-2a) is still unset. Elderly speech, accents, and background noise make this non-trivial. | **Open** | Talal / Ferdous |
+| OQ-5b | ~~**STT provider** — shortlisted to Google Speech-to-Text or ElevenLabs.~~ — **CLOSED 2 August 2026 by Talal: OpenAI Whisper**, in use in WF-5. See `Architecture.md` §3 / A-1. **The confidence threshold remains unset by design** — WF-5's re-ask path is gated on answer-derivation returning `unclear`, not on an ASR confidence score; `voice_replies.confidence` is diagnostic only. | Closed | Talal |
 | OQ-6 | Ownership of the separate "Could have" sheet. | **Open** | Team |
-| OQ-7 | Confirm all 11 members have GitHub accounts (blocks branch assignment). | **Open** | Talal |
+| OQ-7 | Confirm all 10 members have GitHub accounts (blocks branch assignment). | **Open** | Talal |
 | OQ-8 | Team sheet to be updated to reflect the four MoSCoW changes of 14 Jul 2026 (auth → Must, multi-timezone → Must, multi-language → Should, extra channels → Could). | In progress | Talal |
 
 ---
@@ -534,6 +534,7 @@ Demo Day ships the **MVP**. Should- and Could-have items are not permitted to en
 
 | Date | Version | Change |
 |---|---|---|
+| 10 Aug 2026 | 1.12 | **STT locked to OpenAI Whisper; OQ-5b closed; member count 11 → 10.** §11 Speech-to-text and OQ-5b brought in line with `Architecture.md` §3 / A-1 (locked 2 August 2026; stale since then). Confidence threshold is unset by design — re-ask gated on answer-derivation `unclear`, not ASR score. Header team size and OQ-7 corrected to **10 members** following Patrick Correya's departure. |
 | 27 Jul 2026 | 1.11 | **§7.1 Not Required warning copy — three card-specific variants** (medication / food / health). Medication row 3 uses Timing + Notify dropdowns + Missed-dose escalation (minutes); escalation disabled (not hidden) when `not_required`. Food/Health are one row of three with Notify dropdowns. |
 | 26 Jul 2026 | 1.10 | **§9 / §12.4 correction.** Remove "ElderWise Corp" — no registered entity; name ElderWise as AIGF Cohort 7 Group 7 non-commercial capstone; no governing-law / no service contract. Rewrite must disclose demo-only PHI warning, A4.0-style deletion without notice, not HIPAA CE/BA, N1/SEC7, data residency. `consent_terms_version` = dated string (e.g. `2026-07-v1`). |
 | 26 Jul 2026 | 1.9 | **A4 — Onboarding restructure.** 8-step wizard → **4 steps** (Get Started pre-auth + Care Circle + Wellness Details + Review). First/Last name everywhere; non-WhatsApp phones removed. Care Circle skip semantics; Wellness field lists; dosage = quantity; one time per medication. M6 gains **Not Required** (total silence) + warning-copy placeholder. Four Review consents (M16a). Privacy/Terms flagged factually false and blocking (§12.4 / M18). Doctor share TZ → elder zone (M14/M15). Add-another progress = Step N of 3. |
