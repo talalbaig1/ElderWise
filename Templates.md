@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · Team Lead: Talal Baig |
-| **Document** | Templates.md — v1.12 |
+| **Document** | Templates.md — v1.13 |
 | **Date** | 11 August 2026 |
 | **Purpose** | Every message ElderWise sends. **Reconciled against the live Meta WABA — this document now records what Meta actually approved, not what was drafted.** |
 | **WABA** | `1495493002256968` · display number **966503330619** |
@@ -169,7 +169,7 @@ on the SOS path.
 | `elderwise_sos_alert_lct` | 3 | **5** | `{{4}}` Doctor name · `{{5}}` Hospital/Clinic |
 | `elderwise_sos_alert_doctor` | 3 | **7** | `{{3}}` Patient report link · `{{4}}` Buddy name · `{{5}}` Buddy number · `{{6}}` CP name · `{{7}}` CP number |
 
-Consequences are handled in §3.3 (NA substitution), §3.4 (share link), and in
+Consequences are handled in §3.3 (Not on Record substitution), §3.4 (share link), and in
 `Architecture.md` §7.3 / §8 WF-4.
 
 ### 3.2 🚨 Button labels — exact strings, and why case matters
@@ -208,18 +208,24 @@ case silently fails to route, and on the SOS path that is a dropped emergency.
 > a food check-in is a recorded negative response (backend `responded`), **not** a missed
 > check-in. Do not route it down the missed path.
 
-### 3.3 🚨 NA substitution — mandatory, at send time only
+### 3.3 🚨 "Not on Record" substitution — mandatory, at send time only
 
 Meta requires **every** positional variable on **every** send. Templates 10, 11 and 12
 reference the Doctor and the Local Buddy, **both of which are optional** (`0..1` per elder,
 per-card Skip at onboarding — A4 Decision 6).
 
-**Ruling (Talal, 28 July 2026):**
+**Ruling (Talal, 28 July 2026; literal updated 11 August 2026):**
 
-> When a Doctor or Local Buddy does not exist, WF-4 supplies the literal string **`NA`**
-> for their variables. **The database is not touched.** No placeholder rows are created.
+> When a Doctor or Local Buddy does not exist, WF-4 supplies the literal string
+> **`Not on Record`** for their variables. **The database is not touched.** No placeholder
+> rows are created.
 
-**This is a send-time substitution, not a schema change.** Writing `NA` rows into
+The 28 July ruling specified the literal **`NA`**. That literal is **superseded**
+(11 August 2026): WF-4 node **Load Care Circle** (`HSEp1YhQFHjga9qa`) now uses
+`COALESCE(..., 'Not on Record')` for `lct_name_na`, `lct_number_na`, `dr_name_na`, and
+`dr_clinic_na`. Everything else about the ruling stands.
+
+**This is a send-time substitution, not a schema change.** Writing placeholder rows into
 `doctors` / `local_caregivers` was considered and **rejected**, because an absent row is
 the signal the rest of the system depends on:
 
@@ -227,20 +233,27 @@ the signal the rest of the system depends on:
 - `sos_notifications.skip_reason` would misreport "no WhatsApp number" for a contact that
   was never added
 - Review's `consent_data_sharing_at` is conditional on a Doctor or Buddy existing
-- The Care Circle screen would render "NA NA" as a real contact
+- The Care Circle screen would render a fake contact as real
 - A4 Decision 6 (per-card Skip) would become meaningless
 
-**Implementation:** `LEFT JOIN` + `COALESCE(..., 'NA')` when building template parameters.
+**Implementation:** `LEFT JOIN` + `COALESCE(..., 'Not on Record')` when building template
+parameters for absent Buddy / Doctor fields.
 
-| Template | Variable | NA when |
+| Template | Variable | "Not on Record" when |
 |---|---|---|
 | 10 `sos_alert_ct` | `{{3}}` Local Buddy | no `local_caregivers` row |
 | 10 `sos_alert_ct` | `{{4}}` Doctor | no `doctors` row |
 | 11 `sos_alert_lct` | `{{4}}` Doctor name | no `doctors` row |
 | 11 `sos_alert_lct` | `{{5}}` Hospital/Clinic | no `doctors` row |
-| 12 `sos_alert_doctor` | `{{3}}` Patient report | share link unavailable — see §3.4 |
+| 12 `sos_alert_doctor` | `{{3}}` Patient report | share link unavailable — see §3.4 (**still `NA`**) |
 | 12 `sos_alert_doctor` | `{{4}}` Buddy name | no `local_caregivers` row |
 | 12 `sos_alert_doctor` | `{{5}}` Buddy number | no `local_caregivers` row |
+
+> **Accepted demo defect (11 August 2026).** Templates 10 and 12 contain prose that still
+> asserts an absent person was notified (e.g. "Local Buddy Not on Record … have also been
+> alerted"). Eyes open for Demo Day — the real fix is new `_v2` bodies plus conditional
+> routing in WF-4 (`PostDemoEnhancements.md` PD-12). Template 11's label:value structure
+> absorbs any substitution cleanly.
 
 > **Note on `{{5}}` and `{{7}}`.** A4 **dropped `phone_number` from every table.** These
 > variables are sourced from **`whatsapp_number`**. Do not go looking for `phone_number` —
@@ -293,18 +306,18 @@ protected by the §7.3 click-through gate against WhatsApp's link-preview crawle
 | | `{{3}}` | `checkins.scheduled_for` | **care partner** |
 | 10 SOS → CT | `{{1}}` | `elders.first_name` | — |
 | | `{{2}}` | `sos_events.triggered_at` | **care partner** |
-| | `{{3}}` | Buddy full name **or `NA`** | — |
-| | `{{4}}` | Doctor full name **or `NA`** | — |
+| | `{{3}}` | Buddy full name **or `Not on Record`** | — |
+| | `{{4}}` | Doctor full name **or `Not on Record`** | — |
 | 11 SOS → LCT | `{{1}}` | `elders.first_name` | — |
 | | `{{2}}` | `sos_events.triggered_at` | **elder** (LCT inherits elder tz) |
 | | `{{3}}` | `elders.address` | — |
-| | `{{4}}` | Doctor full name **or `NA`** | — |
-| | `{{5}}` | `doctors.clinic_name` **or `NA`** | — |
+| | `{{4}}` | Doctor full name **or `Not on Record`** | — |
+| | `{{5}}` | `doctors.clinic_name` **or `Not on Record`** | — |
 | 12 SOS → DR | `{{1}}` | `elders.first_name` + `last_name` | — |
 | | `{{2}}` | `sos_events.triggered_at` | **elder** (see below) |
 | | `{{3}}` | share link **or `NA`** — §3.4 | — |
-| | `{{4}}` | Buddy full name **or `NA`** | — |
-| | `{{5}}` | `local_caregivers.whatsapp_number` **or `NA`** | — |
+| | `{{4}}` | Buddy full name **or `Not on Record`** | — |
+| | `{{5}}` | `local_caregivers.whatsapp_number` **or `Not on Record`** | — |
 | | `{{6}}` | `care_partners.first_name` + `last_name` | — |
 | | `{{7}}` | `care_partners.whatsapp_number` | — |
 | 13 nudge | `{{1}}` | `elders.first_name` | — |
@@ -476,7 +489,7 @@ protected by the §7.3 click-through gate against WhatsApp's link-preview crawle
 
 **Samples:** `Fatima` · `2:14 PM` · `Ahmed (local caregiver)` · `Dr. Rao`
 **Buttons:** `I Am Responding` ← **resolves the SOS**, stops all nudges (M14b)
-**`{{3}}` / `{{4}}` → `NA`** when absent (§3.3).
+**`{{3}}` / `{{4}}` → `Not on Record`** when absent (§3.3).
 
 ---
 
@@ -498,7 +511,7 @@ protected by the §7.3 click-through gate against WhatsApp's link-preview crawle
 **Samples:** `Fatima` · `2:14 PM` · `12 Rose Street, Apt 4` · `Dr. Rao` · `Sama Hospital`
 **Buttons:** `I'm on my way` ← resolves the SOS
 **`{{3}}`** ← `elders.address`, mandatory at onboarding (M17).
-**`{{4}}` / `{{5}}` → `NA`** when no doctor (§3.3).
+**`{{4}}` / `{{5}}` → `Not on Record`** when no doctor (§3.3).
 
 > **New data path.** This template discloses the Doctor's name and clinic to the Local
 > Buddy. Covered by the Review `consent_data_sharing_at` consent, which is required
@@ -685,6 +698,7 @@ placeholder count not matching the samples · buttons over 20 characters.
 
 | Date | Version | Change |
 |---|---|---|
+| 11 Aug 2026 | **1.13** | **"Not on Record" supersedes `NA` for absent Buddy/Doctor (§3.3).** Send-time substitution only; DB still untouched; no placeholder rows. Share-link mint failure (`{{3}}` of template 12) still fails open to `NA` (§3.4). Accepted demo defect on templates 10/12 prose recorded; real fix → PD-12. WF-4 Load Care Circle live with four `COALESCE(..., 'Not on Record')` defaults. |
 | 11 Aug 2026 | **1.12** | **Medication check-in copy corrected; A-11 / OT-9 wording signed off.** §1.1 example and §4 template 2 body now match the live Meta-approved text (`Hi *{{1}}* — it's *{{2}}*, time for your medicines: *{{3}} *Did you take them?`). Stray `*{{3}} *` asterisk recorded as a known approved cosmetic defect (Rules W8 — fix needs `_v2`). Period labels: wording signed off by Sama, 10 Aug 2026 — `< 12:00` Morning · `< 17:00` Afternoon · `< 21:00` Evening · else Night are the expected result. |
 | 4 Aug 2026 | **OT-10 opened (no version bump).** Template 8 `{{2}}` domain asymmetry — medication uses derived period label; food/health name the routine/meal. Parked with Sama alongside OT-9 wording sign-off. **No §4–6 body edits.** |
 | 3 Aug 2026 | **1.10** | **Health v2 pair submitted (pending Meta).** §3.0 records `elderwise_ep_health_checkin_v2` and `_reminder_v2` — two vars, routine name in body; reminder wording avoids re-engagement MARKETING classification. Templates 3 and 6 remain in service. **No §4–6 body edits.** |

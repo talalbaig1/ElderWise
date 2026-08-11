@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.35 |
+| **Document** | Architecture.md — v1.36 |
 | **Date** | 11 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
@@ -727,14 +727,16 @@ The n8n instance carried **21 workflows** as of 11 August 2026: 18 operational (
 - **Elder acknowledgement (free-form).** On trigger, send the `Templates.md` §7.3 message to the elder. It is **free-form, not a template** — her own SOS message opens the 24-hour customer service window. **`NA` must never appear in it** (four variants; T3).
 - Dispatch templates **10 / 11 / 12** at **`nudge_index 0`** (the **initial alert** — **not a nudge**). Recipients: **CT always**; **LCT only if a `local_caregivers` row exists**; **Doctor only if a `doctors` row exists and `whatsapp_number` is non-null**. Writes `sos_notifications` rows for every attempted send **and** every intentional skip.
 - **Doctor with no WhatsApp number:** do **not** send. Insert `sos_notifications` with `status = skipped`, `skip_reason = no_whatsapp_number`, `wa_message_id` NULL, `sent_at` NULL, `created_at = now()`. This is auditable and is **not** a delivery failure (W3 — intentional non-sends are logged as skips).
-- **Optional-contact variable substitution (mandatory).** Templates 10, 11 and 12 reference the Doctor and the Local Buddy, both of which are `0..1` per elder. Meta requires **every** positional variable on **every** send; a parameter cannot be omitted. When the contact does not exist, WF-4 supplies the literal string **`NA`**:
+- **Optional-contact variable substitution (mandatory).** Templates 10, 11 and 12 reference the Doctor and the Local Buddy, both of which are `0..1` per elder. Meta requires **every** positional variable on **every** send; a parameter cannot be omitted. When the contact does not exist, WF-4 supplies the literal string **`Not on Record`** (supersedes the 28 July literal `NA` — ruled **11 August 2026**):
   - `elderwise_sos_alert_ct` — `{{3}}` (Buddy), `{{4}}` (Doctor)
   - `elderwise_sos_alert_lct` — `{{4}}` (Doctor name), `{{5}}` (Clinic)
   - `elderwise_sos_alert_doctor` — `{{4}}` (Buddy name), `{{5}}` (Buddy number)
 
-  **This is a send-time substitution. The database is never written with placeholder rows.** `LEFT JOIN` + `COALESCE(..., 'NA')` when building parameters. Creating `NA` rows in `doctors` / `local_caregivers` was considered and **rejected** (28 July 2026): an absent row is the signal WF-4 dispatch, `sos_notifications.skip_reason`, the conditional `consent_data_sharing_at`, the Care Circle screen, and A4 Decision 6 all depend on. **Do not create placeholder rows.**
+  **This is a send-time substitution. The database is never written with placeholder rows.** `LEFT JOIN` + `COALESCE(..., 'Not on Record')` when building parameters (WF-4 node **Load Care Circle**: `lct_name_na`, `lct_number_na`, `dr_name_na`, `dr_clinic_na`). Creating placeholder rows in `doctors` / `local_caregivers` was considered and **rejected** (28 July 2026): an absent row is the signal WF-4 dispatch, `sos_notifications.skip_reason`, the conditional `consent_data_sharing_at`, the Care Circle screen, and A4 Decision 6 all depend on. **Do not create placeholder rows.**
 
   **Source note:** `{{5}}` and `{{7}}` come from **`whatsapp_number`**. A4 dropped `phone_number` from every table.
+
+> **D-10 · Absent Buddy/Doctor substitution is `Not on Record`; conditional `_v2` templates rejected for Demo Day (Talal Baig, 11 August 2026).** Changing the COALESCE literal is live on WF-4 (`HSEp1YhQFHjga9qa`, published `activeVersionId 51ea29fe`). Conditional `_v2` templates that would omit the absent person from the prose were **specified and then rejected** the same day — not because of copy preference, but because **each conditional leg needs an IF plus a duplicate WhatsApp send node inside WF-4 on the P0 SOS path**, with **18 days to Demo Day** and **110 of 122 test cases still unrun**. That is scheduling risk on the emergency orchestrator, not a wording objection. **Accepted defect, eyes open:** templates 10 and 12 will read e.g. "Local Buddy Not on Record … have also been alerted", which still asserts that a non-existent person was notified. Real fix deferred to `PostDemoEnhancements.md` **PD-12** (`_v2` bodies + conditional routing). Template 11 is unaffected (label:value structure).
 - **SOS report link — always mint (`{{3}}` of `elderwise_sos_alert_doctor`).** Ruled 28 July 2026 (mint at SOS time); **reuse-before-mint struck 3 August 2026** — impossible because `doctor_share_links` stores `token_hash` only (SHA-256); §7.3 / SEC2 state the raw token exists once, in the URL. A hash cannot be reversed into a link. Order of operations:
   1. **Always mint.** Generate ≥32 random bytes, store the SHA-256 hash, set `expires_at` to the §7.3 default of 30 days, set `created_by` to the elder's care partner, set **`sos_event_id` to the SOS event being orchestrated** (so the dashboard can label origin and distinguish from Care-Partner-issued links), write with the service-role key. n8n **never** calls Next.js (P1).
   2. **Never block the alert (P2).** If the mint fails, send template 12 with `{{3}} = NA` and log the failure at Sentry P1. **A doctor receiving the alert without a link is vastly better than no alert because a token insert timed out.**
@@ -1066,7 +1068,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 ## 15. Open items
 
-Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhancements.md`**, with the reasoning for each deferral. **A-33** and **A-23** are closed here and remain tracked as **PD-6** and **PD-8**. **PD-9** (Google OAuth / D-8), **PD-10** and **PD-11** (never-sent check-ins / D-9; feeds a real A-30 detector, now built as WF-7) are also recorded there.
+Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhancements.md`**, with the reasoning for each deferral. **A-33** and **A-23** are closed here and remain tracked as **PD-6** and **PD-8**. **PD-9** (Google OAuth / D-8), **PD-10** and **PD-11** (never-sent check-ins / D-9; feeds a real A-30 detector, now built as WF-7), and **PD-12** (SOS `_v2` + conditional WF-4 routing / D-10) are also recorded there.
 
 | # | Item | Owner |
 |---|---|---|
@@ -1115,6 +1117,7 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 
 | Date | Version | Change |
 |---|---|---|
+| 11 Aug 2026 | 1.36 | **D-10 — `Not on Record` substitution; conditional `_v2` rejected for Demo Day.** WF-4 Load Care Circle COALESCE defaults for absent Buddy/Doctor change from `NA` to `Not on Record` (live). Conditional `_v2` templates rejected on **scheduling risk** (IF + duplicate WhatsApp send nodes on the P0 SOS path; 18 days to Demo Day; 110/122 cases unrun) — not a copy preference. Accepted prose defect on templates 10/12 recorded; real fix → PD-12. |
 | 11 Aug 2026 | 1.35 | **A-36 — Doctor share links invisible since ship.** Root cause: `load-app-data.ts` selected non-existent `created_at` (table has `created_by`); errors swallowed into empty list. Fixed select + error logging; Care Circle list/revoke/origin labels; hard-delete Buddy/Doctor (doctor delete revokes active links first); `sos_event_id` + partial unique index for one live dashboard-issued link per elder; WF-4 mint documented to carry `sos_event_id`. |
 | 11 Aug 2026 | 1.34 | **Time-zone dropdown narrowed to the curated 65.** Removed the raw full-IANA third group from `TimeZoneSelect`; `preserveLegacy` now keys only on absence from the curated list so unlisted stored zones (e.g. `Asia/Calcutta`, `Africa/Accra`) still surface under "Current (not in the list)". Validation unchanged — runtime `Intl`, not membership. Recorded on A-35. |
 | 11 Aug 2026 | 1.33 | **A-35 second outage + offset-grouped time-zone quick picks.** A-35 records a second failure 18 hours later (`Arabian Standard Time (AST)`, Windows display name) from a different user — field-design failure, not carelessness; residual risk of application-only validation restated with weight. `TIMEZONE_OPTIONS` expanded to an offset-ordered IANA list (65 entries; labels carry UTC offsets, stored values remain IANA names) so Rwanda / South Africa / Pakistan zones appear in quick picks without scrolling the full list. |
