@@ -1,6 +1,6 @@
 | Field | Value |
 | --- | --- |
-| **Document** | PostDemoEnhancements.md — v1.2 |
+| **Document** | PostDemoEnhancements.md — v1.3 |
 | **Project** | ElderWise · AIGF Cohort 7 · Group 7 |
 | **Date** | 11 August 2026 |
 | **Status** | Deferred by ruling — scheduled to begin after Demo Day, 29 August 2026 |
@@ -151,6 +151,26 @@ Template **11** is unaffected — its *Doctor*: {{4}} / *Hospital/Clinic*: {{5}}
 
 Depends on: Meta approval of `_v2` SOS templates. Blocks: nothing else in this register.
 
+### PD-13 · Align Care Circle "active" share-link filter with the reveal path
+
+**Layer:** Next.js (Care Circle UI) · **Owner:** Cursor · **Priority:** P3 · **Source:** A-37
+
+Reveal rejects expired tokens (`revoked_at` **and** `expires_at`). A-36 taught `activeLinks` / header revoke to use `isActiveShareLink` (revoked + expiry), but the Care Circle list empty-state and row membership still key off `unrevokedLinks` (`!revokedAt` only) — expired-unrevoked rows remain listed (labelled "(expired)"), and the empty copy still says "No active share links" only when none are unrevoked.
+
+**Measurement (11 Aug 2026):** 3 unrevoked links, 0 expired, 0 expiring before Demo Day, earliest expiry 10 September 2026, max 2 per elder, 2 SOS-minted / 1 dashboard-issued.
+
+**Assessed and deferred 11 August 2026.** The filter mismatch is real but not observable until 10 September 2026. Align list membership / empty-state with the reveal path (or confirm expired rows should stay visible for revoke) after Demo Day.
+
+### PD-14 · Elder-wide cap on concurrent unrevoked share links
+
+**Layer:** schema (+ optional UI) · **Owner:** Talal · **Priority:** P3 · **Source:** A-38
+
+A-36 added `doctor_share_links_one_active_cp_link` for dashboard-issued only (`revoked_at IS NULL AND sos_event_id IS NULL`). That partial index **excludes SOS-minted rows by predicate**. Nothing limits total concurrent unrevoked credentials per elder across both origins; SOS-minted remain uncapped by design (A-36 Not addressed).
+
+**Measurement (11 Aug 2026):** 3 unrevoked links, 0 expired, 0 expiring before Demo Day, earliest expiry 10 September 2026, max 2 per elder, 2 SOS-minted / 1 dashboard-issued.
+
+**Assessed and deferred 11 August 2026.** Decide post-demo whether an elder-wide cap (or revoke-on-SOS-resolve) is required; any migration stays with Talal.
+
 ## Explicitly NOT deferred
 
 Recorded here so nobody mistakes them for register items:
@@ -166,6 +186,7 @@ Recorded here so nobody mistakes them for register items:
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 11 Aug 2026 | 1.3 | **PD-13 and PD-14 added.** From Architecture A-37 / A-38 (assessed and deferred). PD-13 — align Care Circle "active" share-link filter with reveal (observable from 10 September 2026). PD-14 — elder-wide cap on unrevoked share links; note A-36's partial index excludes SOS-minted rows by predicate. Measurement: 3 unrevoked links, 0 expired, 0 expiring before Demo Day, earliest expiry 10 September 2026, max 2 per elder, 2 SOS-minted / 1 dashboard-issued. |
 | 11 Aug 2026 | 1.2 | **PD-12 added.** SOS templates 10/12 need `_v2` + conditional WF-4 routing (D-10). Records accepted demo prose defect after `Not on Record` substitution, and the latent `||` null-concat bug on `lct_name_na`. |
 | 10 Aug 2026 | 1.1 | **PD-9, PD-10, PD-11 added.** PD-9 — Google OAuth withdrawn from the MVP (D-8); requires decoupling auth from onboarding. PD-10 — suppress Care Partner Missed Notice when `sent_at IS NULL` (D-9 accepted for MVP). PD-11 — persist send-failure cause (feeds A-30 / PD-10). |
 | 9 Aug 2026 | 1.0 | Register created. PD-1 to PD-8 recorded and deferred to after Demo Day by ruling of the Team Lead. |
