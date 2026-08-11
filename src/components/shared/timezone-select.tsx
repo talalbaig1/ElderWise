@@ -19,9 +19,10 @@ type TimeZoneSelectProps = {
 };
 
 /**
- * Searchable-enough select over COMMON quick picks + full IANA list.
- * Preserves a stored value even when it is absent from ALL_TIME_ZONES
- * (e.g. legacy alias `Asia/Calcutta`) — never silently rewrite it.
+ * Offset-ordered select: Common quick picks, then the full IANA list.
+ * First-letter type-ahead only (not filter search). Preserves a stored value
+ * even when it is absent from both lists (e.g. legacy alias `Asia/Calcutta`) —
+ * never silently rewrite it.
  */
 export function TimeZoneSelect({ id, value, onChange, disabled }: TimeZoneSelectProps) {
   const commonValues = new Set(COMMON_TIME_ZONES.map((o) => o.value));
