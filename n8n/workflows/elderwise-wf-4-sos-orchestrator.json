@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "d2add561-4e0b-4455-bced-6c5d27232494",
+  "activeVersionId": "fda5997a-09ba-4330-9f08-093fb6b1ba1c",
   "connections": {
     "Build Dispatch Parameters": {
       "main": [
@@ -253,9 +253,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "loose"
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         224,
@@ -279,8 +282,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $json.elder_id }}"
         },
-        "query": "WITH existing AS (SELECT id FROM sos_events WHERE elder_id = $1::uuid AND status = 'open' ORDER BY triggered_at DESC LIMIT 1), inserted AS (INSERT INTO sos_events (elder_id, triggered_at, status, nudges_sent) SELECT $1::uuid, now(), 'open'::sos_status, 0 WHERE NOT EXISTS (SELECT 1 FROM existing) RETURNING id) SELECT COALESCE((SELECT id FROM existing), (SELECT id FROM inserted)) AS sos_event_id, ((SELECT id FROM existing) IS NOT NULL) AS reused",
-        "resource": "database"
+        "query": "WITH existing AS (SELECT id FROM sos_events WHERE elder_id = $1::uuid AND status = 'open' ORDER BY triggered_at DESC LIMIT 1), inserted AS (INSERT INTO sos_events (elder_id, triggered_at, status, nudges_sent) SELECT $1::uuid, now(), 'open'::sos_status, 0 WHERE NOT EXISTS (SELECT 1 FROM existing) RETURNING id) SELECT COALESCE((SELECT id FROM existing), (SELECT id FROM inserted)) AS sos_event_id, ((SELECT id FROM existing) IS NOT NULL) AS reused"
       },
       "position": [
         448,
@@ -308,9 +310,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "loose"
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         672,
@@ -334,8 +339,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $json.sos_event_id }}"
         },
-        "query": "SELECT s.id AS sos_event_id, e.id AS elder_id, e.first_name AS elder_first_name, e.first_name || ' ' || e.last_name AS elder_full_name, e.whatsapp_number AS elder_whatsapp, e.address AS elder_address, cp.id AS ct_id, cp.first_name || ' ' || cp.last_name AS ct_full_name, cp.whatsapp_number AS ct_number, lc.id AS lct_id, lc.first_name AS lct_first_name, lc.whatsapp_number AS lct_number, COALESCE(lc.first_name || ' ' || lc.last_name, 'NA') AS lct_name_na, COALESCE(lc.whatsapp_number, 'NA') AS lct_number_na, d.id AS dr_id, d.whatsapp_number AS dr_number, COALESCE(d.first_name || ' ' || d.last_name, 'NA') AS dr_name_na, COALESCE(d.clinic_name, 'NA') AS dr_clinic_na, (lc.id IS NOT NULL) AS has_lct, (d.id IS NOT NULL) AS has_dr, (d.id IS NOT NULL AND d.whatsapp_number IS NOT NULL) AS dr_sendable, to_char(s.triggered_at AT TIME ZONE cp.timezone, 'FMHH12:MI AM') AS triggered_label_ct, to_char(s.triggered_at AT TIME ZONE e.timezone, 'FMHH12:MI AM') AS triggered_label_elder FROM sos_events s JOIN elders e ON e.id = s.elder_id JOIN care_partners cp ON cp.id = e.care_partner_id LEFT JOIN local_caregivers lc ON lc.elder_id = e.id LEFT JOIN doctors d ON d.elder_id = e.id WHERE s.id = $1::uuid",
-        "resource": "database"
+        "query": "SELECT s.id AS sos_event_id, e.id AS elder_id, e.first_name AS elder_first_name, e.first_name || ' ' || e.last_name AS elder_full_name, e.whatsapp_number AS elder_whatsapp, e.address AS elder_address, cp.id AS ct_id, cp.first_name || ' ' || cp.last_name AS ct_full_name, cp.whatsapp_number AS ct_number, lc.id AS lct_id, lc.first_name AS lct_first_name, lc.whatsapp_number AS lct_number, COALESCE(lc.first_name || ' ' || lc.last_name, 'NA') AS lct_name_na, COALESCE(lc.whatsapp_number, 'NA') AS lct_number_na, d.id AS dr_id, d.whatsapp_number AS dr_number, COALESCE(d.first_name || ' ' || d.last_name, 'NA') AS dr_name_na, COALESCE(d.clinic_name, 'NA') AS dr_clinic_na, (lc.id IS NOT NULL) AS has_lct, (d.id IS NOT NULL) AS has_dr, (d.id IS NOT NULL AND d.whatsapp_number IS NOT NULL) AS dr_sendable, to_char(s.triggered_at AT TIME ZONE cp.timezone, 'FMHH12:MI AM') AS triggered_label_ct, to_char(s.triggered_at AT TIME ZONE e.timezone, 'FMHH12:MI AM') AS triggered_label_elder FROM sos_events s JOIN elders e ON e.id = s.elder_id JOIN care_partners cp ON cp.id = e.care_partner_id LEFT JOIN local_caregivers lc ON lc.elder_id = e.id LEFT JOIN doctors d ON d.elder_id = e.id WHERE s.id = $1::uuid"
       },
       "position": [
         896,
@@ -363,9 +367,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "loose"
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         1120,
@@ -388,10 +395,9 @@
         "operation": "executeQuery",
         "options": {
           "connectionTimeout": 10,
-          "queryReplacement": "={{ $json.elder_id }}"
+          "queryReplacement": "={{ [ $json.elder_id, $('Open Or Create SOS Event').first().json.sos_event_id ] }}"
         },
-        "query": "WITH circle AS (SELECT d.id AS dr_id, e.care_partner_id FROM elders e JOIN doctors d ON d.elder_id = e.id WHERE e.id = $1::uuid AND d.whatsapp_number IS NOT NULL), t AS (SELECT encode(extensions.gen_random_bytes(32), 'hex') AS raw FROM circle), ins AS (INSERT INTO doctor_share_links (elder_id, token_hash, created_by, expires_at) SELECT $1::uuid, encode(extensions.digest(t.raw, 'sha256'), 'hex'), circle.care_partner_id, now() + interval '30 days' FROM t, circle RETURNING id) SELECT (SELECT raw FROM t) AS raw_token, (SELECT id FROM ins) AS share_link_id",
-        "resource": "database"
+        "query": "WITH circle AS (SELECT d.id AS dr_id, e.care_partner_id FROM elders e JOIN doctors d ON d.elder_id = e.id WHERE e.id = $1::uuid AND d.whatsapp_number IS NOT NULL), t AS (SELECT encode(extensions.gen_random_bytes(32), 'hex') AS raw FROM circle), ins AS (INSERT INTO doctor_share_links (elder_id, token_hash, created_by, expires_at, sos_event_id) SELECT $1::uuid, encode(extensions.digest(t.raw, 'sha256'), 'hex'), circle.care_partner_id, now() + interval '30 days', $2::uuid FROM t, circle RETURNING id) SELECT (SELECT raw FROM t) AS raw_token, (SELECT id FROM ins) AS share_link_id"
       },
       "position": [
         1344,
@@ -404,9 +410,7 @@
       "id": "641fc61b-ad16-4059-acbc-d511aabba204",
       "name": "Build Dispatch Parameters",
       "parameters": {
-        "jsCode": "const c = $('Load Care Circle').first().json;\n\nlet rawToken = '';\ntry { rawToken = $('Mint Doctor Share Link').first().json.raw_token || ''; } catch (e) { rawToken = ''; }\n\nconst reportLink = rawToken ? 'https://elder-wise-seven.vercel.app/share/' + rawToken : 'NA';\n\nconst buddyFirst = c.lct_first_name || '';\nlet who = \"I've let your family know right away.\";\nif (c.has_lct === true && c.dr_sendable === true) { who = \"I've let your family know, and \" + buddyFirst + \" and your doctor as well.\"; }\nelse if (c.has_lct === true) { who = \"I've let your family know, and \" + buddyFirst + \" as well.\"; }\nelse if (c.dr_sendable === true) { who = \"I've let your family know, and your doctor as well.\"; }\n\nconst ackText = c.elder_first_name + ', ' + who + \" Help is on the way. Stay where you are \\u2014 you're not alone.\";\n\nreturn [{ json: Object.assign({}, c, { report_link: reportLink, share_link_minted: rawToken.length > 0, elder_ack_text: ackText }) }];",
-        "language": "javaScript",
-        "mode": "runOnceForAllItems"
+        "jsCode": "const c = $('Load Care Circle').first().json;\n\nlet rawToken = '';\ntry { rawToken = $('Mint Doctor Share Link').first().json.raw_token || ''; } catch (e) { rawToken = ''; }\n\nconst reportLink = rawToken ? 'https://elder-wise-seven.vercel.app/share/' + rawToken : 'NA';\n\nconst buddyFirst = c.lct_first_name || '';\nlet who = \"I've let your family know right away.\";\nif (c.has_lct === true && c.dr_sendable === true) { who = \"I've let your family know, and \" + buddyFirst + \" and your doctor as well.\"; }\nelse if (c.has_lct === true) { who = \"I've let your family know, and \" + buddyFirst + \" as well.\"; }\nelse if (c.dr_sendable === true) { who = \"I've let your family know, and your doctor as well.\"; }\n\nconst ackText = c.elder_first_name + ', ' + who + \" Help is on the way. Stay where you are \\u2014 you're not alone.\";\n\nreturn [{ json: Object.assign({}, c, { report_link: reportLink, share_link_minted: rawToken.length > 0, elder_ack_text: ackText }) }];"
       },
       "position": [
         1568,
@@ -464,31 +468,24 @@
               "bodyParameters": {
                 "parameter": [
                   {
-                    "text": "={{ $json.elder_first_name }}",
-                    "type": "text"
+                    "text": "={{ $json.elder_first_name }}"
                   },
                   {
-                    "text": "={{ $json.triggered_label_ct }}",
-                    "type": "text"
+                    "text": "={{ $json.triggered_label_ct }}"
                   },
                   {
-                    "text": "={{ $json.lct_name_na }}",
-                    "type": "text"
+                    "text": "={{ $json.lct_name_na }}"
                   },
                   {
-                    "text": "={{ $json.dr_name_na }}",
-                    "type": "text"
+                    "text": "={{ $json.dr_name_na }}"
                   }
                 ]
-              },
-              "type": "body"
+              }
             }
           ]
         },
-        "operation": "sendTemplate",
         "phoneNumberId": "1084405194760141",
         "recipientPhoneNumber": "={{ $json.ct_number }}",
-        "resource": "message",
         "template": "elderwise_sos_alert_ct|en"
       },
       "position": [
@@ -514,8 +511,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $('Build Dispatch Parameters').item.json.sos_event_id }},{{ $('Build Dispatch Parameters').item.json.ct_id }},{{ $json.messages[0].id }}"
         },
-        "query": "INSERT INTO sos_notifications (sos_event_id, recipient_role, recipient_id, nudge_index, status, wa_message_id, sent_at) VALUES ($1::uuid, 'care_partner'::sos_recipient_role, $2::uuid, 0, 'sent'::sos_notification_status, $3::text, now()) RETURNING id, recipient_role::text AS role, wa_message_id",
-        "resource": "database"
+        "query": "INSERT INTO sos_notifications (sos_event_id, recipient_role, recipient_id, nudge_index, status, wa_message_id, sent_at) VALUES ($1::uuid, 'care_partner'::sos_recipient_role, $2::uuid, 0, 'sent'::sos_notification_status, $3::text, now()) RETURNING id, recipient_role::text AS role, wa_message_id"
       },
       "position": [
         2016,
@@ -543,9 +539,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "loose"
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         1792,
@@ -570,35 +569,27 @@
               "bodyParameters": {
                 "parameter": [
                   {
-                    "text": "={{ $json.elder_first_name }}",
-                    "type": "text"
+                    "text": "={{ $json.elder_first_name }}"
                   },
                   {
-                    "text": "={{ $json.triggered_label_elder }}",
-                    "type": "text"
+                    "text": "={{ $json.triggered_label_elder }}"
                   },
                   {
-                    "text": "={{ $json.elder_address }}",
-                    "type": "text"
+                    "text": "={{ $json.elder_address }}"
                   },
                   {
-                    "text": "={{ $json.dr_name_na }}",
-                    "type": "text"
+                    "text": "={{ $json.dr_name_na }}"
                   },
                   {
-                    "text": "={{ $json.dr_clinic_na }}",
-                    "type": "text"
+                    "text": "={{ $json.dr_clinic_na }}"
                   }
                 ]
-              },
-              "type": "body"
+              }
             }
           ]
         },
-        "operation": "sendTemplate",
         "phoneNumberId": "1084405194760141",
         "recipientPhoneNumber": "={{ $json.lct_number }}",
-        "resource": "message",
         "template": "elderwise_sos_alert_lct|en"
       },
       "position": [
@@ -624,8 +615,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $('Build Dispatch Parameters').item.json.sos_event_id }},{{ $('Build Dispatch Parameters').item.json.lct_id }},{{ $json.messages[0].id }}"
         },
-        "query": "INSERT INTO sos_notifications (sos_event_id, recipient_role, recipient_id, nudge_index, status, wa_message_id, sent_at) VALUES ($1::uuid, 'local_caregiver'::sos_recipient_role, $2::uuid, 0, 'sent'::sos_notification_status, $3::text, now()) RETURNING id, recipient_role::text AS role, wa_message_id",
-        "resource": "database"
+        "query": "INSERT INTO sos_notifications (sos_event_id, recipient_role, recipient_id, nudge_index, status, wa_message_id, sent_at) VALUES ($1::uuid, 'local_caregiver'::sos_recipient_role, $2::uuid, 0, 'sent'::sos_notification_status, $3::text, now()) RETURNING id, recipient_role::text AS role, wa_message_id"
       },
       "position": [
         2240,
@@ -664,9 +654,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "loose"
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         1792,
@@ -691,43 +684,33 @@
               "bodyParameters": {
                 "parameter": [
                   {
-                    "text": "={{ $json.elder_full_name }}",
-                    "type": "text"
+                    "text": "={{ $json.elder_full_name }}"
                   },
                   {
-                    "text": "={{ $json.triggered_label_elder }}",
-                    "type": "text"
+                    "text": "={{ $json.triggered_label_elder }}"
                   },
                   {
-                    "text": "={{ $json.report_link }}",
-                    "type": "text"
+                    "text": "={{ $json.report_link }}"
                   },
                   {
-                    "text": "={{ $json.lct_name_na }}",
-                    "type": "text"
+                    "text": "={{ $json.lct_name_na }}"
                   },
                   {
-                    "text": "={{ $json.lct_number_na }}",
-                    "type": "text"
+                    "text": "={{ $json.lct_number_na }}"
                   },
                   {
-                    "text": "={{ $json.ct_full_name }}",
-                    "type": "text"
+                    "text": "={{ $json.ct_full_name }}"
                   },
                   {
-                    "text": "={{ $json.ct_number }}",
-                    "type": "text"
+                    "text": "={{ $json.ct_number }}"
                   }
                 ]
-              },
-              "type": "body"
+              }
             }
           ]
         },
-        "operation": "sendTemplate",
         "phoneNumberId": "1084405194760141",
         "recipientPhoneNumber": "={{ $json.dr_number }}",
-        "resource": "message",
         "template": "elderwise_sos_alert_doctor|en"
       },
       "position": [
@@ -753,8 +736,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $('Build Dispatch Parameters').item.json.sos_event_id }},{{ $('Build Dispatch Parameters').item.json.dr_id }},{{ $json.messages[0].id }}"
         },
-        "query": "INSERT INTO sos_notifications (sos_event_id, recipient_role, recipient_id, nudge_index, status, wa_message_id, sent_at) VALUES ($1::uuid, 'doctor'::sos_recipient_role, $2::uuid, 0, 'sent'::sos_notification_status, $3::text, now()) RETURNING id, recipient_role::text AS role, wa_message_id",
-        "resource": "database"
+        "query": "INSERT INTO sos_notifications (sos_event_id, recipient_role, recipient_id, nudge_index, status, wa_message_id, sent_at) VALUES ($1::uuid, 'doctor'::sos_recipient_role, $2::uuid, 0, 'sent'::sos_notification_status, $3::text, now()) RETURNING id, recipient_role::text AS role, wa_message_id"
       },
       "position": [
         2240,
@@ -782,9 +764,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "loose"
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         2016,
@@ -808,8 +793,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $('Build Dispatch Parameters').item.json.sos_event_id }},{{ $('Build Dispatch Parameters').item.json.dr_id }}"
         },
-        "query": "INSERT INTO sos_notifications (sos_event_id, recipient_role, recipient_id, nudge_index, status, skip_reason) VALUES ($1::uuid, 'doctor'::sos_recipient_role, $2::uuid, 0, 'skipped'::sos_notification_status, 'no_whatsapp_number') RETURNING id, status::text AS status_text, skip_reason",
-        "resource": "database"
+        "query": "INSERT INTO sos_notifications (sos_event_id, recipient_role, recipient_id, nudge_index, status, skip_reason) VALUES ($1::uuid, 'doctor'::sos_recipient_role, $2::uuid, 0, 'skipped'::sos_notification_status, 'no_whatsapp_number') RETURNING id, status::text AS status_text, skip_reason"
       },
       "position": [
         2240,
@@ -840,11 +824,10 @@
       "name": "Send Elder Acknowledgement",
       "onError": "continueRegularOutput",
       "parameters": {
-        "messageType": "text",
+        "additionalFields": {},
         "operation": "send",
         "phoneNumberId": "1084405194760141",
         "recipientPhoneNumber": "={{ $json.elder_whatsapp }}",
-        "resource": "message",
         "textBody": "={{ $json.elder_ack_text }}"
       },
       "position": [
