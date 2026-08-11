@@ -15,6 +15,7 @@ import type {
 import { readStorage, removeStorage, STORAGE_KEYS, writeStorage } from "@/lib/storage";
 import { deriveWellbeingStatus } from "@/lib/wellbeing";
 import { optionalWhatsAppE164Schema, requiredWhatsAppE164Schema } from "@/lib/whatsapp-e164";
+import { isValidTimeZone } from "@/lib/timezone";
 
 export const DAYS: { value: DayOfWeek; label: string }[] = [
   { value: "monday", label: "Mon" },
@@ -121,7 +122,11 @@ export function todayInTimeZone(timeZone: string): string {
 
 export const carePartnerCircleSchema = z.object({
   whatsappNumber: phone,
-  timeZone: z.string().trim().min(1, "Time zone is required"),
+  timeZone: z
+    .string()
+    .trim()
+    .min(1, "Time zone is required")
+    .refine(isValidTimeZone, "Not a valid time zone — pick one from the list"),
 });
 
 export const lovedOneCircleSchema = z.object({
@@ -129,7 +134,11 @@ export const lovedOneCircleSchema = z.object({
   firstName: z.string().trim().min(1, "First name is required"),
   lastName: z.string().trim().min(1, "Last name is required"),
   age: z.coerce.number().int().min(1).max(120),
-  timeZone: z.string().trim().min(1, "Time zone is required"),
+  timeZone: z
+    .string()
+    .trim()
+    .min(1, "Time zone is required")
+    .refine(isValidTimeZone, "Not a valid time zone — pick one from the list"),
   relationshipToCarePartner: z.string().trim().min(1, "Relationship is required"),
   address: z
     .string()

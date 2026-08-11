@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { isValidTimeZone } from "@/lib/timezone";
 
 export type EnsureCarePartnerResult =
   | { ok: true }
@@ -27,7 +28,7 @@ export async function ensureCarePartnerProfile(input: {
 
   const fullName = input.fullName.trim();
   const email = (input.email || user.email || "").trim().toLowerCase();
-  const timeZone = input.timeZone.trim() || "UTC";
+  const timeZone = input.timeZone.trim();
   const parts = fullName.split(/\s+/).filter(Boolean);
   const firstName = parts[0] ?? "";
   const lastName = parts.slice(1).join(" ") || firstName;
@@ -40,6 +41,9 @@ export async function ensureCarePartnerProfile(input: {
   }
   if (!timeZone) {
     return { ok: false, error: "Timezone is required for your Care Partner profile." };
+  }
+  if (!isValidTimeZone(timeZone)) {
+    return { ok: false, error: "Not a valid time zone — pick one from the list" };
   }
 
   const { data: existing, error: existingErr } = await supabase

@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · Team Lead: Talal Baig |
-| **Document** | Templates.md — v1.11 |
-| **Date** | 7 August 2026 |
+| **Document** | Templates.md — v1.12 |
+| **Date** | 11 August 2026 |
 | **Purpose** | Every message ElderWise sends. **Reconciled against the live Meta WABA — this document now records what Meta actually approved, not what was drafted.** |
 | **WABA** | `1495493002256968` · display number **966503330619** |
 | **Owner** | Talal (submission) · Sama + Reema (copy & tone) |
@@ -34,12 +34,15 @@ Interactive lists exist only as free-form messages inside the 24-hour customer-s
 window.
 
 The resolution — three buttons, every scheduled medicine named in the body — **survived
-Meta review unchanged**. `elderwise_ep_medication_checkin` is approved with exactly the
-three buttons and the `{{3}}` medicine list as designed.
+Meta review**. `elderwise_ep_medication_checkin` is approved with exactly the
+three buttons and the `{{3}}` medicine list as designed. Live approved body (post
+9 August copy edit): `Hi *{{1}}* — it's *{{2}}*, time for your medicines: *{{3}} *Did you take them?`
+(**Known cosmetic defect:** the bold run closes as `*{{3}} *` — asterisk after a space —
+so `{{3}}` will not render bold; approved with this flaw; fix needs `_v2` under Rules W8.)
 
 ```
 1. TEMPLATE (approved, business-initiated)
-   "Good morning Fatima — it's 8:00 AM, time for your medicines:
+   "Hi Fatima — it's 8:00 AM, time for your medicines:
     Amlodipine, Metformin, Aspirin Did you take them?"
    [ Yes, All ]   [ Some of them ]   [ Not Yet ]
                     │
@@ -318,10 +321,10 @@ protected by the §7.3 click-through gate against WhatsApp's link-preview crawle
 > drive display. Doctor-facing timestamps render in the **elder's** IANA zone, matching the
 > share page and PDF convention (`Architecture.md` §10).
 
-> **Period label (B-3) — implemented 3 Aug 2026.** Templates 5 and 8 need
+> **Period label (B-3) — implemented 3 Aug 2026; wording signed off by Sama, 10 August 2026.** Templates 5 and 8 need
 > `Morning` / `Afternoon` / `Evening` / `Night`. **No column stores this.** WF-6 derives
 > it from the routine's local time in the elder's zone: `< 12:00` Morning, `< 17:00`
-> Afternoon, `< 21:00` Evening, else Night. **Sama has not signed off the wording.**
+> Afternoon, `< 21:00` Evening, else Night. **These four strings are now the expected result, not provisional.**
 
 ---
 
@@ -347,7 +350,9 @@ protected by the §7.3 click-through gate against WhatsApp's link-preview crawle
 ### 2 · `elderwise_ep_medication_checkin` — ✅ APPROVED
 **Header:** `Medication Checkin`
 
-> Good morning {{1}} — it's {{2}}, time for your medicines: {{3}} Did you take them?
+> Hi *{{1}}* — it's *{{2}}*, time for your medicines: *{{3}} *Did you take them?
+
+**Known cosmetic defect (approved as-is):** the bold run closes as `*{{3}} *` (asterisk after a space), so `{{3}}` will not render bold as intended. Under **Rules W8** it cannot be corrected in place; a fix needs `elderwise_ep_medication_checkin_v2`. Ruled: leave it, record it, revisit after Demo Day — do not file as a tester defect.
 
 **Samples:** `Fatima` · `8:00 AM` · `Amlodipine, Metformin, Aspirin`
 **Buttons:** `Yes, All` · `Some of them` · `Not Yet`
@@ -643,8 +648,8 @@ people who are not consented elders.
 |---|---|---|---|
 | ~~OT-8~~ | ~~`elderwise_sos_alert_doctor` PENDING~~ — **CLOSED 2 Aug 2026. Approved unchanged.** All 14 templates now approved. | Closed | Talal |
 | ~~OT-7~~ | ~~The "No, thank you" path must actually be built.~~ — **CLOSED 3 Aug 2026.** Decline path verified on real WhatsApp (Phases B1.5). | Closed | Robert / Sandy |
-| ~~OT-9~~ | ~~Period label derivation (B-3)~~ — **CLOSED 3 Aug 2026 (implemented):** `< 12:00 Morning`, `< 17:00 Afternoon`, `< 21:00 Evening`, else `Night`. **Sama has not signed off the wording.** | Closed (wording: Sama) | Sandy + Sama |
-| **OT-10** | **Template 8 `{{2}}` asymmetry across domains.** Spec = "routine label + period" (e.g. `Medication (Morning)`). Food names the meal ("Dinner"); health passes `h.name` (v2 approved 7 Aug); medication shows a **derived period** because a medication check-in is scoped to a **time slot** and may cover several medicines. Two of three domains name the routine; one does not. **Parked with Sama** alongside OT-9 period-label wording sign-off. | Parked | Sama |
+| ~~OT-9~~ | ~~Period label derivation (B-3)~~ — **CLOSED 3 Aug 2026 (implemented):** `< 12:00` Morning · `< 17:00` Afternoon · `< 21:00` Evening · else Night. **Wording signed off by Sama, 10 August 2026 — retained as built.** These four strings are the expected result, not provisional. | Closed | Sandy + Sama |
+| **OT-10** | **Template 8 `{{2}}` asymmetry across domains.** Spec = "routine label + period" (e.g. `Medication (Morning)`). Food names the meal ("Dinner"); health passes `h.name` (v2 approved 7 Aug); medication shows a **derived period** because a medication check-in is scoped to a **time slot** and may cover several medicines. Two of three domains name the routine; one does not. **Parked with Sama** (period-label wording itself is signed off — OT-9). | Parked | Sama |
 | **OT-4** | Language of the elder's WhatsApp — MVP is English only. Cosmetic for the demo; real for the product. | Medium | Team |
 | **OT-5** | Telegram equivalents — parked. Telegram needs no approval, so copy lifts directly from here. | Parked | Talal |
 | **OT-6** | ~~Emoji usage~~ — **CLOSED by default 28 Jul.** Emoji shipped in approved templates (🚨 ✅ 👍 💚 👋). Revisit for v2. | Closed | Sama |
@@ -680,8 +685,7 @@ placeholder count not matching the samples · buttons over 20 characters.
 
 | Date | Version | Change |
 |---|---|---|
-| Date | Change |
-|---|---|
+| 11 Aug 2026 | **1.12** | **Medication check-in copy corrected; A-11 / OT-9 wording signed off.** §1.1 example and §4 template 2 body now match the live Meta-approved text (`Hi *{{1}}* — it's *{{2}}*, time for your medicines: *{{3}} *Did you take them?`). Stray `*{{3}} *` asterisk recorded as a known approved cosmetic defect (Rules W8 — fix needs `_v2`). Period labels: wording signed off by Sama, 10 Aug 2026 — `< 12:00` Morning · `< 17:00` Afternoon · `< 21:00` Evening · else Night are the expected result. |
 | 4 Aug 2026 | **OT-10 opened (no version bump).** Template 8 `{{2}}` domain asymmetry — medication uses derived period label; food/health name the routine/meal. Parked with Sama alongside OT-9 wording sign-off. **No §4–6 body edits.** |
 | 3 Aug 2026 | **1.10** | **Health v2 pair submitted (pending Meta).** §3.0 records `elderwise_ep_health_checkin_v2` and `_reminder_v2` — two vars, routine name in body; reminder wording avoids re-engagement MARKETING classification. Templates 3 and 6 remain in service. **No §4–6 body edits.** |
 | 3 Aug 2026 | **1.9** | **Round 2 doc pass.** §1 WABA verification date restored to 28 Jul (re-verified 2 Aug). §13 nudge numbering aligned to `nudge_index` 1–3 (alert = 0). |

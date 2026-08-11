@@ -30,6 +30,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TimeZoneSelect } from "@/components/shared/timezone-select";
 import { useDomainStore } from "@/components/data/app-data-provider";
 import { updateElder } from "@/lib/data/actions";
 import { formatViewerDateTime } from "@/lib/time/display";
@@ -269,9 +270,9 @@ export default function LovedOneProfilePage() {
                     />
                   </Field>
                   <Field label="Time zone (IANA)">
-                    <Input
+                    <TimeZoneSelect
                       value={draft.timeZone}
-                      onChange={(e) => setDraft({ ...draft, timeZone: e.target.value })}
+                      onChange={(timeZone) => setDraft({ ...draft, timeZone })}
                     />
                   </Field>
                   <Field label="Address">
