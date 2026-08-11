@@ -25,7 +25,7 @@ type TimeZoneSelectProps = {
  * never silently rewrite it.
  */
 export function TimeZoneSelect({ id, value, onChange, disabled }: TimeZoneSelectProps) {
-  const commonValues = new Set(COMMON_TIME_ZONES.map((o) => o.value));
+  const commonValues = new Set<string>(COMMON_TIME_ZONES.map((o) => o.value));
   const inAll = ALL_TIME_ZONES.includes(value);
   const inCommon = commonValues.has(value);
   const preserveLegacy = Boolean(value) && !inAll && !inCommon;
