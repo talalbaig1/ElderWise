@@ -74,14 +74,14 @@ export function adherenceCompositionPie(
 /** Caption naming counts excluded from the adherence composition pie. */
 export function adherencePieExcludedCaption(
   breakdown: CheckInStatusBreakdown,
-): string | null {
+): string | undefined {
   const total =
     breakdown.taken +
     breakdown.missed +
     breakdown.delayed +
     breakdown.pending +
     breakdown.cancelled;
-  if (total === 0) return null;
+  if (total === 0) return undefined;
   const pending =
     breakdown.pending > 0 ? `, ${breakdown.pending} pending` : "";
   return `Excluded from this chart: ${breakdown.cancelled} cancelled${pending}.`;
