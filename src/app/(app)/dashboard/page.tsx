@@ -21,6 +21,7 @@ import { StatusPill } from "@/components/shared/status-pill";
 import { Timeline } from "@/components/shared/timeline";
 import { EmptyState } from "@/components/shared/empty-state";
 import { AddLovedOneButton } from "@/components/loved-ones/add-loved-one-button";
+import { StatusPieChart } from "@/components/dashboard/charts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -328,6 +329,8 @@ export default function DashboardPage() {
           onClick={() => router.push("/sos")}
         />
       </div>
+
+      <StatusPieChart data={model.pie} excludedCaption={model.pieExcludedCaption} />
 
       {/* Voice journal + SOS summary */}
       <div className="grid gap-4 lg:grid-cols-2">

@@ -45,6 +45,7 @@ import {
 } from "@/lib/report-analytics";
 import { downloadPdfBlob, exportReportCsv, openPrintView } from "@/lib/report-export";
 import { useDomainStore } from "@/components/data/app-data-provider";
+import { ReportStatusPie } from "@/components/reports/report-charts";
 import { cn } from "@/lib/utils";
 
 const PDF_UI_KINDS = ["medication", "meals", "health", "sos"] as const;
@@ -394,6 +395,23 @@ export default function ReportsPage() {
           );
         })}
       </div>
+
+      {model.statusPie.length > 0 || model.statusPieExcludedCaption ? (
+        <ReportStatusPie
+          data={model.statusPie}
+          excludedCaption={model.statusPieExcludedCaption}
+          title={
+            model.statusPieExcludedCaption
+              ? "Adherence composition"
+              : "Status mix"
+          }
+          description={
+            model.statusPieExcludedCaption
+              ? "Taken, delayed, and missed only — same universe as the adherence percentage"
+              : "Hover a slice for counts"
+          }
+        />
+      ) : null}
 
       {/* Expandable sections */}
       <div className="space-y-3">

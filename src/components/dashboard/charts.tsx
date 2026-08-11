@@ -62,32 +62,39 @@ export function AdherenceLineChart({
 
 export function StatusPieChart({
   data,
+  excludedCaption,
 }: {
   data: { name: string; value: number; fill: string }[];
+  /** e.g. "Excluded from this chart: 16 cancelled, 3 pending." */
+  excludedCaption?: string;
 }) {
   return (
     <Card className="h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg">Response mix</CardTitle>
-        <CardDescription>Taken, delayed, missed, and pending check-ins</CardDescription>
+        <CardTitle className="text-lg">Adherence composition</CardTitle>
+        <CardDescription>
+          Taken, delayed, and missed only — same universe as the adherence percentage
+        </CardDescription>
       </CardHeader>
-      <CardContent className="h-[260px]">
-        {data.length === 0 ? (
-          <p className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            No responses in this period
-          </p>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={data} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={3}>
-                {data.map((entry) => (
-                  <Cell key={entry.name} fill={entry.fill} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={tooltipStyle} />
-            </PieChart>
-          </ResponsiveContainer>
-        )}
+      <CardContent>
+        <div className="h-[220px]">
+          {data.length === 0 ? (
+            <p className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              No scored check-ins in this period
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={data} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={3}>
+                  {data.map((entry) => (
+                    <Cell key={entry.name} fill={entry.fill} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={tooltipStyle} />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
         <ul className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
           {data.map((d) => (
             <li key={d.name} className="inline-flex items-center gap-1.5">
@@ -96,6 +103,9 @@ export function StatusPieChart({
             </li>
           ))}
         </ul>
+        {excludedCaption ? (
+          <p className="mt-2 text-xs text-muted-foreground">{excludedCaption}</p>
+        ) : null}
       </CardContent>
     </Card>
   );

@@ -56,6 +56,30 @@ export function checkInStatusBreakdown(
   return counts;
 }
 
+/**
+ * Adherence composition pie — Taken / Delayed / Missed only.
+ * Matches `adherence()`: cancelled and pending stay out of the slices
+ * (never expected / not yet scored). Do not add a Cancelled slice.
+ */
+export function adherenceCompositionPie(
+  breakdown: CheckInStatusBreakdown,
+): { name: string; value: number; fill: string }[] {
+  return [
+    { name: "Taken", value: breakdown.taken, fill: "#5C8C6B" },
+    { name: "Delayed", value: breakdown.delayed, fill: "#E3A23C" },
+    { name: "Missed", value: breakdown.missed, fill: "#B8433A" },
+  ].filter((p) => p.value > 0);
+}
+
+/** Caption naming counts excluded from the adherence composition pie. */
+export function adherencePieExcludedCaption(
+  breakdown: CheckInStatusBreakdown,
+): string {
+  const pending =
+    breakdown.pending > 0 ? `, ${breakdown.pending} pending` : "";
+  return `Excluded from this chart: ${breakdown.cancelled} cancelled${pending}.`;
+}
+
 /** SOS resolve channel enum → human wording for doctor / PDF. */
 export function formatSosResolveChannel(channel: string | null | undefined): string {
   if (!channel) return "—";

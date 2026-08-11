@@ -19,7 +19,7 @@ import type {
   LovedOne,
 } from "@/types";
 import { formatInTimeZone, labelElderLocalTime } from "@/lib/time/display";
-import { checkInStatusBreakdown } from "@/lib/check-in-status";
+import { checkInStatusBreakdown, adherenceCompositionPie, adherencePieExcludedCaption } from "@/lib/check-in-status";
 
 export type DashboardRange = "today" | "week" | "month" | "year" | "custom";
 
@@ -217,12 +217,9 @@ export function buildDashboardModel(
           };
         });
 
-  const pie = [
-    { name: "Taken", value: statusBreakdown(allInRange).taken, fill: "#5C8C6B" },
-    { name: "Delayed", value: statusBreakdown(allInRange).delayed, fill: "#E3A23C" },
-    { name: "Missed", value: statusBreakdown(allInRange).missed, fill: "#B8433A" },
-    { name: "Pending", value: statusBreakdown(allInRange).pending, fill: "#4A6D7C" },
-  ].filter((p) => p.value > 0);
+  const overallBreakdown = statusBreakdown(allInRange);
+  const pie = adherenceCompositionPie(overallBreakdown);
+  const pieExcludedCaption = adherencePieExcludedCaption(overallBreakdown);
 
   const sosEvents = store.sosEvents.filter((e) => e.lovedOneId === lovedOne.id);
   const activeSos = sosEvents.find((e) => e.status === "active" || e.status === "acknowledged");
@@ -319,6 +316,7 @@ export function buildDashboardModel(
     healthBreakdown: statusBreakdown(health),
     trendSeries,
     pie,
+    pieExcludedCaption,
     activeSos,
     sosInRangeCount: sosInRange.length,
     sosTotal: sosEvents.length,
