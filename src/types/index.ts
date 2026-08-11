@@ -188,7 +188,13 @@ export interface FamilyDoctor {
 export interface DoctorShareLink {
   id: ID;
   lovedOneId: ID;
-  createdAt: string;
+  /** Care partner who created the row (`doctor_share_links.created_by`). */
+  createdBy: ID;
+  /**
+   * Null = issued from the dashboard. Non-null = minted by WF-4 for that SOS event.
+   * (`doctor_share_links.sos_event_id`)
+   */
+  sosEventId: ID | null;
   expiresAt: string | null;
   revokedAt: string | null;
   lastAccessedAt: string | null;

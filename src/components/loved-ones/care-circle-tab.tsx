@@ -9,18 +9,31 @@ import { Label } from "@/components/ui/label";
 import { WhatsAppNumberInput } from "@/components/onboarding/fields";
 import { createBlankBuddy, createBlankDoctor } from "@/lib/loved-ones";
 import { useDomainStore } from "@/components/data/app-data-provider";
-import { upsertDoctor, upsertLocalCaregiver } from "@/lib/data/actions";
+import {
+  deleteDoctor,
+  deleteLocalCaregiver,
+  upsertDoctor,
+  upsertLocalCaregiver,
+} from "@/lib/data/actions";
 import {
   issueDoctorShareLink,
+  revokeActiveDoctorShareLinks,
   revokeDoctorShareLink,
 } from "@/lib/data/share-link-actions";
 import { formatViewerDateTime } from "@/lib/time/display";
-import type { FamilyDoctor, LocalBuddy } from "@/types";
+import type { DoctorShareLink, FamilyDoctor, LocalBuddy } from "@/types";
 import { useRouter } from "next/navigation";
 import {
   validateOptionalWhatsAppNumber,
   validateRequiredWhatsAppNumber,
 } from "@/lib/whatsapp-e164";
+
+/** Working link: not revoked and not past expires_at. */
+function isActiveShareLink(link: DoctorShareLink, nowMs = Date.now()): boolean {
+  if (link.revokedAt) return false;
+  if (link.expiresAt && new Date(link.expiresAt).getTime() <= nowMs) return false;
+  return true;
+}
 
 export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
   const router = useRouter();
@@ -29,7 +42,22 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
   const doctor = store.doctors.find((d) => d.lovedOneId === lovedOneId) ?? null;
   const carePartner = store.carePartner;
   const shareLinks = data.doctorShareLinks.filter((l) => l.lovedOneId === lovedOneId);
-  const activeLinks = shareLinks.filter((l) => !l.revokedAt);
+  const unrevokedLinks = shareLinks
+    .filter((l) => !l.revokedAt)
+    .slice()
+    .sort((a, b) => {
+      // Dashboard-issued (sosEventId null) first, then by expires_at desc.
+      const aDash = a.sosEventId ? 1 : 0;
+      const bDash = b.sosEventId ? 1 : 0;
+      if (aDash !== bDash) return aDash - bDash;
+      const aExp = a.expiresAt ? new Date(a.expiresAt).getTime() : 0;
+      const bExp = b.expiresAt ? new Date(b.expiresAt).getTime() : 0;
+      return bExp - aExp;
+    });
+  const activeLinks = unrevokedLinks.filter((l) => isActiveShareLink(l));
+  // Matches partial unique index (revoked_at IS NULL AND sos_event_id IS NULL) —
+  // expired dashboard links still occupy the slot until revoked.
+  const hasUnrevokedDashboardLink = unrevokedLinks.some((l) => !l.sosEventId);
 
   const [buddyDraft, setBuddyDraft] = useState<LocalBuddy | null>(null);
   const [doctorDraft, setDoctorDraft] = useState<FamilyDoctor | null>(null);
@@ -62,6 +90,30 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
     }
   };
 
+  const removeBuddy = async () => {
+    if (!buddy) return;
+    if (
+      !window.confirm(
+        "Delete this Local Buddy? They will no longer receive SOS alerts.",
+      )
+    ) {
+      return;
+    }
+    setSaving(true);
+    try {
+      const result = await deleteLocalCaregiver(buddy.id, lovedOneId);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Local Buddy deleted");
+      setBuddyDraft(null);
+      router.refresh();
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const saveDoctor = async (value: FamilyDoctor) => {
     const whatsapp = validateOptionalWhatsAppNumber(value.whatsappNumber);
     if (!whatsapp.ok) {
@@ -83,6 +135,38 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
       toast.success("Family Doctor saved");
       setDoctorWhatsappError(undefined);
       setDoctorDraft(null);
+      router.refresh();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeDoctor = async () => {
+    if (!doctor) return;
+    const n = activeLinks.length;
+    const linkNote =
+      n === 0
+        ? "No active share links will be affected."
+        : n === 1
+          ? "1 active share link will also be revoked."
+          : `${n} active share links will also be revoked.`;
+    if (
+      !window.confirm(
+        `Delete this Family Doctor? ${linkNote} You will need to add a doctor again before issuing a new dashboard share link.`,
+      )
+    ) {
+      return;
+    }
+    setSaving(true);
+    try {
+      const result = await deleteDoctor(doctor.id, lovedOneId);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Family Doctor deleted");
+      setDoctorDraft(null);
+      setIssuedUrl(null);
       router.refresh();
     } finally {
       setSaving(false);
@@ -134,6 +218,37 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
     }
   };
 
+  const revokeAllActive = async () => {
+    const n = activeLinks.length;
+    if (n === 0) return;
+    if (
+      !window.confirm(
+        n === 1
+          ? "Revoke 1 active share link? It will stop working immediately."
+          : `Revoke ${n} active share links? They will stop working immediately.`,
+      )
+    ) {
+      return;
+    }
+    setSaving(true);
+    try {
+      const result = await revokeActiveDoctorShareLinks(lovedOneId);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(
+        result.revokedCount === 1
+          ? "1 share link revoked"
+          : `${result.revokedCount} share links revoked`,
+      );
+      setIssuedUrl(null);
+      router.refresh();
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <Card>
@@ -157,14 +272,26 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-lg">Local Buddy</CardTitle>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={saving}
-            onClick={() => setBuddyDraft(buddy ?? createBlankBuddy(lovedOneId))}
-          >
-            {buddy ? "Edit" : "Add"}
-          </Button>
+          <div className="flex gap-2">
+            {buddy ? (
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={saving || Boolean(buddyDraft)}
+                onClick={removeBuddy}
+              >
+                Delete
+              </Button>
+            ) : null}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={saving}
+              onClick={() => setBuddyDraft(buddy ?? createBlankBuddy(lovedOneId))}
+            >
+              {buddy ? "Edit" : "Add"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           {buddyDraft ? (
@@ -233,14 +360,26 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-lg">Family Doctor</CardTitle>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={saving}
-            onClick={() => setDoctorDraft(doctor ?? createBlankDoctor(lovedOneId))}
-          >
-            {doctor ? "Edit" : "Add"}
-          </Button>
+          <div className="flex gap-2">
+            {doctor ? (
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={saving || Boolean(doctorDraft)}
+                onClick={removeDoctor}
+              >
+                Delete
+              </Button>
+            ) : null}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={saving}
+              onClick={() => setDoctorDraft(doctor ?? createBlankDoctor(lovedOneId))}
+            >
+              {doctor ? "Edit" : "Add"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           {doctorDraft ? (
@@ -322,16 +461,41 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
       <Card className="lg:col-span-3">
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
           <CardTitle className="text-lg">Doctor share links</CardTitle>
-          <Button size="sm" disabled={saving || !doctor} onClick={issueLink}>
-            Issue share link
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={saving || activeLinks.length === 0}
+              onClick={revokeAllActive}
+            >
+              Revoke share link
+            </Button>
+            <Button
+              size="sm"
+              disabled={saving || !doctor || hasUnrevokedDashboardLink}
+              onClick={issueLink}
+            >
+              Issue share link
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {!doctor ? (
             <p className="text-sm text-muted-foreground">
               Add a Family Doctor before issuing a read-only share link.
             </p>
-          ) : null}
+          ) : hasUnrevokedDashboardLink ? (
+            <p className="text-sm text-muted-foreground">
+              A dashboard share link already exists (including expired-but-unrevoked).
+              Revoke it before issuing a new one. The raw URL is shown only once at
+              issue time and cannot be recovered.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              The raw URL is shown only once when you issue a link. Only a hash is
+              stored — it cannot be displayed again later.
+            </p>
+          )}
           {issuedUrl ? (
             <div className="rounded-xl border border-primary/30 bg-secondary/50 p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -340,40 +504,56 @@ export function CareCircleTab({ lovedOneId }: { lovedOneId: string }) {
               <p className="mt-1 break-all font-mono text-xs">{issuedUrl}</p>
             </div>
           ) : null}
-          {activeLinks.length === 0 ? (
+          {unrevokedLinks.length === 0 ? (
             <p className="text-sm text-muted-foreground">No active share links.</p>
           ) : (
             <ul className="space-y-2">
-              {activeLinks.map((link) => (
-                <li
-                  key={link.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm"
-                >
-                  <div>
-                    <p className="font-mono text-xs text-muted-foreground">
-                      Expires{" "}
-                      {link.expiresAt
-                        ? formatViewerDateTime(link.expiresAt, viewerTimeZone)
-                        : "never"}
-                    </p>
-                    {link.lastAccessedAt ? (
-                      <p className="font-mono text-[11px] text-muted-foreground">
-                        Last opened {formatViewerDateTime(link.lastAccessedAt, viewerTimeZone)}
-                      </p>
-                    ) : (
-                      <p className="font-mono text-[11px] text-muted-foreground">Not opened yet</p>
-                    )}
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={saving}
-                    onClick={() => revokeLink(link.id)}
+              {unrevokedLinks.map((link) => {
+                const working = isActiveShareLink(link);
+                return (
+                  <li
+                    key={link.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm"
                   >
-                    Revoke
-                  </Button>
-                </li>
-              ))}
+                    <div>
+                      <p className="text-sm font-medium">
+                        {link.sosEventId
+                          ? "Created by SOS alert"
+                          : "Issued from dashboard"}
+                        {!working ? (
+                          <span className="ml-2 text-xs font-normal text-muted-foreground">
+                            (expired)
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="font-mono text-xs text-muted-foreground">
+                        Expires{" "}
+                        {link.expiresAt
+                          ? formatViewerDateTime(link.expiresAt, viewerTimeZone)
+                          : "never"}
+                      </p>
+                      {link.lastAccessedAt ? (
+                        <p className="font-mono text-[11px] text-muted-foreground">
+                          Last opened{" "}
+                          {formatViewerDateTime(link.lastAccessedAt, viewerTimeZone)}
+                        </p>
+                      ) : (
+                        <p className="font-mono text-[11px] text-muted-foreground">
+                          Not opened yet
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={saving}
+                      onClick={() => revokeLink(link.id)}
+                    >
+                      Revoke
+                    </Button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </CardContent>
