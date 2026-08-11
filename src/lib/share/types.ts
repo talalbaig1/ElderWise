@@ -1,3 +1,6 @@
+import type { CheckInStatus } from "@/types";
+import type { CheckInStatusBreakdown } from "@/lib/check-in-status";
+
 /** Serializable doctor share payload — facts only (N1). */
 
 export interface DoctorShareSosEvent {
@@ -13,7 +16,8 @@ export interface DoctorShareSosEvent {
 export interface DoctorShareCheckIn {
   scheduledAt: string;
   domain: string;
-  status: string;
+  /** UI status — always mapped via checkInStatusToUi at load time. */
+  status: CheckInStatus;
   responseValue: string | null;
   respondedAt: string | null;
 }
@@ -26,6 +30,27 @@ export interface DoctorShareMedication {
   enabled: boolean;
 }
 
+export type DoctorShareDomainKey = "medication" | "food" | "health";
+
+export interface DoctorShareDomainSummary {
+  domain: DoctorShareDomainKey;
+  label: string;
+  breakdown: CheckInStatusBreakdown;
+  total: number;
+}
+
+export interface DoctorShareOverview {
+  /** Human scope, e.g. "Last 30 days" */
+  windowLabel: string;
+  windowStartIso: string;
+  windowEndIso: string;
+  overall: CheckInStatusBreakdown;
+  overallTotal: number;
+  domains: Record<DoctorShareDomainKey, DoctorShareDomainSummary>;
+  sosOpen: number;
+  sosResolved: number;
+}
+
 export interface DoctorShareSummary {
   linkId: string;
   viewerTimeZone: string;
@@ -35,6 +60,7 @@ export interface DoctorShareSummary {
     timeZone: string;
     address: string;
   };
+  overview: DoctorShareOverview;
   medications: DoctorShareMedication[];
   checkIns: DoctorShareCheckIn[];
   sosEvents: DoctorShareSosEvent[];

@@ -2,6 +2,11 @@ import React from "react";
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatInTimeZone } from "@/lib/time/display";
 import {
+  formatCheckInStatus,
+  formatSosEventStatus,
+  formatSosResolveChannel,
+} from "@/lib/check-in-status";
+import {
   registerReportFonts,
   reportFontFamilyForText,
 } from "@/lib/reports/fonts";
@@ -123,10 +128,6 @@ function channelLabel(channel: string | null): string {
   return "—";
 }
 
-function statusLabel(status: string): string {
-  return status.replace(/_/g, " ");
-}
-
 function consentLine(data: ReportPayload): string {
   if (data.consentConfirmedAt) {
     return `WhatsApp consent confirmed ${fmtConsentDate(data.consentConfirmedAt, data.elderTimeZone)}`;
@@ -223,7 +224,7 @@ function CheckInSection({
             {fmtElder(row.scheduledFor, data.elderTimeZone)}
           </Text>
           <Text style={{ ...styles.cell, fontFamily: baseFont }}>
-            {statusLabel(row.status)}
+            {formatCheckInStatus(row.status)}
           </Text>
           <Text style={{ ...styles.cell, fontFamily: baseFont }}>
             {row.respondedAt
@@ -278,7 +279,7 @@ function SosSection({
             {fmtElder(row.triggeredAt, data.elderTimeZone)}
           </Text>
           <Text style={{ ...styles.cell, fontFamily: baseFont }}>
-            {statusLabel(row.status)}
+            {formatSosEventStatus(row.status)}
           </Text>
           <Text style={{ ...styles.cell, fontFamily: baseFont }}>
             {row.resolvedAt
@@ -289,7 +290,7 @@ function SosSection({
             {row.resolvedByRole?.replace(/_/g, " ") || "—"}
           </Text>
           <Text style={{ ...styles.cell, fontFamily: baseFont }}>
-            {row.resolvedChannel || "—"}
+            {formatSosResolveChannel(row.resolvedChannel)}
           </Text>
         </View>
       ))}

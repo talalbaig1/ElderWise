@@ -23,6 +23,10 @@ import type {
   VoiceJournalEntry,
 } from "@/types";
 import { formatInTimeZone } from "@/lib/time/display";
+import {
+  checkInStatusBreakdown,
+  formatCheckInStatus,
+} from "@/lib/check-in-status";
 
 function fmtEvent(iso: string, viewerTimeZone: string) {
   return formatInTimeZone(iso, viewerTimeZone, {
@@ -178,26 +182,7 @@ function adherence(items: CheckInResponse[]): number | null {
 }
 
 function statusBreakdown(items: CheckInResponse[]) {
-  const counts: Record<
-    "taken" | "missed" | "delayed" | "pending" | "cancelled",
-    number
-  > = {
-    taken: 0,
-    missed: 0,
-    delayed: 0,
-    pending: 0,
-    cancelled: 0,
-  };
-  items.forEach((item) => {
-    if (item.status === "taken" || item.status === "missed" || item.status === "delayed") {
-      counts[item.status] += 1;
-    } else if (item.status === "cancelled") {
-      counts.cancelled += 1;
-    } else {
-      counts.pending += 1;
-    }
-  });
-  return counts;
+  return checkInStatusBreakdown(items);
 }
 
 function filterCheckIns(
@@ -413,7 +398,7 @@ export function buildReportModel(
     const tableRows = items.map((item) => ({
       Date: fmtTable(item.scheduledAt, viewerTimeZone),
       Routine: checkInTitle(item, store),
-      Status: item.status,
+      Status: formatCheckInStatus(item.status),
       Response: String(item.response ?? ""),
       Channel: item.channel,
     }));

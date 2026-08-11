@@ -5,6 +5,10 @@ import {
   type PdfReportKind,
   type ReportPayload,
 } from "@/lib/reports/types";
+import {
+  checkInStatusToUi,
+  type DbCheckInStatus,
+} from "@/lib/supabase/mappers";
 
 export type LoadReportResult =
   | { ok: true; data: ReportPayload }
@@ -171,12 +175,12 @@ export async function loadReportData(
         ),
       )
       .map((row) => {
-        const status = row.status as string;
-        if (status === "responded") respondedCount += 1;
-        if (status === "missed") missedCount += 1;
+        const dbStatus = row.status as DbCheckInStatus;
+        if (dbStatus === "responded") respondedCount += 1;
+        if (dbStatus === "missed") missedCount += 1;
         return {
           scheduledFor: row.scheduled_for as string,
-          status,
+          status: checkInStatusToUi(dbStatus),
           responseValue: (row.response_value as string | null) ?? null,
           respondedAt: (row.responded_at as string | null) ?? null,
           responseChannel: (row.response_channel as string | null) ?? null,
