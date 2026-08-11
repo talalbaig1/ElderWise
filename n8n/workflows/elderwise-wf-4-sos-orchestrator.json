@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "fda5997a-09ba-4330-9f08-093fb6b1ba1c",
+  "activeVersionId": "51ea29fe-b8ed-4168-a945-0920eda4b195",
   "connections": {
     "Build Dispatch Parameters": {
       "main": [
@@ -339,7 +339,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $json.sos_event_id }}"
         },
-        "query": "SELECT s.id AS sos_event_id, e.id AS elder_id, e.first_name AS elder_first_name, e.first_name || ' ' || e.last_name AS elder_full_name, e.whatsapp_number AS elder_whatsapp, e.address AS elder_address, cp.id AS ct_id, cp.first_name || ' ' || cp.last_name AS ct_full_name, cp.whatsapp_number AS ct_number, lc.id AS lct_id, lc.first_name AS lct_first_name, lc.whatsapp_number AS lct_number, COALESCE(lc.first_name || ' ' || lc.last_name, 'NA') AS lct_name_na, COALESCE(lc.whatsapp_number, 'NA') AS lct_number_na, d.id AS dr_id, d.whatsapp_number AS dr_number, COALESCE(d.first_name || ' ' || d.last_name, 'NA') AS dr_name_na, COALESCE(d.clinic_name, 'NA') AS dr_clinic_na, (lc.id IS NOT NULL) AS has_lct, (d.id IS NOT NULL) AS has_dr, (d.id IS NOT NULL AND d.whatsapp_number IS NOT NULL) AS dr_sendable, to_char(s.triggered_at AT TIME ZONE cp.timezone, 'FMHH12:MI AM') AS triggered_label_ct, to_char(s.triggered_at AT TIME ZONE e.timezone, 'FMHH12:MI AM') AS triggered_label_elder FROM sos_events s JOIN elders e ON e.id = s.elder_id JOIN care_partners cp ON cp.id = e.care_partner_id LEFT JOIN local_caregivers lc ON lc.elder_id = e.id LEFT JOIN doctors d ON d.elder_id = e.id WHERE s.id = $1::uuid"
+        "query": "SELECT s.id AS sos_event_id, e.id AS elder_id, e.first_name AS elder_first_name, e.first_name || ' ' || e.last_name AS elder_full_name, e.whatsapp_number AS elder_whatsapp, e.address AS elder_address, cp.id AS ct_id, cp.first_name || ' ' || cp.last_name AS ct_full_name, cp.whatsapp_number AS ct_number, lc.id AS lct_id, lc.first_name AS lct_first_name, lc.whatsapp_number AS lct_number, COALESCE(lc.first_name || ' ' || lc.last_name, 'Not on Record') AS lct_name_na, COALESCE(lc.whatsapp_number, 'Not on Record') AS lct_number_na, d.id AS dr_id, d.whatsapp_number AS dr_number, COALESCE(d.first_name || ' ' || d.last_name, 'Not on Record') AS dr_name_na, COALESCE(d.clinic_name, 'Not on Record') AS dr_clinic_na, (lc.id IS NOT NULL) AS has_lct, (d.id IS NOT NULL) AS has_dr, (d.id IS NOT NULL AND d.whatsapp_number IS NOT NULL) AS dr_sendable, to_char(s.triggered_at AT TIME ZONE cp.timezone, 'FMHH12:MI AM') AS triggered_label_ct, to_char(s.triggered_at AT TIME ZONE e.timezone, 'FMHH12:MI AM') AS triggered_label_elder FROM sos_events s JOIN elders e ON e.id = s.elder_id JOIN care_partners cp ON cp.id = e.care_partner_id LEFT JOIN local_caregivers lc ON lc.elder_id = e.id LEFT JOIN doctors d ON d.elder_id = e.id WHERE s.id = $1::uuid"
       },
       "position": [
         896,
