@@ -17,6 +17,8 @@ export const COMMON_TIME_ZONES = TIMEZONE_OPTIONS;
 /**
  * Full IANA list where available. Falls back to COMMON values.
  * Never throws at module load.
+ * Intentionally retained and currently unreferenced by the UI — basis for a
+ * post-demo searchable combobox over the full list. Do not prune as dead code.
  */
 export const ALL_TIME_ZONES: string[] = (() => {
   try {

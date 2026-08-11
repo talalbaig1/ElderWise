@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ALL_TIME_ZONES, COMMON_TIME_ZONES } from "@/lib/timezone";
+import { COMMON_TIME_ZONES } from "@/lib/timezone";
 
 type TimeZoneSelectProps = {
   id?: string;
@@ -19,16 +19,15 @@ type TimeZoneSelectProps = {
 };
 
 /**
- * Offset-ordered select: Common quick picks, then the full IANA list.
- * First-letter type-ahead only (not filter search). Preserves a stored value
- * even when it is absent from both lists (e.g. legacy alias `Asia/Calcutta`) —
+ * Offset-ordered select over the curated TIMEZONE_OPTIONS list.
+ * First-letter type-ahead only (not filter search). Preserves any stored
+ * value that is not in the curated list (e.g. legacy alias `Asia/Calcutta`) —
  * never silently rewrite it.
  */
 export function TimeZoneSelect({ id, value, onChange, disabled }: TimeZoneSelectProps) {
   const commonValues = new Set<string>(COMMON_TIME_ZONES.map((o) => o.value));
-  const inAll = ALL_TIME_ZONES.includes(value);
   const inCommon = commonValues.has(value);
-  const preserveLegacy = Boolean(value) && !inAll && !inCommon;
+  const preserveLegacy = Boolean(value) && !inCommon;
 
   return (
     <Select value={value || undefined} onValueChange={onChange} disabled={disabled}>
@@ -38,7 +37,7 @@ export function TimeZoneSelect({ id, value, onChange, disabled }: TimeZoneSelect
       <SelectContent className="max-h-72">
         {preserveLegacy ? (
           <SelectGroup>
-            <SelectLabel>Current</SelectLabel>
+            <SelectLabel>Current (not in the list)</SelectLabel>
             <SelectItem value={value}>{value}</SelectItem>
           </SelectGroup>
         ) : null}
@@ -47,14 +46,6 @@ export function TimeZoneSelect({ id, value, onChange, disabled }: TimeZoneSelect
           {COMMON_TIME_ZONES.map((opt) => (
             <SelectItem key={opt.value} value={opt.value}>
               {opt.label}
-            </SelectItem>
-          ))}
-        </SelectGroup>
-        <SelectGroup>
-          <SelectLabel>All time zones</SelectLabel>
-          {ALL_TIME_ZONES.filter((tz) => !commonValues.has(tz)).map((tz) => (
-            <SelectItem key={tz} value={tz}>
-              {tz}
             </SelectItem>
           ))}
         </SelectGroup>
