@@ -20,6 +20,7 @@ import {
   validateOptionalWhatsAppNumber,
   validateRequiredWhatsAppNumber,
 } from "@/lib/whatsapp-e164";
+import { isValidTimeZone } from "@/lib/timezone";
 
 export type OnboardingActionResult =
   | { ok: true }
@@ -465,6 +466,15 @@ export async function saveCareCircleDraft(input: {
 
   const tz = input.carePartner.timezone.trim();
   if (!tz) return failElder("Care partner timezone is required");
+  if (!isValidTimeZone(tz)) {
+    return failElder("Not a valid time zone — pick one from the list");
+  }
+
+  const elderTz = input.elder.timezone.trim();
+  if (!elderTz) return failElder("Loved One timezone is required");
+  if (!isValidTimeZone(elderTz)) {
+    return failElder("Not a valid time zone — pick one from the list");
+  }
 
   if (
     !Number.isInteger(input.elder.age) ||
@@ -495,7 +505,7 @@ export async function saveCareCircleDraft(input: {
     age: input.elder.age,
     relationship_to_care_partner: input.elder.relationshipToCarePartner.trim(),
     whatsapp_number: elderWaCheck.value,
-    timezone: input.elder.timezone.trim(),
+        timezone: elderTz,
     address: input.elder.address.trim(),
   };
 

@@ -15,6 +15,7 @@ import {
   validateRequiredWhatsAppNumber,
 } from "@/lib/whatsapp-e164";
 import { createClient } from "@/lib/supabase/server";
+import { isValidTimeZone } from "@/lib/timezone";
 import type {
   FamilyDoctor,
   FoodRoutine,
@@ -162,7 +163,11 @@ const elderEditSchema = z.object({
   age: z.coerce.number().int().min(1).max(120),
   relationshipToCarePartner: z.string().trim().min(1, "Relationship is required"),
   whatsappNumber: z.string().trim().min(1, "WhatsApp number is required"),
-  timeZone: z.string().trim().min(1, "Time zone is required"),
+  timeZone: z
+    .string()
+    .trim()
+    .min(1, "Time zone is required")
+    .refine(isValidTimeZone, "Not a valid time zone — pick one from the list"),
   address: z
     .string()
     .trim()
@@ -185,7 +190,11 @@ export async function updateCarePartnerProfile(input: {
     .object({
       firstName: z.string().trim().min(1, "First name is required"),
       lastName: z.string().trim().min(1, "Last name is required"),
-      timeZone: z.string().trim().min(1, "Time zone is required"),
+      timeZone: z
+        .string()
+        .trim()
+        .min(1, "Time zone is required")
+        .refine(isValidTimeZone, "Not a valid time zone — pick one from the list"),
       whatsappNumber: z.string().optional(),
       address: z.string().optional(),
       email: z.string().email().optional().or(z.literal("")),

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TimeZoneSelect } from "@/components/shared/timezone-select";
 import {
   discardDraftElder,
   getOwnDraftElder,
@@ -308,12 +309,11 @@ export function CareCircleStep() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="cp-tz">Time zone</Label>
-                <Input
+                <TimeZoneSelect
                   id="cp-tz"
-                  placeholder="Asia/Kolkata"
                   value={carePartner.timeZone}
-                  onChange={(e) =>
-                    patchDraft({ carePartner: { ...carePartner, timeZone: e.target.value } })
+                  onChange={(timeZone) =>
+                    patchDraft({ carePartner: { ...carePartner, timeZone } })
                   }
                 />
                 <FieldError message={errors["carePartner.timeZone"]} />
@@ -381,11 +381,12 @@ export function CareCircleStep() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="lo-tz">Time zone</Label>
-              <Input
+              <TimeZoneSelect
                 id="lo-tz"
-                placeholder="Asia/Kolkata"
                 value={lovedOne.timeZone}
-                onChange={(e) => patchDraft({ lovedOne: { ...lovedOne, timeZone: e.target.value } })}
+                onChange={(timeZone) =>
+                  patchDraft({ lovedOne: { ...lovedOne, timeZone } })
+                }
               />
               <FieldError message={errors["lovedOne.timeZone"]} />
             </div>

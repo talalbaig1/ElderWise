@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { isValidTimeZone } from "@/lib/timezone";
 
 export type EnsureCarePartnerResult =
   | { ok: true }
@@ -37,6 +38,9 @@ export async function ensureCarePartnerProfile(input: {
   }
   if (!email) {
     return { ok: false, error: "Email is required for your Care Partner profile." };
+  }
+  if (!isValidTimeZone(timeZone)) {
+    return { ok: false, error: "Not a valid time zone — pick one from the list" };
   }
   if (!timeZone) {
     return { ok: false, error: "Timezone is required for your Care Partner profile." };
