@@ -1,6 +1,28 @@
 {
-  "activeVersionId": "135bab22-cf59-4cee-beae-f552328c7fd0",
+  "activeVersionId": "f0423f2a-e4de-4266-b1d9-9552907847e8",
   "connections": {
+    "Alert Email": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Mark Alerted",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Alert Telegram": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Alert Email",
+            "type": "main"
+          }
+        ]
+      ]
+    },
     "Every 5 Minutes": {
       "main": [
         [
@@ -18,11 +40,6 @@
           {
             "index": 0,
             "node": "Alert Telegram",
-            "type": "main"
-          },
-          {
-            "index": 0,
-            "node": "Alert Email",
             "type": "main"
           }
         ]
@@ -52,7 +69,7 @@
       },
       "position": [
         0,
-        96
+        0
       ],
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3
@@ -71,12 +88,12 @@
         "options": {
           "connectionTimeout": 15
         },
-        "query": "SELECT count(*)::int AS overdue_count,\n       to_char(min(c.scheduled_for) AT TIME ZONE 'Asia/Riyadh','YYYY-MM-DD HH24:MI') AS oldest_due_riyadh,\n       string_agg(DISTINCT c.domain::text, ', ') AS domains,\n       string_agg(DISTINCT e.first_name, ', ') AS elders\nFROM checkins c\nJOIN elders e ON e.id = c.elder_id\nWHERE c.sent_at IS NULL\n  AND c.cancelled_at IS NULL\n  AND e.active\n  AND e.consent_confirmed_at IS NOT NULL\n  AND c.scheduled_for < now() - interval '15 minutes'\n  AND c.scheduled_for > now() - interval '2 hours'\nHAVING count(*) > 0",
+        "query": "SELECT count(*)::int AS overdue_count,\n       to_char(min(c.scheduled_for) AT TIME ZONE 'Asia/Riyadh','YYYY-MM-DD HH24:MI') AS oldest_due_riyadh,\n       string_agg(DISTINCT c.domain::text, ', ') AS domains,\n       string_agg(DISTINCT e.first_name, ', ') AS elders,\n       array_agg(c.id) AS checkin_ids\nFROM checkins c\nJOIN elders e ON e.id = c.elder_id\nLEFT JOIN watchdog_alerts w ON w.checkin_id = c.id\nWHERE c.sent_at IS NULL\n  AND c.cancelled_at IS NULL\n  AND e.active\n  AND e.consent_confirmed_at IS NOT NULL\n  AND w.checkin_id IS NULL\n  AND c.scheduled_for < now() - interval '15 minutes'\nHAVING count(*) > 0",
         "resource": "database"
       },
       "position": [
         224,
-        96
+        0
       ],
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6
@@ -97,7 +114,7 @@
         "chatId": "776765063",
         "operation": "sendMessage",
         "resource": "message",
-        "text": "=⚠️ ElderWise dispatch watchdog\n\n{{ $json.overdue_count }} check-in(s) are past due and were never sent.\n\nOldest due: {{ $json.oldest_due_riyadh }} (Riyadh)\nDomains: {{ $json.domains }}\nLoved Ones: {{ $json.elders }}\n\nArchitecture §11 P1 — A-30. Check WF-1 / WF-1b / WF-1c executions and Meta template status."
+        "text": "=⚠️ ElderWise dispatch watchdog\n\n{{ $json.overdue_count }} check-in(s) are past due and were never sent.\n\nOldest due: {{ $json.oldest_due_riyadh }} (Riyadh)\nDomains: {{ $json.domains }}\nLoved Ones: {{ $json.elders }}\n\nYou will only be told about each of these once.\n\nArchitecture §11 P1 — A-30. Check WF-1 / WF-1b / WF-1c executions and Meta template status."
       },
       "position": [
         448,
@@ -105,7 +122,7 @@
       ],
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "webhookId": "9b992391-007a-4d43-a66a-8b3d50d9136f"
+      "webhookId": "ad6e8a34-c049-4597-8570-eddcde2a29b3"
     },
     {
       "credentials": {
@@ -118,7 +135,7 @@
       "name": "Alert Email",
       "parameters": {
         "emailType": "text",
-        "message": "=⚠️ ElderWise dispatch watchdog\n\n{{ $json.overdue_count }} check-in(s) are past due and were never sent.\n\nOldest due: {{ $json.oldest_due_riyadh }} (Riyadh)\nDomains: {{ $json.domains }}\nLoved Ones: {{ $json.elders }}\n\nArchitecture §11 P1 — A-30. Check WF-1 / WF-1b / WF-1c executions and Meta template status.",
+        "message": "=⚠️ ElderWise dispatch watchdog\n\n{{ $('Find Overdue Dispatches').first().json.overdue_count }} check-in(s) are past due and were never sent.\n\nOldest due: {{ $('Find Overdue Dispatches').first().json.oldest_due_riyadh }} (Riyadh)\nDomains: {{ $('Find Overdue Dispatches').first().json.domains }}\nLoved Ones: {{ $('Find Overdue Dispatches').first().json.elders }}\n\nYou will only be told about each of these once.\n\nArchitecture §11 P1 — A-30. Check WF-1 / WF-1b / WF-1c executions and Meta template status.",
         "operation": "send",
         "options": {
           "appendAttribution": false
@@ -128,12 +145,37 @@
         "subject": "ElderWise P1 - check-ins past due and never sent"
       },
       "position": [
-        448,
-        192
+        672,
+        0
       ],
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.2,
-      "webhookId": "cb0a17e9-c90a-4e41-97c2-02707b5d1b4c"
+      "webhookId": "fa5c4eb2-1195-4501-8d21-10df6fecf78d"
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "35b3ad3e-a8ea-4485-9ba3-bf78c509934b",
+      "name": "Mark Alerted",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 15,
+          "queryReplacement": "={{ [ JSON.stringify($('Find Overdue Dispatches').first().json.checkin_ids) ] }}"
+        },
+        "query": "INSERT INTO watchdog_alerts (checkin_id)\nSELECT value::uuid FROM jsonb_array_elements_text($1::jsonb) AS value\nON CONFLICT (checkin_id) DO NOTHING\nRETURNING checkin_id",
+        "resource": "database"
+      },
+      "position": [
+        896,
+        0
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
     }
   ],
   "settings": {
