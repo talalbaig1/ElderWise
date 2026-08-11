@@ -392,6 +392,70 @@ export async function upsertDoctor(doctor: FamilyDoctor): Promise<ActionResult> 
   return { ok: true };
 }
 
+export async function deleteLocalCaregiver(
+  buddyId: string,
+  elderId: string,
+): Promise<ActionResult> {
+  const { supabase, user, error: authErr } = await requireUser();
+  if (authErr || !user) return fail(authErr ?? "Not signed in");
+
+  const ownErr = await assertOwnsElder(supabase, elderId, user.id);
+  if (ownErr) return fail(ownErr);
+
+  const { data, error } = await supabase
+    .from("local_caregivers")
+    .delete()
+    .eq("id", buddyId)
+    .eq("elder_id", elderId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) return fail(error.message);
+  if (!data) return fail("Local Buddy delete failed — no row returned (check RLS)");
+
+  revalidatePath(`/loved-ones/${elderId}`);
+  revalidateApp();
+  return { ok: true };
+}
+
+/**
+ * Hard-delete Family Doctor. Revokes working share links first — links are
+ * elder-scoped (no doctor_id), so otherwise access would survive the delete.
+ */
+export async function deleteDoctor(
+  doctorId: string,
+  elderId: string,
+): Promise<ActionResult> {
+  const { supabase, user, error: authErr } = await requireUser();
+  if (authErr || !user) return fail(authErr ?? "Not signed in");
+
+  const ownErr = await assertOwnsElder(supabase, elderId, user.id);
+  if (ownErr) return fail(ownErr);
+
+  const { revokeActiveDoctorShareLinks } = await import(
+    "@/lib/data/share-link-actions"
+  );
+  const revokeResult = await revokeActiveDoctorShareLinks(elderId);
+  if (!revokeResult.ok) {
+    return fail(`Could not revoke share links before deleting doctor: ${revokeResult.error}`);
+  }
+
+  const { data, error } = await supabase
+    .from("doctors")
+    .delete()
+    .eq("id", doctorId)
+    .eq("elder_id", elderId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) return fail(error.message);
+  if (!data) return fail("Doctor delete failed — no row returned (check RLS)");
+
+  revalidatePath(`/loved-ones/${elderId}`);
+  revalidateApp();
+  return { ok: true };
+}
+
 export async function upsertMedication(med: Medication): Promise<ActionResult> {
   const { supabase, user, error: authErr } = await requireUser();
   if (authErr || !user) return fail(authErr ?? "Not signed in");

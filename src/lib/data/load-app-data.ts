@@ -124,9 +124,31 @@ export async function loadAppData(
     supabase.from("ct_notifications").select("*").order("sent_at", { ascending: false }),
     supabase
       .from("doctor_share_links")
-      .select("id, elder_id, created_at, expires_at, revoked_at, last_accessed_at")
-      .order("created_at", { ascending: false }),
+      .select(
+        "id, elder_id, created_by, sos_event_id, expires_at, revoked_at, last_accessed_at",
+      )
+      .order("expires_at", { ascending: false }),
   ]);
+
+  // C14: a discarded Supabase read error is indistinguishable from an empty list.
+  const readErrors: Array<{ table: string; message: string }> = [
+    { table: "care_partners", message: cpRes.error?.message ?? "" },
+    { table: "elders", message: eldersRes.error?.message ?? "" },
+    { table: "local_caregivers", message: lctRes.error?.message ?? "" },
+    { table: "doctors", message: docRes.error?.message ?? "" },
+    { table: "medications", message: medRes.error?.message ?? "" },
+    { table: "food_routines", message: foodRes.error?.message ?? "" },
+    { table: "health_routines", message: healthRes.error?.message ?? "" },
+    { table: "checkins", message: checkinsRes.error?.message ?? "" },
+    { table: "sos_events", message: sosRes.error?.message ?? "" },
+    { table: "sos_notifications", message: sosNotifRes.error?.message ?? "" },
+    { table: "ct_notifications", message: ctNotifRes.error?.message ?? "" },
+    { table: "doctor_share_links", message: shareRes.error?.message ?? "" },
+  ].filter((e) => e.message);
+
+  for (const err of readErrors) {
+    console.error(`[loadAppData] ${err.table} read failed:`, err.message);
+  }
 
   const carePartner = cpRes.data
     ? carePartnerFromRow(cpRes.data as CarePartnerRow)
@@ -197,7 +219,8 @@ export async function loadAppData(
   const doctorShareLinks: DoctorShareLink[] = (shareRes.data ?? []).map((row) => ({
     id: row.id as string,
     lovedOneId: row.elder_id as string,
-    createdAt: row.created_at as string,
+    createdBy: row.created_by as string,
+    sosEventId: (row.sos_event_id as string | null) ?? null,
     expiresAt: (row.expires_at as string | null) ?? null,
     revokedAt: (row.revoked_at as string | null) ?? null,
     lastAccessedAt: (row.last_accessed_at as string | null) ?? null,

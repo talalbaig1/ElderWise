@@ -15,7 +15,9 @@ export type ShareActionResult =
   | { ok: true; rawToken: string; expiresAt: string; urlPath: string }
   | { ok: false; error: string };
 
-export type RevokeShareResult = { ok: true } | { ok: false; error: string };
+export type RevokeShareResult =
+  | { ok: true; revokedCount: number }
+  | { ok: false; error: string };
 
 export type RevealShareResult =
   | { ok: true; summary: DoctorShareSummary }
@@ -23,6 +25,24 @@ export type RevealShareResult =
 
 function fail(error: string): { ok: false; error: string } {
   return { ok: false, error };
+}
+
+function revalidateSharePaths(elderId: string) {
+  revalidatePath(`/loved-ones/${elderId}`);
+  revalidatePath("/dashboard");
+  revalidatePath("/loved-ones");
+  revalidatePath("/settings");
+  revalidatePath("/reports");
+  revalidatePath("/sos");
+  revalidatePath("/notifications");
+}
+
+function isUniqueViolation(message: string): boolean {
+  return (
+    message.includes("doctor_share_links_one_active_cp_link") ||
+    message.includes("duplicate key") ||
+    message.includes("23505")
+  );
 }
 
 async function requireUser() {
@@ -51,6 +71,56 @@ async function assertOwnsElder(
   return null;
 }
 
+/**
+ * Revoke every working (unrevoked + unexpired) share link for an elder.
+ * Used by the Care Circle header control and by deleteDoctor.
+ */
+export async function revokeActiveDoctorShareLinks(
+  elderId: string,
+): Promise<RevokeShareResult> {
+  const { supabase, user, error: authErr } = await requireUser();
+  if (authErr || !user) return fail(authErr ?? "Not signed in");
+
+  const ownErr = await assertOwnsElder(supabase, elderId, user.id);
+  if (ownErr) return fail(ownErr);
+
+  const { data: rows, error: listErr } = await supabase
+    .from("doctor_share_links")
+    .select("id, expires_at")
+    .eq("elder_id", elderId)
+    .is("revoked_at", null);
+
+  if (listErr) return fail(listErr.message);
+
+  const nowMs = Date.now();
+  const ids = (rows ?? [])
+    .filter((row) => {
+      const exp = row.expires_at as string | null;
+      if (exp && new Date(exp).getTime() <= nowMs) return false;
+      return true;
+    })
+    .map((row) => row.id as string);
+
+  if (ids.length === 0) {
+    revalidateSharePaths(elderId);
+    return { ok: true, revokedCount: 0 };
+  }
+
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("doctor_share_links")
+    .update({ revoked_at: nowIso })
+    .in("id", ids)
+    .eq("elder_id", elderId)
+    .is("revoked_at", null)
+    .select("id");
+
+  if (error) return fail(error.message);
+
+  revalidateSharePaths(elderId);
+  return { ok: true, revokedCount: data?.length ?? 0 };
+}
+
 /** CT issues a share link — raw token returned once. Uses session RLS for insert. */
 export async function issueDoctorShareLink(elderId: string): Promise<ShareActionResult> {
   const { supabase, user, error: authErr } = await requireUser();
@@ -69,6 +139,24 @@ export async function issueDoctorShareLink(elderId: string): Promise<ShareAction
     return fail("Add a Family Doctor before issuing a share link.");
   }
 
+  // Cap matches partial unique index: any unrevoked dashboard-issued row
+  // (sos_event_id IS NULL), including expired — index predicates cannot use now().
+  const { data: existingRows, error: existingErr } = await supabase
+    .from("doctor_share_links")
+    .select("id")
+    .eq("elder_id", elderId)
+    .is("revoked_at", null)
+    .is("sos_event_id", null)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingErr) return fail(existingErr.message);
+  if (existingRows) {
+    return fail(
+      "A dashboard share link already exists. Revoke it before issuing a new one.",
+    );
+  }
+
   const rawToken = generateShareToken();
   const tokenHash = hashShareToken(rawToken);
   const expiresAt = new Date(
@@ -82,14 +170,22 @@ export async function issueDoctorShareLink(elderId: string): Promise<ShareAction
       token_hash: tokenHash,
       created_by: user.id,
       expires_at: expiresAt,
+      sos_event_id: null,
     })
     .select("id")
     .maybeSingle();
 
-  if (error) return fail(error.message);
+  if (error) {
+    if (isUniqueViolation(error.message)) {
+      return fail(
+        "A dashboard share link already exists. Revoke it before issuing a new one.",
+      );
+    }
+    return fail(error.message);
+  }
   if (!data) return fail("Share link create failed — no row returned (check RLS)");
 
-  revalidatePath(`/loved-ones/${elderId}`);
+  revalidateSharePaths(elderId);
   return {
     ok: true,
     rawToken,
@@ -121,8 +217,8 @@ export async function revokeDoctorShareLink(
   if (error) return fail(error.message);
   if (!data) return fail("Share link not found or already revoked");
 
-  revalidatePath(`/loved-ones/${elderId}`);
-  return { ok: true };
+  revalidateSharePaths(elderId);
+  return { ok: true, revokedCount: 1 };
 }
 
 /**
@@ -161,4 +257,3 @@ export async function revealDoctorShareSummary(
     return fail(message);
   }
 }
-
