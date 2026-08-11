@@ -1,8 +1,8 @@
 | Field | Value |
 | --- | --- |
-| **Document** | PostDemoEnhancements.md — v1.1 |
+| **Document** | PostDemoEnhancements.md — v1.2 |
 | **Project** | ElderWise · AIGF Cohort 7 · Group 7 |
-| **Date** | 10 August 2026 |
+| **Date** | 11 August 2026 |
 | **Status** | Deferred by ruling — scheduled to begin after Demo Day, 29 August 2026 |
 
 ## Purpose
@@ -130,6 +130,27 @@ Remedy (post-demo): persist the cause of a failed dispatch — at minimum a null
 
 Depends on: nothing. Blocks: a genuine A-30 detector.
 
+### PD-12 · SOS templates 10/12 need `_v2` + conditional WF-4 routing
+
+**Layer:** Meta templates + n8n (WF-4) · **Owner:** Talal · **Priority:** P2
+
+**Context (D-10, 11 August 2026).** Absent Local Buddy / Doctor fields now substitute **`Not on Record`** at send time (WF-4 Load Care Circle). That is safer than the opaque literal `NA`, but it does **not** fix the prose in the approved bodies.
+
+Templates **10** and **12** contain sentences that cannot absorb an absent name:
+
+- Template 10: *Local Buddy* {{3}} and Doctor {{4}} have also been alerted.
+- Template 12 closing: His/Her family and local buddy have been alerted.
+
+With the current substitution those lines still assert that a non-existent person was notified (e.g. "Local Buddy Not on Record … have also been alerted"). **Accepted for Demo Day with eyes open.**
+
+Template **11** is unaffected — its *Doctor*: {{4}} / *Hospital/Clinic*: {{5}} label:value structure reads correctly with any substitution.
+
+**Remedy (post-demo):** new **`_v2`** templates (Rules **W8** — never edit approved templates in place) **plus conditional routing in WF-4** so each absent-contact leg uses a body that omits the false assertion. A substitution-only change is not enough. Conditional `_v2` was specified and then **rejected before Demo Day** because each leg needs an IF plus a duplicate WhatsApp send node on the P0 SOS path, with 18 days to Demo Day and 110 of 122 test cases unrun — **scheduling risk**, not a copy preference.
+
+**Latent data bug (confirmed 11 August 2026, not a demo risk on current data):** `lct_name_na` is built as `lc.first_name || ' ' || lc.last_name`. In Postgres, `NULL` in a `||` concat nulls the whole expression, so a buddy who exists but has no last name would render as **"Not on Record"** — indistinguishable from having no buddy at all. Verified against live data the same day: 3 local caregivers, 2 doctors, zero null name parts, zero null numbers, zero null clinic names. Fix with `COALESCE` / `concat_ws` when Load Care Circle is next touched.
+
+Depends on: Meta approval of `_v2` SOS templates. Blocks: nothing else in this register.
+
 ## Explicitly NOT deferred
 
 Recorded here so nobody mistakes them for register items:
@@ -145,5 +166,6 @@ Recorded here so nobody mistakes them for register items:
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 11 Aug 2026 | 1.2 | **PD-12 added.** SOS templates 10/12 need `_v2` + conditional WF-4 routing (D-10). Records accepted demo prose defect after `Not on Record` substitution, and the latent `||` null-concat bug on `lct_name_na`. |
 | 10 Aug 2026 | 1.1 | **PD-9, PD-10, PD-11 added.** PD-9 — Google OAuth withdrawn from the MVP (D-8); requires decoupling auth from onboarding. PD-10 — suppress Care Partner Missed Notice when `sent_at IS NULL` (D-9 accepted for MVP). PD-11 — persist send-failure cause (feeds A-30 / PD-10). |
 | 9 Aug 2026 | 1.0 | Register created. PD-1 to PD-8 recorded and deferred to after Demo Day by ruling of the Team Lead. |

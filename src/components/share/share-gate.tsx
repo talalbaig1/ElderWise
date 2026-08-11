@@ -16,6 +16,9 @@ import {
 import { formatInTimeZone, labelElderLocalTime } from "@/lib/time/display";
 import { Button } from "@/components/ui/button";
 
+/** Cap detail list only — summary strip still uses the full window payload. */
+const CHECKIN_LIST_CAP = 20;
+
 /**
  * Neutral landing first (crawlers / link previews). Clinical data loads only
  * after a human click — never in the initial HTML response.
@@ -161,22 +164,29 @@ function ShareSummaryView({ summary }: { summary: DoctorShareSummary }) {
         {summary.checkIns.length === 0 ? (
           <p className="text-sm text-muted-foreground">No check-ins in this window.</p>
         ) : (
-          <ul className="space-y-2">
-            {summary.checkIns.map((c, i) => (
-              <li
-                key={`${c.scheduledAt}-${c.domain}-${i}`}
-                className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl border px-3 py-2 text-sm"
-              >
-                <span>
-                  {c.domain} · {formatCheckInStatus(c.status)}
-                  {c.responseValue ? ` · ${c.responseValue}` : ""}
-                </span>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {formatInTimeZone(c.scheduledAt, tz)}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <>
+            {summary.checkIns.length > CHECKIN_LIST_CAP ? (
+              <p className="font-mono text-xs text-muted-foreground">
+                Showing most recent {CHECKIN_LIST_CAP} of {summary.checkIns.length}
+              </p>
+            ) : null}
+            <ul className="space-y-2">
+              {summary.checkIns.slice(0, CHECKIN_LIST_CAP).map((c, i) => (
+                <li
+                  key={`${c.scheduledAt}-${c.domain}-${i}`}
+                  className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl border px-3 py-2 text-sm"
+                >
+                  <span>
+                    {c.domain} · {formatCheckInStatus(c.status)}
+                    {c.responseValue ? ` · ${c.responseValue}` : ""}
+                  </span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {formatInTimeZone(c.scheduledAt, tz)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </section>
 
