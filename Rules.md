@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.19 |
-| **Date** | 10 August 2026 |
+| **Document** | Rules.md — v1.20 |
+| **Date** | 11 August 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
 
@@ -182,6 +182,7 @@ Defaults, not dogma. Consistency across ten contributors matters more than any i
 | **C10** | **This project uses `src/`, so every Next.js root-convention file lives in `src/` — `instrumentation.ts`, `middleware.ts`, and anything similar.** Root placement does not error, does not warn, and does not appear in the build output. It compiles to **nothing** and the feature is silently absent. Proven 4 August 2026: `src/instrumentation.ts` emitted `.next/server/instrumentation.js` (~1.5 MB) while root `middleware.ts` emitted an empty manifest (A-32). **Verify the build artifact, not the file's existence.** |
 | **C11** | **The verification console (`src/app/verify/`, `src/app/api/verify/`, `src/lib/verify/`, `src/components/verify/`) is a fixed security surface.** It must never contain: free-text input; SQL strings or template-literal query assembly; `.rpc()`; writes on the **read** path (`.insert` / `.update` / `.delete` / `.upsert`); or any import of `createAdminClient`, `dashboard-analytics`, `report-analytics`, or `supabase/mappers`. The standing check is the §9 grep block in the console task spec (service-role / `getSession` / read-path writes / dashboard coupling / no `NEXT_PUBLIC_VERIFY`). Re-run before merge. |
 | **C12** | **When a shared Zod schema gains a required field, enumerate every consumer before merging.** `safeParse()` accepts `unknown`, so a hand-built payload missing a newly-required property is **invisible to TypeScript**. `npx tsc --noEmit` will pass on code that fails at runtime for every user. **Observed 8 August 2026.** Wave 2 added a required `daysOfWeek` to `medicationSchema`, `foodRoutineSchema` and `healthRoutineSchema`. The three dashboard upserts in `src/lib/data/actions.ts` still built their payloads by hand and were never updated. Every dashboard routine save failed validation with "Invalid input" before touching the database. Type-checking passed, the diff review passed, and the regression reached production. **Required before merge:** grep for every `.safeParse(` and `.parse(` call site that feeds the changed schema, and confirm each payload carries the new field. A passing `tsc` is not evidence. |
+| **C13** | **Any value the scheduler passes to Postgres must be validated at the point of entry.** `AT TIME ZONE e.timezone` runs across every elder in a single query — one invalid value throws for the whole batch and halts materialisation for all families. Time zones must be validated with `isValidTimeZone()`, a **runtime** check (does `Intl.DateTimeFormat` accept it), never list membership: `TIMEZONE_OPTIONS` is a convenience list of 11 that excludes zones in live use, and `Intl.supportedValuesOf('timeZone')` returns canonical zones only and rejects legacy aliases such as `Asia/Calcutta`, which two live elders use. Learned from the 33-minute Track B outage of 10 August 2026 (A-35). |
 
 ---
 
@@ -326,6 +327,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 11 Aug 2026 | 1.20 | **C13 — validate scheduler inputs at the point of entry.** Time zones must pass `isValidTimeZone()` (runtime `Intl.DateTimeFormat` check), not list membership. From the 33-minute Track B outage of 10 August 2026 (A-35 / `Asia/India`). |
 | 10 Aug 2026 | 1.19 | **W8 — never edit an approved WhatsApp template in place.** Create a `_v2`, get it APPROVED, confirm via Template Audit (`PADE2m75e6xVGS2e`), then repoint the workflow. Caused by the 9–10 August 2026 medication outage: an in-place copy edit to `elderwise_ep_medication_checkin` put it into Meta review; sends failed with 132001 for ~22 hours (~1,400 WF-1 executions). Language codes are `en`, not `en_US`. |
 | 8 Aug 2026 | 1.18 | **§6a — two findings added** from the WF-5 A-25 build. `ON CONFLICT` against a **partial** unique index must repeat the index predicate or the statement fails on every insert. A **POST to Supabase Storage 409s rather than overwriting**; deterministic object keys need `x-upsert: true`. |
 | 8 Aug 2026 | 1.17 | **C12 + W7 from 8 August defects.** **C12** — when a shared Zod schema gains a required field, enumerate every `.safeParse(` / `.parse(` consumer before merge (`tsc` cannot see hand-built `unknown` payloads; Wave 2 `daysOfWeek` broke all three dashboard routine upserts). **W7** — `n8n/workflows/` JSON is a read-only snapshot; never re-import (rotates `webhookId` and can silently kill Meta inbound on WF-2). |

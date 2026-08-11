@@ -5,8 +5,8 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | PRD.md — v1.12 |
-| **Date** | 10 August 2026 |
+| **Document** | PRD.md — v1.13 |
+| **Date** | 11 August 2026 |
 | **Format** | AIGF Framework 9 (F9) PRD structure + technical build sections |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Demo Day** | 29 August 2026 |
@@ -525,7 +525,7 @@ Demo Day ships the **MVP**. Should- and Could-have items are not permitted to en
 | OQ-5 | ~~Voice reply handling~~ — **RESOLVED 14 Jul: voice replies ARE transcribed in the MVP.** The answer must be determined accurately and acted on exactly as a button tap would be. STT is therefore a **Must-have** (M4a), not a Could-have. | Closed | Talal |
 | OQ-5b | ~~**STT provider** — shortlisted to Google Speech-to-Text or ElevenLabs.~~ — **CLOSED 2 August 2026 by Talal: OpenAI Whisper**, in use in WF-5. See `Architecture.md` §3 / A-1. **The confidence threshold remains unset by design** — WF-5's re-ask path is gated on answer-derivation returning `unclear`, not on an ASR confidence score; `voice_replies.confidence` is diagnostic only. | Closed | Talal |
 | OQ-6 | Ownership of the separate "Could have" sheet. | **Open** | Team |
-| OQ-7 | Confirm all 10 members have GitHub accounts (blocks branch assignment). | **Open** | Talal |
+| OQ-7 | ~~Confirm all 10 members have GitHub accounts (blocks branch assignment).~~ — **CLOSED 10 August 2026 — superseded.** Branch-per-member was never adopted; `main` is the sole branch. See `Architecture.md` A-6. | Closed | Talal |
 | OQ-8 | Team sheet to be updated to reflect the four MoSCoW changes of 14 Jul 2026 (auth → Must, multi-timezone → Must, multi-language → Should, extra channels → Could). | In progress | Talal |
 
 ---
@@ -534,6 +534,7 @@ Demo Day ships the **MVP**. Should- and Could-have items are not permitted to en
 
 | Date | Version | Change |
 |---|---|---|
+| 11 Aug 2026 | 1.13 | **OQ-7 closed — superseded.** Branch-per-member was never adopted; `main` is the sole branch. Closes with `Architecture.md` A-6 (10 Aug 2026). |
 | 10 Aug 2026 | 1.12 | **STT locked to OpenAI Whisper; OQ-5b closed; member count 11 → 10.** §11 Speech-to-text and OQ-5b brought in line with `Architecture.md` §3 / A-1 (locked 2 August 2026; stale since then). Confidence threshold is unset by design — re-ask gated on answer-derivation `unclear`, not ASR score. Header team size and OQ-7 corrected to **10 members** following Patrick Correya's departure. |
 | 27 Jul 2026 | 1.11 | **§7.1 Not Required warning copy — three card-specific variants** (medication / food / health). Medication row 3 uses Timing + Notify dropdowns + Missed-dose escalation (minutes); escalation disabled (not hidden) when `not_required`. Food/Health are one row of three with Notify dropdowns. |
 | 26 Jul 2026 | 1.10 | **§9 / §12.4 correction.** Remove "ElderWise Corp" — no registered entity; name ElderWise as AIGF Cohort 7 Group 7 non-commercial capstone; no governing-law / no service contract. Rewrite must disclose demo-only PHI warning, A4.0-style deletion without notice, not HIPAA CE/BA, N1/SEC7, data residency. `consent_terms_version` = dated string (e.g. `2026-07-v1`). |
