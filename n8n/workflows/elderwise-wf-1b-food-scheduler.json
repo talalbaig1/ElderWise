@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "6d9dbeec-b3c7-43ac-9ec8-e7d837abd6d2",
+  "activeVersionId": "93885edd-a559-4289-88a7-24f4ee2c7823",
   "connections": {
     "Any Due?": {
       "main": [
@@ -104,7 +104,7 @@
       "parameters": {
         "operation": "executeQuery",
         "options": {
-          "connectionTimeout": 15
+          "connectionTimeout": 30
         },
         "query": "WITH ins AS (INSERT INTO checkins (elder_id, domain, food_routine_id, scheduled_for, status) SELECT e.id, 'food'::care_domain, f.id, (((now() AT TIME ZONE e.timezone)::date + f.check_in_time) AT TIME ZONE e.timezone), 'scheduled'::checkin_status FROM elders e JOIN food_routines f ON f.elder_id = e.id AND f.enabled WHERE e.active AND e.consent_confirmed_at IS NOT NULL AND f.start_date <= (now() AT TIME ZONE e.timezone)::date AND (f.end_date IS NULL OR f.end_date >= (now() AT TIME ZONE e.timezone)::date) AND (cardinality(f.days_of_week) = 0 OR (ARRAY['sunday','monday','tuesday','wednesday','thursday','friday','saturday'])[extract(dow from (now() AT TIME ZONE e.timezone)::date)::int + 1] = ANY(f.days_of_week)) AND NOT EXISTS (SELECT 1 FROM checkins c WHERE c.food_routine_id = f.id AND c.scheduled_for = (((now() AT TIME ZONE e.timezone)::date + f.check_in_time) AT TIME ZONE e.timezone)) RETURNING 1) SELECT count(*)::int AS materialised FROM ins"
       },
