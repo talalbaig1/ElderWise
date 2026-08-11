@@ -7,7 +7,7 @@ const bodySchema = z.object({
   sos_event_id: z.string().uuid(),
 });
 
-const WEBHOOK_TIMEOUT_MS = 5_000;
+const WEBHOOK_TIMEOUT_MS = 10_000;
 
 function logSosP1(payload: {
   sos_event_id: string;

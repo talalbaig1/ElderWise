@@ -19,6 +19,7 @@ import type {
   LovedOne,
 } from "@/types";
 import { formatInTimeZone, labelElderLocalTime } from "@/lib/time/display";
+import { checkInStatusBreakdown } from "@/lib/check-in-status";
 
 export type DashboardRange = "today" | "week" | "month" | "year" | "custom";
 
@@ -103,17 +104,7 @@ function adherence(items: CheckInResponse[]): number | null {
 }
 
 function statusBreakdown(items: CheckInResponse[]) {
-  const counts: Record<string, number> = {
-    taken: 0,
-    missed: 0,
-    delayed: 0,
-    pending: 0,
-  };
-  items.forEach((item) => {
-    if (item.status in counts) counts[item.status] += 1;
-    else if (item.status === "upcoming") counts.pending += 1;
-  });
-  return counts;
+  return checkInStatusBreakdown(items);
 }
 
 /** Facts only — never invent check-ins when the DB/store is empty. */

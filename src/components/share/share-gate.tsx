@@ -4,7 +4,15 @@ import { useState, useTransition } from "react";
 import {
   revealDoctorShareSummary,
 } from "@/lib/data/share-link-actions";
-import type { DoctorShareSummary } from "@/lib/share/types";
+import type {
+  DoctorShareDomainSummary,
+  DoctorShareSummary,
+} from "@/lib/share/types";
+import {
+  formatCheckInStatus,
+  formatSosEventStatus,
+  formatSosResolveChannel,
+} from "@/lib/check-in-status";
 import { formatInTimeZone, labelElderLocalTime } from "@/lib/time/display";
 import { Button } from "@/components/ui/button";
 
@@ -58,9 +66,22 @@ export function ShareGate({ token }: { token: string }) {
   );
 }
 
+function breakdownLine(d: DoctorShareDomainSummary["breakdown"]): string {
+  const parts = [
+    d.taken ? `${d.taken} taken` : null,
+    d.missed ? `${d.missed} missed` : null,
+    d.delayed ? `${d.delayed} delayed` : null,
+    d.pending ? `${d.pending} pending` : null,
+    d.cancelled ? `${d.cancelled} cancelled` : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : "No check-ins";
+}
+
 function ShareSummaryView({ summary }: { summary: DoctorShareSummary }) {
   const tz = summary.viewerTimeZone;
   const name = `${summary.elder.firstName} ${summary.elder.lastName}`.trim();
+  const { overview } = summary;
+  const o = overview.overall;
 
   return (
     <main className="mx-auto max-w-2xl space-y-10 px-6 py-12">
@@ -74,6 +95,39 @@ function ShareSummaryView({ summary }: { summary: DoctorShareSummary }) {
           Elder schedule zone: {summary.elder.timeZone}
         </p>
       </header>
+
+      <section className="space-y-4 rounded-xl border px-4 py-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-display text-xl">Summary</h2>
+          <p className="font-mono text-xs text-muted-foreground">{overview.windowLabel}</p>
+        </div>
+        <p className="text-sm">
+          {overview.overallTotal === 0
+            ? "No check-ins in this window."
+            : `${overview.overallTotal} check-in${overview.overallTotal === 1 ? "" : "s"} · ${breakdownLine(o)}`}
+          {overview.sosOpen + overview.sosResolved > 0
+            ? ` · SOS ${overview.sosOpen} open / ${overview.sosResolved} resolved`
+            : ""}
+        </p>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {(
+            [
+              overview.domains.medication,
+              overview.domains.food,
+              overview.domains.health,
+            ] as DoctorShareDomainSummary[]
+          ).map((domain) => (
+            <div key={domain.domain} className="rounded-lg bg-secondary/40 px-3 py-2">
+              <p className="text-sm font-semibold">{domain.label}</p>
+              <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                {domain.total === 0
+                  ? "No check-ins"
+                  : `${domain.total} · ${breakdownLine(domain.breakdown)}`}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section className="space-y-3">
         <h2 className="font-display text-xl">Medications</h2>
@@ -100,18 +154,21 @@ function ShareSummaryView({ summary }: { summary: DoctorShareSummary }) {
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-display text-xl">Recent check-ins</h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-display text-xl">Recent check-ins</h2>
+          <p className="font-mono text-xs text-muted-foreground">{overview.windowLabel}</p>
+        </div>
         {summary.checkIns.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No check-ins yet.</p>
+          <p className="text-sm text-muted-foreground">No check-ins in this window.</p>
         ) : (
           <ul className="space-y-2">
-            {summary.checkIns.slice(0, 20).map((c, i) => (
+            {summary.checkIns.map((c, i) => (
               <li
                 key={`${c.scheduledAt}-${c.domain}-${i}`}
                 className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl border px-3 py-2 text-sm"
               >
-                <span className="capitalize">
-                  {c.domain} · {c.status}
+                <span>
+                  {c.domain} · {formatCheckInStatus(c.status)}
                   {c.responseValue ? ` · ${c.responseValue}` : ""}
                 </span>
                 <span className="font-mono text-xs text-muted-foreground">
@@ -124,15 +181,18 @@ function ShareSummaryView({ summary }: { summary: DoctorShareSummary }) {
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-display text-xl">SOS events</h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-display text-xl">SOS events</h2>
+          <p className="font-mono text-xs text-muted-foreground">{overview.windowLabel}</p>
+        </div>
         {summary.sosEvents.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No SOS events.</p>
+          <p className="text-sm text-muted-foreground">No SOS events in this window.</p>
         ) : (
           <ul className="space-y-3">
             {summary.sosEvents.map((e) => (
               <li key={e.triggeredAt} className="rounded-xl border px-3 py-3 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-semibold capitalize">{e.status}</span>
+                  <span className="font-semibold">{formatSosEventStatus(e.status)}</span>
                   <span className="font-mono text-xs text-muted-foreground">
                     {formatInTimeZone(e.triggeredAt, tz)}
                   </span>
@@ -140,8 +200,10 @@ function ShareSummaryView({ summary }: { summary: DoctorShareSummary }) {
                 {e.resolvedAt ? (
                   <p className="mt-1 font-mono text-xs text-muted-foreground">
                     Resolved {formatInTimeZone(e.resolvedAt, tz)}
-                    {e.resolvedByRole ? ` · ${e.resolvedByRole}` : ""}
-                    {e.resolvedChannel ? ` · ${e.resolvedChannel}` : ""}
+                    {e.resolvedByRole ? ` · ${e.resolvedByRole.replace(/_/g, " ")}` : ""}
+                    {e.resolvedChannel
+                      ? ` · ${formatSosResolveChannel(e.resolvedChannel)}`
+                      : ""}
                     {e.responseMinutes != null
                       ? ` · ${e.responseMinutes} min response`
                       : ""}

@@ -1,7 +1,8 @@
 import { format } from "date-fns";
 import type { ReportModel } from "@/lib/report-analytics";
 import { reportKindToStoreType } from "@/lib/report-analytics";
-import type { ReportSnapshot } from "@/types";
+import type { ReportSnapshot, CheckInStatus } from "@/types";
+import { formatCheckInStatus } from "@/lib/check-in-status";
 
 function escapeCsv(value: string | number) {
   const s = String(value ?? "");
@@ -54,7 +55,11 @@ export function buildPrintHtml(model: ReportModel) {
   const timeline = model.timeline
     .map(
       (t) =>
-        `<li><strong>${t.time}</strong> — ${t.title}${t.status ? ` <em>(${t.status})</em>` : ""}${
+        `<li><strong>${t.time}</strong> — ${t.title}${
+          t.status
+            ? ` <em>(${formatCheckInStatus(t.status as CheckInStatus)})</em>`
+            : ""
+        }${
           t.description ? `<div class="muted">${t.description}</div>` : ""
         }</li>`,
     )

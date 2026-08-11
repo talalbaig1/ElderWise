@@ -1,3 +1,5 @@
+import type { CheckInStatus } from "@/types";
+
 export const PDF_REPORT_KINDS = [
   "medication",
   "food",
@@ -28,7 +30,8 @@ export function checkinDomainForKind(
 
 export type ReportCheckInRow = {
   scheduledFor: string;
-  status: string;
+  /** UI-mapped check-in status */
+  status: CheckInStatus;
   responseValue: string | null;
   respondedAt: string | null;
   responseChannel: string | null;
