@@ -26,6 +26,8 @@ import { formatInTimeZone } from "@/lib/time/display";
 import {
   checkInStatusBreakdown,
   formatCheckInStatus,
+  adherenceCompositionPie,
+  adherencePieExcludedCaption,
 } from "@/lib/check-in-status";
 
 function fmtEvent(iso: string, viewerTimeZone: string) {
@@ -328,6 +330,8 @@ export interface ReportModel {
   adherencePercent?: number;
   trendSeries: { label: string; medication: number; meals: number; health: number }[];
   statusPie: { name: string; value: number; fill: string }[];
+  /** Present when statusPie is adherence composition (not SOS / mood). */
+  statusPieExcludedCaption?: string;
   barSeries: { label: string; value: number }[];
   moodPie: { name: string; value: number; fill: string }[];
   timeline: ReportTimelineItem[];
@@ -419,12 +423,8 @@ export function buildReportModel(
       ],
       adherencePercent: pct ?? undefined,
       trendSeries,
-      statusPie: [
-        { name: "Taken", value: breakdown.taken, fill: "#5C8C6B" },
-        { name: "Delayed", value: breakdown.delayed, fill: "#E3A23C" },
-        { name: "Missed", value: breakdown.missed, fill: "#B8433A" },
-        { name: "Pending", value: breakdown.pending, fill: "#4A6D7C" },
-      ].filter((p) => p.value > 0),
+      statusPie: adherenceCompositionPie(breakdown),
+      statusPieExcludedCaption: adherencePieExcludedCaption(breakdown),
       barSeries: trendSeries.map((p) => ({ label: p.label, value: p[seriesKey] })),
       moodPie: [],
       timeline,
@@ -659,12 +659,8 @@ export function buildReportModel(
     ],
     adherencePercent: overallPct ?? undefined,
     trendSeries,
-    statusPie: [
-      { name: "Taken", value: breakdown.taken, fill: "#5C8C6B" },
-      { name: "Delayed", value: breakdown.delayed, fill: "#E3A23C" },
-      { name: "Missed", value: breakdown.missed, fill: "#B8433A" },
-      { name: "Pending", value: breakdown.pending, fill: "#4A6D7C" },
-    ].filter((p) => p.value > 0),
+    statusPie: adherenceCompositionPie(breakdown),
+    statusPieExcludedCaption: adherencePieExcludedCaption(breakdown),
     barSeries: [
       { label: "Medication", value: medPct ?? 0 },
       { label: "Meals", value: foodPct ?? 0 },

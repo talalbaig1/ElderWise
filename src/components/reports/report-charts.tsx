@@ -57,12 +57,15 @@ export function ReportTrendChart({
 
 export function ReportStatusPie({
   data,
-  title = "Status mix",
-  description = "Hover a slice for counts",
+  title = "Adherence composition",
+  description = "Taken, delayed, and missed only — same universe as the adherence percentage",
+  excludedCaption,
 }: {
   data: { name: string; value: number; fill: string }[];
   title?: string;
   description?: string;
+  /** e.g. "Excluded from this chart: 16 cancelled, 3 pending." */
+  excludedCaption?: string;
 }) {
   return (
     <Card className="h-full">
@@ -70,30 +73,32 @@ export function ReportStatusPie({
         <CardTitle className="text-lg">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="h-[280px]">
-        {data.length === 0 ? (
-          <p className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            No status data in this range
-          </p>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={data}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={55}
-                outerRadius={90}
-                paddingAngle={3}
-              >
-                {data.map((entry) => (
-                  <Cell key={entry.name} fill={entry.fill} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={tooltipStyle} />
-            </PieChart>
-          </ResponsiveContainer>
-        )}
+      <CardContent>
+        <div className="h-[240px]">
+          {data.length === 0 ? (
+            <p className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              No scored check-ins in this range
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={data}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={55}
+                  outerRadius={90}
+                  paddingAngle={3}
+                >
+                  {data.map((entry) => (
+                    <Cell key={entry.name} fill={entry.fill} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={tooltipStyle} />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
         <ul className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
           {data.map((d) => (
             <li key={d.name} className="inline-flex items-center gap-1.5">
@@ -102,6 +107,9 @@ export function ReportStatusPie({
             </li>
           ))}
         </ul>
+        {excludedCaption ? (
+          <p className="mt-2 text-xs text-muted-foreground">{excludedCaption}</p>
+        ) : null}
       </CardContent>
     </Card>
   );
