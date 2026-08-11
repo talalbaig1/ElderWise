@@ -1,12 +1,12 @@
 {
-  "activeVersionId": "bb62d200-9e23-4b75-a5d9-848490c12658",
+  "activeVersionId": "b4cd339a-14e3-4511-a9e3-5b21e2cde9c6",
   "connections": {
     "Already Resolved?": {
       "main": [
         [
           {
             "index": 0,
-            "node": "Ack 200 - Stop Nudges",
+            "node": "Broadcast Resolution (WF-4c)",
             "type": "main"
           }
         ],
@@ -14,6 +14,17 @@
           {
             "index": 0,
             "node": "Conflict 409 - Still Open",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Broadcast Resolution (WF-4c)": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Ack 200 - Stop Nudges",
             "type": "main"
           }
         ]
@@ -107,8 +118,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $json.body.sos_event_id }}"
         },
-        "query": "SELECT $1::uuid AS sos_event_id, (s.id IS NOT NULL) AS found, COALESCE(s.status::text, '') AS status, s.resolved_at, COALESCE(s.resolved_by_role::text, '') AS resolved_by_role, COALESCE(s.resolved_channel::text, '') AS resolved_channel FROM (SELECT 1) AS probe LEFT JOIN sos_events s ON s.id = $1::uuid",
-        "resource": "database"
+        "query": "SELECT $1::uuid AS sos_event_id, (s.id IS NOT NULL) AS found, COALESCE(s.status::text, '') AS status, s.resolved_at, COALESCE(s.resolved_by_role::text, '') AS resolved_by_role, COALESCE(s.resolved_channel::text, '') AS resolved_channel FROM (SELECT 1) AS probe LEFT JOIN sos_events s ON s.id = $1::uuid"
       },
       "position": [
         224,
@@ -136,9 +146,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "strict"
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         448,
@@ -165,9 +178,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "strict"
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         672,
@@ -187,7 +203,7 @@
         "responseBody": "={{ JSON.stringify({ ok: true, sos_event_id: $json.sos_event_id, status: $json.status, resolved_by_role: $json.resolved_by_role, resolved_channel: $json.resolved_channel }) }}"
       },
       "position": [
-        896,
+        1104,
         0
       ],
       "type": "n8n-nodes-base.respondToWebhook",
@@ -226,6 +242,36 @@
       ],
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5
+    },
+    {
+      "id": "306e8031-00db-4b60-a6cf-5e8fe49dff5f",
+      "name": "Broadcast Resolution (WF-4c)",
+      "parameters": {
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ElderWise WF-4c - SOS Resolution Broadcast",
+          "cachedResultUrl": "/workflow/Baydb7saYNyAayMC",
+          "mode": "list",
+          "value": "Baydb7saYNyAayMC"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [],
+          "value": {}
+        }
+      },
+      "position": [
+        896,
+        0
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3
     }
   ],
   "settings": {
