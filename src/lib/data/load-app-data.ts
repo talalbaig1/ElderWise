@@ -112,12 +112,13 @@ export async function loadAppData(
       .order("created_at", { ascending: true }),
     supabase.from("local_caregivers").select("*"),
     supabase.from("doctors").select("*"),
-    // Soft-deleted meds: active=false — excluded from the read model (never render).
-    // Food/health soft-delete is enabled=false; those rows still load so the CT can
-    // re-enable, but domain_configs.frequency only unions enabled times (see syncDomainConfig).
-    supabase.from("medications").select("*").eq("active", true),
-    supabase.from("food_routines").select("*"),
-    supabase.from("health_routines").select("*"),
+    // Soft-deleted / disabled routines stay out of the active list (history
+    // remains via checkins FKs). Meds: active=false OR enabled=false. Food/health:
+    // enabled=false only. Re-enable requires a new row until a true delete+restore
+    // path exists (hard DELETE is forbidden — CASCADE would wipe check-in history).
+    supabase.from("medications").select("*").eq("active", true).eq("enabled", true),
+    supabase.from("food_routines").select("*").eq("enabled", true),
+    supabase.from("health_routines").select("*").eq("enabled", true),
     supabase.from("checkins").select("*").order("scheduled_for", { ascending: false }),
     supabase.from("sos_events").select("*").order("triggered_at", { ascending: false }),
     supabase.from("sos_notifications").select("*"),

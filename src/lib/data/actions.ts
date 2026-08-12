@@ -16,6 +16,13 @@ import {
 } from "@/lib/whatsapp-e164";
 import { createClient } from "@/lib/supabase/server";
 import { isValidTimeZone } from "@/lib/timezone";
+import {
+  deleteUnsentFutureForRoutine,
+  deleteUnsentFutureMedicationSlots,
+  loadElderScheduleContext,
+  syncFoodOrHealthCheckinToday,
+  syncMedicationCheckinToday,
+} from "@/lib/data/routine-checkin-sync";
 import type {
   FamilyDoctor,
   FoodRoutine,
@@ -25,7 +32,7 @@ import type {
 } from "@/types";
 
 export type ActionResult =
-  | { ok: true }
+  | { ok: true; notice?: string }
   | { ok: false; error: string };
 
 function fail(error: string): ActionResult {
@@ -480,6 +487,16 @@ export async function upsertMedication(med: Medication): Promise<ActionResult> {
   const ownErr = await assertOwnsElder(supabase, med.lovedOneId, user.id);
   if (ownErr) return fail(ownErr);
 
+  const elderCtx = await loadElderScheduleContext(supabase, med.lovedOneId);
+  if (!elderCtx.ok) return fail(elderCtx.error);
+
+  const { data: previous } = await supabase
+    .from("medications")
+    .select("times, enabled, active, start_date, end_date, days_of_week")
+    .eq("id", parsed.data.id)
+    .eq("elder_id", med.lovedOneId)
+    .maybeSingle();
+
   const row = {
     id: parsed.data.id,
     elder_id: med.lovedOneId,
@@ -507,12 +524,32 @@ export async function upsertMedication(med: Medication): Promise<ActionResult> {
   if (error) return fail(error.message);
   if (!data) return fail("Medication save failed — no row returned (check RLS)");
 
+  const sync = await syncMedicationCheckinToday(supabase, {
+    elderId: med.lovedOneId,
+    medicationId: parsed.data.id,
+    elderTimeZone: elderCtx.timezone,
+    consentConfirmed: elderCtx.consentConfirmed,
+    elderActive: elderCtx.active,
+    routine: {
+      enabled: parsed.data.enabled,
+      active: true,
+      startDate: parsed.data.startDate,
+      endDate: parsed.data.endDate || null,
+      daysOfWeek: parsed.data.daysOfWeek,
+      wallTimes: parsed.data.times,
+    },
+    previousWallTimes: previous
+      ? ((previous.times as string[]) ?? [])
+      : null,
+  });
+  if (sync.error) return fail(`Medication saved but check-in sync failed: ${sync.error}`);
+
   const syncErr = await syncDomainConfig(supabase, med.lovedOneId, "medication");
   if (syncErr) return fail(`Medication saved but domain_configs sync failed: ${syncErr}`);
 
   revalidatePath(`/loved-ones/${med.lovedOneId}`);
   revalidateApp();
-  return { ok: true };
+  return { ok: true, notice: sync.notice };
 }
 
 /** Soft-delete: medications.active=false (+ enabled=false). Never hard DELETE. */
@@ -526,6 +563,16 @@ export async function softDeleteMedication(
   const ownErr = await assertOwnsElder(supabase, elderId, user.id);
   if (ownErr) return fail(ownErr);
 
+  const elderCtx = await loadElderScheduleContext(supabase, elderId);
+  if (!elderCtx.ok) return fail(elderCtx.error);
+
+  const { data: previous } = await supabase
+    .from("medications")
+    .select("times")
+    .eq("id", medicationId)
+    .eq("elder_id", elderId)
+    .maybeSingle();
+
   const { data, error } = await supabase
     .from("medications")
     .update({ active: false, enabled: false })
@@ -537,6 +584,16 @@ export async function softDeleteMedication(
   if (error) return fail(error.message);
   if (!data) return fail("Medication soft-delete failed — no row returned (check RLS)");
   if (data.active !== false) return fail("Medication soft-delete did not persist");
+
+  const del = await deleteUnsentFutureMedicationSlots(supabase, {
+    elderId,
+    medicationId,
+    elderTimeZone: elderCtx.timezone,
+    wallTimes: (previous?.times as string[]) ?? [],
+  });
+  if (del.error) {
+    return fail(`Soft-deleted but check-in cleanup failed: ${del.error}`);
+  }
 
   const syncErr = await syncDomainConfig(supabase, elderId, "medication");
   if (syncErr) return fail(`Soft-deleted but domain_configs sync failed: ${syncErr}`);
@@ -567,6 +624,16 @@ export async function upsertFoodRoutine(item: FoodRoutine): Promise<ActionResult
   const ownErr = await assertOwnsElder(supabase, item.lovedOneId, user.id);
   if (ownErr) return fail(ownErr);
 
+  const elderCtx = await loadElderScheduleContext(supabase, item.lovedOneId);
+  if (!elderCtx.ok) return fail(elderCtx.error);
+
+  const { data: previous } = await supabase
+    .from("food_routines")
+    .select("check_in_time, enabled, start_date, end_date, days_of_week")
+    .eq("id", parsed.data.id)
+    .eq("elder_id", item.lovedOneId)
+    .maybeSingle();
+
   const row = {
     id: parsed.data.id,
     elder_id: item.lovedOneId,
@@ -592,12 +659,32 @@ export async function upsertFoodRoutine(item: FoodRoutine): Promise<ActionResult
   if (error) return fail(error.message);
   if (!data) return fail("Meal routine save failed — no row returned (check RLS)");
 
+  const sync = await syncFoodOrHealthCheckinToday(supabase, {
+    domain: "food",
+    elderId: item.lovedOneId,
+    routineId: parsed.data.id,
+    elderTimeZone: elderCtx.timezone,
+    consentConfirmed: elderCtx.consentConfirmed,
+    elderActive: elderCtx.active,
+    routine: {
+      enabled: parsed.data.enabled,
+      startDate: parsed.data.startDate,
+      endDate: parsed.data.endDate || null,
+      daysOfWeek: parsed.data.daysOfWeek,
+      wallTimes: [parsed.data.checkInTime],
+    },
+    previousWallTime: previous
+      ? String(previous.check_in_time).slice(0, 8)
+      : null,
+  });
+  if (sync.error) return fail(`Meal saved but check-in sync failed: ${sync.error}`);
+
   const syncErr = await syncDomainConfig(supabase, item.lovedOneId, "food");
   if (syncErr) return fail(`Meal saved but domain_configs sync failed: ${syncErr}`);
 
   revalidatePath(`/loved-ones/${item.lovedOneId}`);
   revalidateApp();
-  return { ok: true };
+  return { ok: true, notice: sync.notice };
 }
 
 /** Soft-delete: food_routines.enabled=false. Never hard DELETE. */
@@ -611,6 +698,9 @@ export async function softDeleteFoodRoutine(
   const ownErr = await assertOwnsElder(supabase, elderId, user.id);
   if (ownErr) return fail(ownErr);
 
+  const elderCtx = await loadElderScheduleContext(supabase, elderId);
+  if (!elderCtx.ok) return fail(elderCtx.error);
+
   const { data, error } = await supabase
     .from("food_routines")
     .update({ enabled: false })
@@ -622,6 +712,16 @@ export async function softDeleteFoodRoutine(
   if (error) return fail(error.message);
   if (!data) return fail("Meal soft-delete failed — no row returned (check RLS)");
   if (data.enabled !== false) return fail("Meal soft-delete did not persist");
+
+  const del = await deleteUnsentFutureForRoutine(supabase, {
+    domain: "food",
+    elderId,
+    routineId,
+    elderTimeZone: elderCtx.timezone,
+  });
+  if (del.error) {
+    return fail(`Soft-deleted but check-in cleanup failed: ${del.error}`);
+  }
 
   const syncErr = await syncDomainConfig(supabase, elderId, "food");
   if (syncErr) return fail(`Soft-deleted but domain_configs sync failed: ${syncErr}`);
@@ -652,6 +752,16 @@ export async function upsertHealthRoutine(item: HealthRoutine): Promise<ActionRe
   const ownErr = await assertOwnsElder(supabase, item.lovedOneId, user.id);
   if (ownErr) return fail(ownErr);
 
+  const elderCtx = await loadElderScheduleContext(supabase, item.lovedOneId);
+  if (!elderCtx.ok) return fail(elderCtx.error);
+
+  const { data: previous } = await supabase
+    .from("health_routines")
+    .select("time, enabled, start_date, end_date, days_of_week")
+    .eq("id", parsed.data.id)
+    .eq("elder_id", item.lovedOneId)
+    .maybeSingle();
+
   const row = {
     id: parsed.data.id,
     elder_id: item.lovedOneId,
@@ -680,12 +790,32 @@ export async function upsertHealthRoutine(item: HealthRoutine): Promise<ActionRe
   if (error) return fail(error.message);
   if (!data) return fail("Health routine save failed — no row returned (check RLS)");
 
+  const sync = await syncFoodOrHealthCheckinToday(supabase, {
+    domain: "health",
+    elderId: item.lovedOneId,
+    routineId: parsed.data.id,
+    elderTimeZone: elderCtx.timezone,
+    consentConfirmed: elderCtx.consentConfirmed,
+    elderActive: elderCtx.active,
+    routine: {
+      enabled: parsed.data.enabled,
+      startDate: parsed.data.startDate,
+      endDate: parsed.data.endDate || null,
+      daysOfWeek: parsed.data.daysOfWeek,
+      wallTimes: [parsed.data.time],
+    },
+    previousWallTime: previous ? String(previous.time).slice(0, 8) : null,
+  });
+  if (sync.error) {
+    return fail(`Health saved but check-in sync failed: ${sync.error}`);
+  }
+
   const syncErr = await syncDomainConfig(supabase, item.lovedOneId, "health");
   if (syncErr) return fail(`Health saved but domain_configs sync failed: ${syncErr}`);
 
   revalidatePath(`/loved-ones/${item.lovedOneId}`);
   revalidateApp();
-  return { ok: true };
+  return { ok: true, notice: sync.notice };
 }
 
 /** Soft-delete: health_routines.enabled=false. Never hard DELETE. */
@@ -699,6 +829,9 @@ export async function softDeleteHealthRoutine(
   const ownErr = await assertOwnsElder(supabase, elderId, user.id);
   if (ownErr) return fail(ownErr);
 
+  const elderCtx = await loadElderScheduleContext(supabase, elderId);
+  if (!elderCtx.ok) return fail(elderCtx.error);
+
   const { data, error } = await supabase
     .from("health_routines")
     .update({ enabled: false })
@@ -710,6 +843,16 @@ export async function softDeleteHealthRoutine(
   if (error) return fail(error.message);
   if (!data) return fail("Health soft-delete failed — no row returned (check RLS)");
   if (data.enabled !== false) return fail("Health soft-delete did not persist");
+
+  const del = await deleteUnsentFutureForRoutine(supabase, {
+    domain: "health",
+    elderId,
+    routineId,
+    elderTimeZone: elderCtx.timezone,
+  });
+  if (del.error) {
+    return fail(`Soft-deleted but check-in cleanup failed: ${del.error}`);
+  }
 
   const syncErr = await syncDomainConfig(supabase, elderId, "health");
   if (syncErr) return fail(`Soft-deleted but domain_configs sync failed: ${syncErr}`);

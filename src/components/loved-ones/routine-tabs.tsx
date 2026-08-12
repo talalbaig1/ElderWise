@@ -45,6 +45,14 @@ import { labelElderLocalTime } from "@/lib/time/display";
 import type { FoodRoutine, HealthRoutine, Medication, MedicationTiming } from "@/types";
 import { useRouter } from "next/navigation";
 
+function toastRoutineSaved(fallback: string, notice?: string) {
+  if (notice) {
+    toast.success(fallback, { description: notice });
+  } else {
+    toast.success(fallback);
+  }
+}
+
 /** Same control as onboarding Wellness Details — fits a 3-column row. */
 function NotifySelect({
   value,
@@ -79,7 +87,9 @@ export function MedicationTab({
   const { store } = useDomainStore();
   const elderTz =
     store.lovedOnes.find((lo) => lo.id === lovedOneId)?.timeZone ?? "UTC";
-  const items = store.medications.filter((m) => m.lovedOneId === lovedOneId);
+  const items = store.medications.filter(
+    (m) => m.lovedOneId === lovedOneId && m.enabled,
+  );
   const [editing, setEditing] = useState<Medication | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -99,7 +109,7 @@ export function MedicationTab({
         toast.error(result.error);
         return;
       }
-      toast.success("Medication saved");
+      toastRoutineSaved("Medication saved", result.notice);
       setEditing(null);
       router.refresh();
     } finally {
@@ -130,6 +140,7 @@ export function MedicationTab({
                     toast.error(result.error);
                     return;
                   }
+                  if (result.notice) toast.message(result.notice);
                   router.refresh();
                 } finally {
                   setBusy(false);
@@ -155,7 +166,7 @@ export function MedicationTab({
                     toast.error(result.error);
                     return;
                   }
-                  toast.success("Duplicated");
+                  toastRoutineSaved("Duplicated", result.notice);
                   router.refresh();
                 } finally {
                   setBusy(false);
@@ -338,7 +349,9 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
   const { store } = useDomainStore();
   const elderTz =
     store.lovedOnes.find((lo) => lo.id === lovedOneId)?.timeZone ?? "UTC";
-  const items = store.foodRoutines.filter((f) => f.lovedOneId === lovedOneId);
+  const items = store.foodRoutines.filter(
+    (f) => f.lovedOneId === lovedOneId && f.enabled,
+  );
   const [editing, setEditing] = useState<FoodRoutine | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -354,7 +367,7 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
         toast.error(result.error);
         return;
       }
-      toast.success("Meal routine saved");
+      toastRoutineSaved("Meal routine saved", result.notice);
       setEditing(null);
       router.refresh();
     } finally {
@@ -385,6 +398,7 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
                     toast.error(result.error);
                     return;
                   }
+                  if (result.notice) toast.message(result.notice);
                   router.refresh();
                 } finally {
                   setBusy(false);
@@ -471,7 +485,9 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
   const { store } = useDomainStore();
   const elderTz =
     store.lovedOnes.find((lo) => lo.id === lovedOneId)?.timeZone ?? "UTC";
-  const items = store.healthRoutines.filter((h) => h.lovedOneId === lovedOneId);
+  const items = store.healthRoutines.filter(
+    (h) => h.lovedOneId === lovedOneId && h.enabled,
+  );
   const [editing, setEditing] = useState<HealthRoutine | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -487,7 +503,7 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
         toast.error(result.error);
         return;
       }
-      toast.success("Health routine saved");
+      toastRoutineSaved("Health routine saved", result.notice);
       setEditing(null);
       router.refresh();
     } finally {
@@ -518,6 +534,7 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
                     toast.error(result.error);
                     return;
                   }
+                  if (result.notice) toast.message(result.notice);
                   router.refresh();
                 } finally {
                   setBusy(false);
