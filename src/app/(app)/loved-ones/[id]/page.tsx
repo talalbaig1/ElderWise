@@ -51,9 +51,15 @@ export default function LovedOneProfilePage() {
   const related = useMemo(() => {
     if (!lovedOne) return null;
     return {
-      meds: store.medications.filter((m) => m.lovedOneId === lovedOne.id),
-      meals: store.foodRoutines.filter((f) => f.lovedOneId === lovedOne.id),
-      health: store.healthRoutines.filter((h) => h.lovedOneId === lovedOne.id),
+      meds: store.medications.filter(
+        (m) => m.lovedOneId === lovedOne.id && m.enabled,
+      ),
+      meals: store.foodRoutines.filter(
+        (f) => f.lovedOneId === lovedOne.id && f.enabled,
+      ),
+      health: store.healthRoutines.filter(
+        (h) => h.lovedOneId === lovedOne.id && h.enabled,
+      ),
       journals: store.voiceJournals
         .filter((j) => j.lovedOneId === lovedOne.id)
         .sort((a, b) => +parseISO(b.recordedAt) - +parseISO(a.recordedAt)),

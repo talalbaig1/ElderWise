@@ -490,12 +490,15 @@ export async function upsertMedication(med: Medication): Promise<ActionResult> {
   const elderCtx = await loadElderScheduleContext(supabase, med.lovedOneId);
   if (!elderCtx.ok) return fail(elderCtx.error);
 
-  const { data: previous } = await supabase
+  const { data: previous, error: previousErr } = await supabase
     .from("medications")
     .select("times, enabled, active, start_date, end_date, days_of_week")
     .eq("id", parsed.data.id)
     .eq("elder_id", med.lovedOneId)
     .maybeSingle();
+  if (previousErr) {
+    return fail(`Could not read existing medication: ${previousErr.message}`);
+  }
 
   const row = {
     id: parsed.data.id,
@@ -566,12 +569,15 @@ export async function softDeleteMedication(
   const elderCtx = await loadElderScheduleContext(supabase, elderId);
   if (!elderCtx.ok) return fail(elderCtx.error);
 
-  const { data: previous } = await supabase
+  const { data: previous, error: previousErr } = await supabase
     .from("medications")
     .select("times")
     .eq("id", medicationId)
     .eq("elder_id", elderId)
     .maybeSingle();
+  if (previousErr) {
+    return fail(`Could not read medication before soft-delete: ${previousErr.message}`);
+  }
 
   const { data, error } = await supabase
     .from("medications")
@@ -627,12 +633,15 @@ export async function upsertFoodRoutine(item: FoodRoutine): Promise<ActionResult
   const elderCtx = await loadElderScheduleContext(supabase, item.lovedOneId);
   if (!elderCtx.ok) return fail(elderCtx.error);
 
-  const { data: previous } = await supabase
+  const { data: previous, error: previousErr } = await supabase
     .from("food_routines")
     .select("check_in_time, enabled, start_date, end_date, days_of_week")
     .eq("id", parsed.data.id)
     .eq("elder_id", item.lovedOneId)
     .maybeSingle();
+  if (previousErr) {
+    return fail(`Could not read existing meal routine: ${previousErr.message}`);
+  }
 
   const row = {
     id: parsed.data.id,
@@ -755,12 +764,15 @@ export async function upsertHealthRoutine(item: HealthRoutine): Promise<ActionRe
   const elderCtx = await loadElderScheduleContext(supabase, item.lovedOneId);
   if (!elderCtx.ok) return fail(elderCtx.error);
 
-  const { data: previous } = await supabase
+  const { data: previous, error: previousErr } = await supabase
     .from("health_routines")
     .select("time, enabled, start_date, end_date, days_of_week")
     .eq("id", parsed.data.id)
     .eq("elder_id", item.lovedOneId)
     .maybeSingle();
+  if (previousErr) {
+    return fail(`Could not read existing health routine: ${previousErr.message}`);
+  }
 
   const row = {
     id: parsed.data.id,
