@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.42 |
+| **Document** | Architecture.md — v1.43 |
 | **Date** | 12 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
@@ -575,6 +575,8 @@ Supabase Auth — **email + password only**. Session in an httpOnly cookie via t
 >
 > Adding Google sign-in requires **separating authentication from onboarding**: a profile-creation path that does not depend on form input, a third routing state, and a gate that distinguishes "no profile" from "no elder". See PD-9.
 
+**Onboarding exit (Talal, 12 August 2026):** a Care Partner with no product elder is correctly held on `/onboarding`, and `/sign-in` (`RequireGuest`) bounces any live session back into that path. The wizard shell therefore exposes **Sign out** on every step (including care-circle, where Back is disabled): clear the Supabase session, clear the local onboarding draft so the next account does not inherit a half-filled form, then navigate to `/sign-in`. Warn when local progress exists; never block the exit. Do not auto-purge `care_partners` rows on abandon. The related `countOwnActiveElders` `if (error) return 0` footgun is deferred as **PD-15**.
+
 ### 7.2 Elderly Patient
 **None.** The EP never authenticates and never logs into anything. Their identity is their WhatsApp number, resolved on the inbound webhook. This is the entire premise of the product — do not add a login for the elder under any circumstances.
 
@@ -1089,7 +1091,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 ## 15. Open items
 
-Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhancements.md`**, with the reasoning for each deferral. **A-33** and **A-23** are closed here and remain tracked as **PD-6** and **PD-8**. **A-37** and **A-38** are closed here and remain tracked as **PD-13** and **PD-14**. **PD-9** (Google OAuth / D-8), **PD-10** and **PD-11** (never-sent check-ins / D-9; feeds a real A-30 detector, now built as WF-7), and **PD-12** (SOS `_v2` + conditional WF-4 routing / D-10) are also recorded there.
+Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhancements.md`**, with the reasoning for each deferral. **A-33** and **A-23** are closed here and remain tracked as **PD-6** and **PD-8**. **A-37** and **A-38** are closed here and remain tracked as **PD-13** and **PD-14**. **PD-9** (Google OAuth / D-8), **PD-10** and **PD-11** (never-sent check-ins / D-9; feeds a real A-30 detector, now built as WF-7), **PD-12** (SOS `_v2` + conditional WF-4 routing / D-10), and **PD-15** (`countOwnActiveElders` error→0) are also recorded there.
 
 | # | Item | Owner |
 |---|---|---|
@@ -1140,6 +1142,7 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 
 | Date | Version | Change |
 |---|---|---|
+| 12 Aug 2026 | 1.43 | **Onboarding Sign out exit.** Wizard shell exposes Sign out on every step; clears session + local draft, then `/sign-in`. Warns when local progress exists; never blocks. `countOwnActiveElders` error→0 deferred as PD-15. |
 | 12 Aug 2026 | 1.42 | **A1 — `answered_no` + CP-timezone day bounds.** UI maps `responded`+`no`/`some_of_them` → `answered_no` (in adherence denom, no credit; own pie slice). List surfaces show response text beside status. Dashboard “today”/custom bounds use Care Partner IANA TZ; elder materialisation day divergence documented, not reconciled. |
 | 12 Aug 2026 | 1.41 | **Routine → check-in lifecycle (UI-side).** Next.js propagates food / health / medication CRUD to today's `checkins` using the elder TZ and the WF-1* slot expression; soft-delete only (CASCADE FKs forbid hard DELETE); disabled routines hidden from the active list; CT notice when today's send already went out. No n8n changes. |
 | 11 Aug 2026 | 1.40 | **Adherence pie labelling — no Cancelled slice.** Dashboard and Reports status pies are adherence composition (Taken / Delayed / Missed only); `adherence()` / `checkInStatusBreakdown` / slice values unchanged. Title and caption make the exclusion explicit (cancelled count always; pending if non-zero). Closes the A-29 open on whether to add a Cancelled slice — ruled out. Charts mounted on dashboard and reports (previously computed, never rendered). |

@@ -1,8 +1,8 @@
 | Field | Value |
 | --- | --- |
-| **Document** | PostDemoEnhancements.md — v1.3 |
+| **Document** | PostDemoEnhancements.md — v1.4 |
 | **Project** | ElderWise · AIGF Cohort 7 · Group 7 |
-| **Date** | 11 August 2026 |
+| **Date** | 12 August 2026 |
 | **Status** | Deferred by ruling — scheduled to begin after Demo Day, 29 August 2026 |
 
 ## Purpose
@@ -171,6 +171,20 @@ A-36 added `doctor_share_links_one_active_cp_link` for dashboard-issued only (`r
 
 **Assessed and deferred 11 August 2026.** Decide post-demo whether an elder-wide cap (or revoke-on-SOS-resolve) is required; any migration stays with Talal.
 
+### PD-15 · `countOwnActiveElders` treats query errors as zero elders
+
+**Layer:** Next.js (`src/lib/auth-routing.ts`) · **Owner:** Cursor · **Priority:** P2 · **Source:** onboarding-trap investigation 12 August 2026
+
+`countOwnActiveElders` does `if (error) return 0`. A failed elders count is therefore indistinguishable from a genuinely empty result. Every consumer of `hasOwnProductElder` then treats an **onboarded** Care Partner as needing onboarding:
+
+- `src/app/(app)/layout.tsx` → `redirect("/onboarding")`
+- `RequireAuth` / `RequireGuest` / `RequireOnboarding` in `src/components/auth/route-guards.tsx`
+- post-auth redirects on sign-in / sign-up
+
+**Why not a throw today:** the three client guards run the check inside a `useEffect` IIFE. An unhandled rejection leaves `gate = "loading"` and renders `AuthLoading` forever — worse than a wrong redirect for Demo Day.
+
+**Deferred 12 August 2026 (Talal):** ship the onboarding Sign out exit first (Architecture §7.1). Post-demo, return a Result (`ok` + count | error) and fail closed with an explicit error UI — never map errors to “needs onboarding”.
+
 ## Explicitly NOT deferred
 
 Recorded here so nobody mistakes them for register items:
@@ -186,6 +200,7 @@ Recorded here so nobody mistakes them for register items:
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 12 Aug 2026 | 1.4 | **PD-15 added.** `countOwnActiveElders` `if (error) return 0` footgun — failed query looks like empty; all four gates send onboarded CTs to onboarding. Client guards cannot simply throw (AuthLoading forever). Deferred after shipping onboarding Sign out. |
 | 11 Aug 2026 | 1.3 | **PD-13 and PD-14 added.** From Architecture A-37 / A-38 (assessed and deferred). PD-13 — align Care Circle "active" share-link filter with reveal (observable from 10 September 2026). PD-14 — elder-wide cap on unrevoked share links; note A-36's partial index excludes SOS-minted rows by predicate. Measurement: 3 unrevoked links, 0 expired, 0 expiring before Demo Day, earliest expiry 10 September 2026, max 2 per elder, 2 SOS-minted / 1 dashboard-issued. |
 | 11 Aug 2026 | 1.2 | **PD-12 added.** SOS templates 10/12 need `_v2` + conditional WF-4 routing (D-10). Records accepted demo prose defect after `Not on Record` substitution, and the latent `||` null-concat bug on `lct_name_na`. |
 | 10 Aug 2026 | 1.1 | **PD-9, PD-10, PD-11 added.** PD-9 — Google OAuth withdrawn from the MVP (D-8); requires decoupling auth from onboarding. PD-10 — suppress Care Partner Missed Notice when `sent_at IS NULL` (D-9 accepted for MVP). PD-11 — persist send-failure cause (feeds A-30 / PD-10). |
