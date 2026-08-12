@@ -14,7 +14,7 @@ const checkInMap: Record<CheckInStatus, StatusMeta> = {
   answered_no: { label: "Answered no", variant: "info" },
   missed: { label: "Missed", variant: "destructive" },
   delayed: { label: "Delayed", variant: "warning" },
-  upcoming: { label: "Upcoming", variant: "info" },
+  upcoming: { label: "Upcoming", variant: "outline" },
   pending: { label: "Pending", variant: "warning" },
   skipped: { label: "Skipped", variant: "muted" },
   cancelled: { label: "Cancelled", variant: "muted" },
