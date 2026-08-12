@@ -226,14 +226,14 @@ Recorded here so nobody mistakes them for register items:
 | --- | --- |
 | WhatsApp template greeting ("Good morning" at all hours) | Meta review is outside our control and has its own clock. Submitted and under review as of 9 August 2026. |
 | WF-1b Postgres connection timeout | A scheduler that silently fails to materialise check-ins means check-ins that never fire. Demo Day is the exposure. |
-| The 110 unrun test cases | The binding constraint on the whole project. |
+| The 67 remaining test cases | The binding constraint on the whole project. Reconciled 12 August 2026: 54 passed, 1 failed, 1 invalid pending re-run, 4 pending, 2 declined, 60 never touched, out of 122. |
 | Test-data cleanup before Demo Day | Historical rows skew the dashboard statistics shown during the demo. |
 
 ## Change log
 
 | Date | Version | Change |
 | --- | --- | --- |
-| 12 Aug 2026 | 1.5 | **PD-16 added.** Automated cleanup of abandoned signups — time-based discriminator (not “no active elder” alone), two-phase flag→delete (14 days), audit table before CASCADE, prefer `pg_cron`. |
+| 12 Aug 2026 | 1.5 | **PD-16 added.** Automated cleanup of abandoned signups — time-based discriminator (not “no active elder” alone), two-phase flag→delete (14 days), audit table before CASCADE, prefer `pg_cron`. Also corrects “Explicitly NOT deferred” test-case count from 110 unrun → 67 remaining (reconciled 12 August 2026). |
 | 12 Aug 2026 | 1.4 | **PD-15 added.** `countOwnActiveElders` `if (error) return 0` footgun — failed query looks like empty; all four gates send onboarded CTs to onboarding. Client guards cannot simply throw (AuthLoading forever). Deferred after shipping onboarding Sign out. |
 | 11 Aug 2026 | 1.3 | **PD-13 and PD-14 added.** From Architecture A-37 / A-38 (assessed and deferred). PD-13 — align Care Circle "active" share-link filter with reveal (observable from 10 September 2026). PD-14 — elder-wide cap on unrevoked share links; note A-36's partial index excludes SOS-minted rows by predicate. Measurement: 3 unrevoked links, 0 expired, 0 expiring before Demo Day, earliest expiry 10 September 2026, max 2 per elder, 2 SOS-minted / 1 dashboard-issued. |
 | 11 Aug 2026 | 1.2 | **PD-12 added.** SOS templates 10/12 need `_v2` + conditional WF-4 routing (D-10). Records accepted demo prose defect after `Not on Record` substitution, and the latent `||` null-concat bug on `lct_name_na`. |

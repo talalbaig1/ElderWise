@@ -96,6 +96,8 @@ export function WizardShell({
       toast.success("Signed out");
       router.replace("/sign-in");
       router.refresh();
+    } catch {
+      toast.error("Could not sign out. Please try again.");
     } finally {
       setSigningOut(false);
     }
@@ -133,7 +135,7 @@ export function WizardShell({
               size="sm"
               className="shrink-0 text-muted-foreground"
               onClick={handleSignOut}
-              disabled={signingOut || Boolean(busy)}
+              disabled={signingOut}
             >
               <LogOut className="h-4 w-4" />
               {signingOut ? "Signing out…" : "Sign out"}
