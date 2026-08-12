@@ -2,7 +2,7 @@ import { format } from "date-fns";
 import type { ReportModel } from "@/lib/report-analytics";
 import { reportKindToStoreType } from "@/lib/report-analytics";
 import type { ReportSnapshot, CheckInStatus } from "@/types";
-import { formatCheckInStatus } from "@/lib/check-in-status";
+import { formatCheckInStatusWithResponse } from "@/lib/check-in-status";
 
 function escapeCsv(value: string | number) {
   const s = String(value ?? "");
@@ -57,7 +57,10 @@ export function buildPrintHtml(model: ReportModel) {
       (t) =>
         `<li><strong>${t.time}</strong> — ${t.title}${
           t.status
-            ? ` <em>(${formatCheckInStatus(t.status as CheckInStatus)})</em>`
+            ? ` <em>(${formatCheckInStatusWithResponse(
+                t.status as CheckInStatus,
+                t.responseLabel,
+              )})</em>`
             : ""
         }${
           t.description ? `<div class="muted">${t.description}</div>` : ""

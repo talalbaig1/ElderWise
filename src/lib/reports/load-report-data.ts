@@ -180,7 +180,10 @@ export async function loadReportData(
         if (dbStatus === "missed") missedCount += 1;
         return {
           scheduledFor: row.scheduled_for as string,
-          status: checkInStatusToUi(dbStatus),
+          status: checkInStatusToUi(
+            dbStatus,
+            (row.response_value as string | null) ?? null,
+          ),
           responseValue: (row.response_value as string | null) ?? null,
           respondedAt: (row.responded_at as string | null) ?? null,
           responseChannel: (row.response_channel as string | null) ?? null,

@@ -1,16 +1,7 @@
 import {
-  addDays,
   differenceInCalendarDays,
-  endOfDay,
-  endOfMonth,
-  endOfYear,
-  format,
   isWithinInterval,
   parseISO,
-  startOfDay,
-  startOfMonth,
-  startOfYear,
-  subDays,
 } from "date-fns";
 import type {
   CheckInResponse,
@@ -19,64 +10,123 @@ import type {
   LovedOne,
 } from "@/types";
 import { formatInTimeZone, labelElderLocalTime } from "@/lib/time/display";
-import { checkInStatusBreakdown, adherenceCompositionPie, adherencePieExcludedCaption } from "@/lib/check-in-status";
+import {
+  addCalendarDays,
+  calendarDateInTimeZone,
+  zonedDayBoundsForDate,
+  zonedEndOfDay,
+  zonedStartOfDay,
+  zonedWallTimeToUtc,
+} from "@/lib/time/zoned-bounds";
+import {
+  checkInStatusBreakdown,
+  adherenceCompositionPie,
+  adherencePieExcludedCaption,
+  adherencePercent,
+  formatResponseValueLabel,
+} from "@/lib/check-in-status";
 
 export type DashboardRange = "today" | "week" | "month" | "year" | "custom";
 
-export function getRangeBounds(range: DashboardRange, now = new Date()) {
+/**
+ * Range bounds in the Care Partner's IANA timezone (not the browser host).
+ * Check-ins are materialised in the elder's timezone — a CT/elder zone split
+ * can put the same row on different calendar days; that divergence is accepted.
+ */
+export function getRangeBounds(
+  range: DashboardRange,
+  now = new Date(),
+  timeZone = "UTC",
+) {
+  const today = calendarDateInTimeZone(timeZone, now);
   switch (range) {
-    case "today":
-      return { from: startOfDay(now), to: endOfDay(now), priorFrom: startOfDay(subDays(now, 1)), priorTo: endOfDay(subDays(now, 1)) };
-    case "week":
-      return {
-        from: startOfDay(subDays(now, 6)),
-        to: endOfDay(now),
-        priorFrom: startOfDay(subDays(now, 13)),
-        priorTo: endOfDay(subDays(now, 7)),
-      };
-    case "month":
-      return {
-        from: startOfMonth(now),
-        to: endOfMonth(now),
-        priorFrom: startOfMonth(subDays(startOfMonth(now), 1)),
-        priorTo: endOfDay(subDays(startOfMonth(now), 1)),
-      };
-    case "year":
-      return {
-        from: startOfYear(now),
-        to: endOfYear(now),
-        priorFrom: startOfYear(subDays(startOfYear(now), 1)),
-        priorTo: endOfDay(subDays(startOfYear(now), 1)),
-      };
-    case "custom":
-      return {
-        from: startOfDay(now),
-        to: endOfDay(now),
-        priorFrom: startOfDay(subDays(now, 1)),
-        priorTo: endOfDay(subDays(now, 1)),
-      };
+    case "today": {
+      const { from, to } = zonedDayBoundsForDate(timeZone, today);
+      const priorDay = addCalendarDays(today, -1);
+      const prior = zonedDayBoundsForDate(timeZone, priorDay);
+      return { from, to, priorFrom: prior.from, priorTo: prior.to };
+    }
+    case "week": {
+      const from = zonedWallTimeToUtc(
+        timeZone,
+        addCalendarDays(today, -6),
+        "00:00:00",
+      );
+      const to = zonedEndOfDay(timeZone, now);
+      const priorTo = new Date(from.getTime() - 1);
+      const priorFrom = zonedWallTimeToUtc(
+        timeZone,
+        addCalendarDays(today, -13),
+        "00:00:00",
+      );
+      return { from, to, priorFrom, priorTo };
+    }
+    case "month": {
+      const ym = today.slice(0, 7);
+      const from = zonedWallTimeToUtc(timeZone, `${ym}-01`, "00:00:00");
+      const nextMonth = addCalendarDays(`${ym}-01`, 32).slice(0, 7) + "-01";
+      const to = new Date(
+        zonedWallTimeToUtc(timeZone, nextMonth, "00:00:00").getTime() - 1,
+      );
+      const priorMonthEnd = new Date(from.getTime() - 1);
+      const priorYm = calendarDateInTimeZone(timeZone, priorMonthEnd).slice(0, 7);
+      const priorFrom = zonedWallTimeToUtc(
+        timeZone,
+        `${priorYm}-01`,
+        "00:00:00",
+      );
+      return { from, to, priorFrom, priorTo: priorMonthEnd };
+    }
+    case "year": {
+      const y = today.slice(0, 4);
+      const from = zonedWallTimeToUtc(timeZone, `${y}-01-01`, "00:00:00");
+      const to = new Date(
+        zonedWallTimeToUtc(timeZone, `${Number(y) + 1}-01-01`, "00:00:00").getTime() -
+          1,
+      );
+      const priorFrom = zonedWallTimeToUtc(
+        timeZone,
+        `${Number(y) - 1}-01-01`,
+        "00:00:00",
+      );
+      const priorTo = new Date(from.getTime() - 1);
+      return { from, to, priorFrom, priorTo };
+    }
+    case "custom": {
+      const { from, to } = zonedDayBoundsForDate(timeZone, today);
+      const prior = zonedDayBoundsForDate(timeZone, addCalendarDays(today, -1));
+      return { from, to, priorFrom: prior.from, priorTo: prior.to };
+    }
   }
 }
 
-/** Build bounds from a custom date + time selection. */
+/** Build bounds from a custom date + time selection in the CT timezone. */
 export function getCustomRangeBounds(
   startDate: string,
   endDate: string,
   startTime = "00:00",
   endTime = "23:59",
+  timeZone = "UTC",
 ) {
-  const [sh, sm] = startTime.split(":").map(Number);
-  const [eh, em] = endTime.split(":").map(Number);
-  const from = parseISO(`${startDate}T00:00:00`);
-  from.setHours(sh || 0, sm || 0, 0, 0);
-  const to = parseISO(`${endDate}T00:00:00`);
-  to.setHours(eh ?? 23, em ?? 59, 59, 999);
+  const from = zonedWallTimeToUtc(timeZone, startDate, normalizeCustomTime(startTime));
+  let to = zonedWallTimeToUtc(timeZone, endDate, normalizeCustomTime(endTime));
+  // Inclusive end-of-minute when only HH:MM was provided.
+  if (endTime.length <= 5) {
+    to = new Date(to.getTime() + 59_999);
+  }
 
   const durationMs = Math.max(to.getTime() - from.getTime(), 60_000);
   const priorTo = new Date(from.getTime() - 1);
   const priorFrom = new Date(priorTo.getTime() - durationMs);
 
   return { from, to, priorFrom, priorTo };
+}
+
+function normalizeCustomTime(t: string): string {
+  const s = t.trim();
+  if (s.length >= 8) return s.slice(0, 8);
+  if (s.length >= 5) return `${s.slice(0, 5)}:00`;
+  return "00:00:00";
 }
 
 function inRange(iso: string, from: Date, to: Date) {
@@ -88,19 +138,7 @@ function inRange(iso: string, from: Date, to: Date) {
 }
 
 function adherence(items: CheckInResponse[]): number | null {
-  const scored = items.filter(
-    (i) =>
-      i.status === "taken" ||
-      i.status === "missed" ||
-      i.status === "delayed",
-  );
-  const takenOrMissed = scored.filter(
-    (i) => i.status === "taken" || i.status === "missed",
-  );
-  // No taken/missed ⇒ no % (C9 — never 100% on empty).
-  if (takenOrMissed.length === 0) return null;
-  const good = scored.filter((i) => i.status === "taken" || i.status === "delayed").length;
-  return Math.round((good / scored.length) * 100);
+  return adherencePercent(items);
 }
 
 function statusBreakdown(items: CheckInResponse[]) {
@@ -150,7 +188,7 @@ export function buildDashboardModel(
 ) {
   const bounds =
     typeof range === "string"
-      ? getRangeBounds(range)
+      ? getRangeBounds(range, new Date(), viewerTimeZone)
       : range;
   const rangeLabel =
     typeof range === "string"
@@ -199,16 +237,35 @@ export function buildDashboardModel(
   const step = Math.max(1, Math.floor(spanDays / dayCount));
 
   // Empty range → empty series (do not plot a flat 0% line as if it were data).
+  // Bucket edges are Care Partner calendar days (same TZ as bounds), not host-local.
+  const rangeStartDate = calendarDateInTimeZone(viewerTimeZone, bounds.from);
   const trendSeries =
     allInRange.length === 0
       ? []
       : Array.from({ length: dayCount }, (_, i) => {
-          const dayFrom = startOfDay(addDays(bounds.from, i * step));
-          const dayTo = endOfDay(addDays(dayFrom, Math.max(0, step - 1)));
-          const label = format(dayFrom, spanDays <= 2 ? "ha" : spanDays <= 14 ? "EEE" : "d MMM");
+          const bucketStart = addCalendarDays(rangeStartDate, i * step);
+          const bucketEnd = addCalendarDays(
+            bucketStart,
+            Math.max(0, step - 1),
+          );
+          const dayFrom = zonedWallTimeToUtc(
+            viewerTimeZone,
+            bucketStart,
+            "00:00:00",
+          );
+          const dayTo = zonedDayBoundsForDate(viewerTimeZone, bucketEnd).to;
+          const label = formatInTimeZone(dayFrom, viewerTimeZone, {
+            ...(spanDays <= 2
+              ? { hour: "numeric", hour12: true }
+              : spanDays <= 14
+                ? { weekday: "short" }
+                : { day: "numeric", month: "short" }),
+          } as Intl.DateTimeFormatOptions);
           const medDay = med.filter((c) => inRange(c.scheduledAt, dayFrom, dayTo));
           const foodDay = food.filter((c) => inRange(c.scheduledAt, dayFrom, dayTo));
-          const healthDay = health.filter((c) => inRange(c.scheduledAt, dayFrom, dayTo));
+          const healthDay = health.filter((c) =>
+            inRange(c.scheduledAt, dayFrom, dayTo),
+          );
           return {
             label,
             medication: adherence(medDay) ?? 0,
@@ -235,8 +292,10 @@ export function buildDashboardModel(
     .sort((a, b) => +parseISO(b.createdAt) - +parseISO(a.createdAt))
     .slice(0, 5);
 
-  const todayFrom = startOfDay(new Date());
-  const todayTo = endOfDay(new Date());
+  // "Today" for the daily timeline = Care Partner timezone (viewerTimeZone),
+  // not the browser host and not the elder's zone. Materialisation stays elder-local.
+  const todayFrom = zonedStartOfDay(viewerTimeZone);
+  const todayTo = zonedEndOfDay(viewerTimeZone);
   const todayItems = allInRange
     .filter((c) => inRange(c.scheduledAt, todayFrom, todayTo))
     .filter((c) => c.status !== "cancelled")
@@ -258,6 +317,9 @@ export function buildDashboardModel(
         hour12: true,
       }),
       status: item.status as CheckInStatus,
+      responseLabel: formatResponseValueLabel(
+        item.response != null ? String(item.response) : undefined,
+      ),
       kind: item.routineKind,
     }));
 

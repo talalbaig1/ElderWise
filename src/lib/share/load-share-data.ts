@@ -168,7 +168,10 @@ export async function loadDoctorShareSummary(
   const checkIns = (checkinRes.data ?? []).map((c) => ({
     scheduledAt: c.scheduled_for as string,
     domain: c.domain as string,
-    status: checkInStatusToUi(c.status as DbCheckInStatus),
+    status: checkInStatusToUi(
+      c.status as DbCheckInStatus,
+      (c.response_value as string | null) ?? null,
+    ),
     responseValue: (c.response_value as string | null) ?? null,
     respondedAt: (c.responded_at as string | null) ?? null,
   }));

@@ -19,6 +19,7 @@ export type WellbeingStatus = "stable" | "attention" | "urgent" | "unknown";
 
 export type CheckInStatus =
   | "taken"
+  | "answered_no"
   | "missed"
   | "delayed"
   | "upcoming"

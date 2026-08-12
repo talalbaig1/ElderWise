@@ -73,7 +73,7 @@ export function StatusPieChart({
       <CardHeader className="pb-2">
         <CardTitle className="text-lg">Adherence composition</CardTitle>
         <CardDescription>
-          Taken, delayed, and missed only — same universe as the adherence percentage
+          Taken, answered no, delayed, and missed — same universe as the adherence percentage
         </CardDescription>
       </CardHeader>
       <CardContent>
