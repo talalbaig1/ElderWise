@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.23 |
-| **Date** | 11 August 2026 |
+| **Document** | Rules.md — v1.24 |
+| **Date** | 12 August 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
 
@@ -104,7 +104,7 @@ From `Architecture.md` §1 (P1). These are the walls that let ten people work in
 | **D9** | **`elders.consent_confirmed_at` is a hard gate, not a flag.** Any code path that schedules or sends a check-in must check it first. A NULL means that elder has not agreed to be messaged. |
 | **D10** | **`elders.address` is NOT NULL.** Mandatory even if Local Buddy / LCT is skipped. When an LCT exists, their SOS message carries the address — their purpose is to physically reach her. |
 | **D8** | **Foreign keys and indexes are not optional.** In particular `elders.whatsapp_number` must be indexed — the inbound webhook hits it on every single message. |
-| **D11** | **Drafts are hard-deleted; product data is soft-deleted.** A draft has no history worth keeping and holds a UNIQUE constraint (`elders.whatsapp_number`) hostage; a routine's history is the clinical record. |
+| **D11** | **Drafts are hard-deleted; product data is soft-deleted.** A draft has no history worth keeping and holds a UNIQUE constraint (`elders.whatsapp_number`) hostage; a routine's history is the clinical record. **Never hard-DELETE a food/health routine** — `checkins_*_routine_id_fkey` are `ON DELETE CASCADE` and would erase check-in history. Soft-delete = `enabled = false` (medications also `active = false`); drop only unsent `scheduled` rows from today onward. |
 | **D12** | **One time per medication row.** `medications.times` has exactly one entry (`CHECK (cardinality(times) = 1)`). Two doses a day = two medication rows (Duplicate). Do not reintroduce multi-time UI or writers. Do not use `array_length` for this CHECK — it returns NULL on `'{}'` and the constraint would pass. |
 | **D13** | **Applied migrations are immutable.** Once a migration is recorded in `supabase_migrations.schema_migrations`, its file is never edited. Corrections ship as a new forward migration. Editing an applied migration means the repo no longer records what was actually run, and fresh environments diverge silently from production. |
 
@@ -185,6 +185,7 @@ Defaults, not dogma. Consistency across ten contributors matters more than any i
 | **C13** | **Any value the scheduler passes to Postgres must be validated at the point of entry.** `AT TIME ZONE e.timezone` runs across every elder in a single query — one invalid value throws for the whole batch and halts materialisation for all families. Time zones must be validated with `isValidTimeZone()`, a **runtime** check (does `Intl.DateTimeFormat` accept it), never list membership: `TIMEZONE_OPTIONS` is a convenience offset-grouped quick-pick list that still excludes legacy aliases such as `Asia/Calcutta`, which two live elders use, and `Intl.supportedValuesOf('timeZone')` returns canonical zones only. Learned from the 33-minute Track B outage of 10 August 2026 (`Asia/India`) and a second failure of the same class on 11 August 2026 (`Arabian Standard Time (AST)`), 18 hours apart and from different users (A-35). |
 | **C14** | **A discarded Supabase read error is indistinguishable from an empty result.** `(res.data ?? [])` on a failed query yields an empty list that renders as "nothing here" — no error, no warning, no type failure. This is the read-path twin of the `if (!data)` write rule: a write denied by RLS returns no error and no rows, and a read that errors returns no rows either. **Every query in a loader must have its `.error` checked and logged with the table name.** Learned 11 August 2026: `load-app-data.ts` selected a non-existent column (`created_at`) from `doctor_share_links` (which has `created_by`), and the Doctor share links panel showed "No active share links" for every elder from the day it shipped while 13 live tokens existed (A-36). `tsc` could not catch it — loosely typed row access, same class as C12. |
 | **C15** | **Check-in status reaches a human only after DB→UI mapping, then a single display formatter.** Never print a raw `checkins.status` enum (`responded`, `reminded`, `sent`, `scheduled`) to a doctor, PDF, CSV, or print view — those words are Track B vocabulary. Call `checkInStatusToUi` (or load through a path that already maps), then `formatCheckInStatus` for Title Case labels. Do not rely on CSS `capitalize` for semantics. Learned 11 August 2026 (A-29 rescope): the share page already title-cased via CSS but still showed "Reminded" for a delayed dose. |
+| **C16** | **Routine CRUD owns same-day check-in propagation in Next.js — not n8n.** On create/update/soft-delete of `food_routines`, `health_routines`, or `medications`, sync today's `checkins` in the **elder's** IANA timezone using the materialiser slot expression (`(elder-local date + wall time) AT TIME ZONE elder.timezone`). Never modify a row with `sent_at` set; never hard-delete routines (D11); never collapse multiple routines by domain or meal name. Every write needs an explicit `if (!data)` check (RLS denial returns no error). CT must be told when a change applies from tomorrow because today's check-in already left. |
 
 ---
 
@@ -329,6 +330,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 12 Aug 2026 | 1.24 | **C16 + D11 clarification — routine → check-in lifecycle.** UI-side same-day sync in elder TZ; never hard-DELETE routines (CASCADE FKs); never touch `sent_at` rows; no n8n changes for CRUD propagation. |
 | 11 Aug 2026 | 1.23 | **C15 — check-in status: map DB→UI, then `formatCheckInStatus`.** From A-29 rescope: CSS capitalize is not a semantic fix; doctors must never see Track B vocabulary (`Reminded`, `Responded`, …). |
 | 11 Aug 2026 | 1.22 | **C14 — discarded Supabase read errors look like empty data.** Every loader query must check and log `.error` with the table name. From A-36: `doctor_share_links` selected non-existent `created_at`; `(data ?? [])` hid 13 live tokens behind "No active share links." |
 | 11 Aug 2026 | 1.21 | **C13 — cite both time-zone outages.** Extends the learning line to cover the 11 August `Arabian Standard Time (AST)` failure (18 hours after `Asia/India`, different user). Notes `TIMEZONE_OPTIONS` is now an offset-grouped quick-pick list, still not a membership oracle. |

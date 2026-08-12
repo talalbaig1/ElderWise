@@ -5,8 +5,8 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.40 |
-| **Date** | 11 August 2026 |
+| **Document** | Architecture.md — v1.41 |
+| **Date** | 12 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
 
@@ -298,6 +298,23 @@ care_partners ──┐
 > **Escalation defaults differ by domain in the front end** (medication 30 min, food 45, health 60). These are **defaults**, editable per routine. The old blanket "30 across the board" is superseded.
 
 > **Column asymmetry:** `medications` has both `active` and `enabled`; `food_routines` and `health_routines` have only `enabled`, so “pause” and “delete” are the same state for those two.
+
+> **Routine delete is soft only (Talal, 12 August 2026).** Never hard-DELETE a food or health routine — `checkins_food_routine_id_fkey` / `checkins_health_routine_id_fkey` are **`ON DELETE CASCADE`** and would wipe historical check-ins. Soft-delete = `enabled = false` (medications also `active = false`). The active routine list hides disabled rows. A true hard-delete needs a migration (SET NULL or RESTRICT) and is out of Demo Day scope.
+
+**UI-side same-day check-in sync (Talal, 12 August 2026):** routine CRUD in Next.js (`src/lib/data/routine-checkin-sync.ts`, called from the three dashboard upserts / soft-deletes) propagates to **today's** `checkins` using the **elder's** IANA timezone — never the browser's. Slot expression matches WF-1 / WF-1b / WF-1c:
+
+```
+((now() AT TIME ZONE elder.timezone)::date + routine.wall_time)
+  AT TIME ZONE elder.timezone
+```
+
+Multiple routines in the same domain are legitimate — **do not** collapse or dedupe by domain or meal name. Rules:
+
+1. **Create** — if the routine is due today (enabled, start/end window, `days_of_week`) and the elder is active + consented, INSERT `status=scheduled` at that slot; skip if a row already occupies the slot.
+2. **Update** — (a) today's row is `scheduled` and `sent_at IS NULL` → UPDATE `scheduled_for` to the new slot (never a second row); (b) today's row already has `sent_at` (or is responded/missed/cancelled) and the wall clock moved → INSERT a `cancelled` + `cancelled_at` row at the **new** slot so the materialiser's `NOT EXISTS` guard suppresses a duplicate send; surface to the CT that the change applies from tomorrow; (c) today no longer matches / routine disabled → delete today's unsent `scheduled` only; leave sent rows alone.
+3. **Soft-delete** — disable as above; delete only `status=scheduled AND sent_at IS NULL` from today onward for that routine (medication: only slots not still required by another live medicine).
+
+**Never modify a check-in with `sent_at` set.** No n8n workflow changes for this behaviour — Track B materialisers remain the overnight / cron path; the UI closes the same-day gap.
 
 **`checkins`** — one row per scheduled check-in occurrence. The heart of the system.
 
@@ -1118,6 +1135,7 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 
 | Date | Version | Change |
 |---|---|---|
+| 12 Aug 2026 | 1.41 | **Routine → check-in lifecycle (UI-side).** Next.js propagates food / health / medication CRUD to today's `checkins` using the elder TZ and the WF-1* slot expression; soft-delete only (CASCADE FKs forbid hard DELETE); disabled routines hidden from the active list; CT notice when today's send already went out. No n8n changes. |
 | 11 Aug 2026 | 1.40 | **Adherence pie labelling — no Cancelled slice.** Dashboard and Reports status pies are adherence composition (Taken / Delayed / Missed only); `adherence()` / `checkInStatusBreakdown` / slice values unchanged. Title and caption make the exclusion explicit (cancelled count always; pending if non-zero). Closes the A-29 open on whether to add a Cancelled slice — ruled out. Charts mounted on dashboard and reports (previously computed, never rendered). |
 | 11 Aug 2026 | 1.39 | **A-37 and A-38 assessed and deferred → PD-13 / PD-14.** Measurement recorded: 3 unrevoked links, 0 expired, 0 expiring before Demo Day, earliest expiry 10 September 2026, max 2 per elder, 2 SOS-minted / 1 dashboard-issued. Care Circle "active" filter vs reveal (A-37) and elder-wide unrevoked-link cap (A-38) close here; tracked in `PostDemoEnhancements.md`. |
 | 11 Aug 2026 | 1.38 | **A-29 rescope + Case 87 share summary.** A-29 corrected: share defect was DB→UI vocabulary (not casing); PDF was truly raw lowercase. Shared `formatCheckInStatus` + unified `statusBreakdown`; share loader uses a 30-day calendar window with mapped statuses and a deterministic summary strip (§7.3). Cancelled pie-slice still pending Talal ruling. |

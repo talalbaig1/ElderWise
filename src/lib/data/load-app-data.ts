@@ -112,9 +112,10 @@ export async function loadAppData(
       .order("created_at", { ascending: true }),
     supabase.from("local_caregivers").select("*"),
     supabase.from("doctors").select("*"),
-    // Soft-deleted meds: active=false — excluded from the read model (never render).
-    // Food/health soft-delete is enabled=false; those rows still load so the CT can
-    // re-enable, but domain_configs.frequency only unions enabled times (see syncDomainConfig).
+    // Soft-deleted meds (active=false) stay out of the product read model.
+    // Food/health soft-delete is enabled=false — still load those rows so
+    // checkInTitle / history can resolve names. Active lists filter enabled
+    // at the render site (routine-tabs, loved-ones cards, dashboard upcoming).
     supabase.from("medications").select("*").eq("active", true),
     supabase.from("food_routines").select("*"),
     supabase.from("health_routines").select("*"),
