@@ -11,7 +11,7 @@ interface StatusMeta {
 
 const checkInMap: Record<CheckInStatus, StatusMeta> = {
   taken: { label: "Taken", variant: "success" },
-  answered_no: { label: "Answered no", variant: "warning" },
+  answered_no: { label: "Answered no", variant: "info" },
   missed: { label: "Missed", variant: "destructive" },
   delayed: { label: "Delayed", variant: "warning" },
   upcoming: { label: "Upcoming", variant: "info" },

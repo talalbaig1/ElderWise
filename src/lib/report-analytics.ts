@@ -401,9 +401,6 @@ export function buildReportModel(
         item.status,
         item.response != null ? String(item.response) : undefined,
       ),
-      Response: formatResponseValueLabel(
-        item.response != null ? String(item.response) : undefined,
-      ) ?? "",
       Channel: item.channel,
     }));
 
@@ -430,7 +427,7 @@ export function buildReportModel(
       moodPie: [],
       timeline,
       tableRows,
-      csvHeaders: ["Date", "Routine", "Status", "Response", "Channel"],
+      csvHeaders: ["Date", "Routine", "Status", "Channel"],
       snapshotMetrics: {
         taken: breakdown.taken,
         delayed: breakdown.delayed,

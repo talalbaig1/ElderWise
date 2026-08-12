@@ -1,11 +1,7 @@
 import {
-  addDays,
   differenceInCalendarDays,
-  endOfDay,
-  format,
   isWithinInterval,
   parseISO,
-  startOfDay,
 } from "date-fns";
 import type {
   CheckInResponse,
@@ -241,16 +237,35 @@ export function buildDashboardModel(
   const step = Math.max(1, Math.floor(spanDays / dayCount));
 
   // Empty range → empty series (do not plot a flat 0% line as if it were data).
+  // Bucket edges are Care Partner calendar days (same TZ as bounds), not host-local.
+  const rangeStartDate = calendarDateInTimeZone(viewerTimeZone, bounds.from);
   const trendSeries =
     allInRange.length === 0
       ? []
       : Array.from({ length: dayCount }, (_, i) => {
-          const dayFrom = startOfDay(addDays(bounds.from, i * step));
-          const dayTo = endOfDay(addDays(dayFrom, Math.max(0, step - 1)));
-          const label = format(dayFrom, spanDays <= 2 ? "ha" : spanDays <= 14 ? "EEE" : "d MMM");
+          const bucketStart = addCalendarDays(rangeStartDate, i * step);
+          const bucketEnd = addCalendarDays(
+            bucketStart,
+            Math.max(0, step - 1),
+          );
+          const dayFrom = zonedWallTimeToUtc(
+            viewerTimeZone,
+            bucketStart,
+            "00:00:00",
+          );
+          const dayTo = zonedDayBoundsForDate(viewerTimeZone, bucketEnd).to;
+          const label = formatInTimeZone(dayFrom, viewerTimeZone, {
+            ...(spanDays <= 2
+              ? { hour: "numeric", hour12: true }
+              : spanDays <= 14
+                ? { weekday: "short" }
+                : { day: "numeric", month: "short" }),
+          } as Intl.DateTimeFormatOptions);
           const medDay = med.filter((c) => inRange(c.scheduledAt, dayFrom, dayTo));
           const foodDay = food.filter((c) => inRange(c.scheduledAt, dayFrom, dayTo));
-          const healthDay = health.filter((c) => inRange(c.scheduledAt, dayFrom, dayTo));
+          const healthDay = health.filter((c) =>
+            inRange(c.scheduledAt, dayFrom, dayTo),
+          );
           return {
             label,
             medication: adherence(medDay) ?? 0,

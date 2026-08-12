@@ -331,7 +331,8 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
-| 12 Aug 2026 | 1.25 | **C15 — `answered_no` + response text beside status.** Map with `response_value`; use `formatCheckInStatusWithResponse` on list surfaces; `some_of_them` → `answered_no` (no separate `partial`). |
+| 12 Aug 2026 | 1.25 | **C17 — document versions at merge time.** Bump Architecture/Rules only after reading headers on `main`; date header + changelog to the merge date. |
+| 12 Aug 2026 | 1.25 | **C15 amend — map status + `response_value`.** A `responded` row is not enough on its own; `no` / `some_of_them` must not render as Taken. A-29 learning retained. |
 | 12 Aug 2026 | 1.24 | **C16 + D11 clarification — routine → check-in lifecycle.** UI-side same-day sync in elder TZ; never hard-DELETE routines (CASCADE FKs); never touch `sent_at` rows; no n8n changes for CRUD propagation. |
 | 11 Aug 2026 | 1.23 | **C15 — check-in status: map DB→UI, then `formatCheckInStatus`.** From A-29 rescope: CSS capitalize is not a semantic fix; doctors must never see Track B vocabulary (`Reminded`, `Responded`, …). |
 | 11 Aug 2026 | 1.22 | **C14 — discarded Supabase read errors look like empty data.** Every loader query must check and log `.error` with the table name. From A-36: `doctor_share_links` selected non-existent `created_at`; `(data ?? [])` hid 13 live tokens behind "No active share links." |
