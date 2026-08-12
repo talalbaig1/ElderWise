@@ -9,7 +9,7 @@ import type {
   DoctorShareSummary,
 } from "@/lib/share/types";
 import {
-  formatCheckInStatus,
+  formatCheckInStatusWithResponse,
   formatSosEventStatus,
   formatSosResolveChannel,
 } from "@/lib/check-in-status";
@@ -177,8 +177,8 @@ function ShareSummaryView({ summary }: { summary: DoctorShareSummary }) {
                   className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl border px-3 py-2 text-sm"
                 >
                   <span>
-                    {c.domain} · {formatCheckInStatus(c.status)}
-                    {c.responseValue ? ` · ${c.responseValue}` : ""}
+                    {c.domain} ·{" "}
+                    {formatCheckInStatusWithResponse(c.status, c.responseValue)}
                   </span>
                   <span className="font-mono text-xs text-muted-foreground">
                     {formatInTimeZone(c.scheduledAt, tz)}

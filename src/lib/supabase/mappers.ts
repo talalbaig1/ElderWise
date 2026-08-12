@@ -28,7 +28,10 @@ export type DbCheckInStatus =
   | "missed"
   | "cancelled";
 
-export function checkInStatusToUi(status: DbCheckInStatus): CheckInStatus {
+export function checkInStatusToUi(
+  status: DbCheckInStatus,
+  responseValue?: string | null,
+): CheckInStatus {
   switch (status) {
     case "scheduled":
       return "upcoming";
@@ -36,8 +39,20 @@ export function checkInStatusToUi(status: DbCheckInStatus): CheckInStatus {
       return "pending";
     case "reminded":
       return "delayed";
-    case "responded":
+    case "responded": {
+      const v = (responseValue ?? "").trim().toLowerCase();
+      if (v === "yes" || v === "yes_all") return "taken";
+      if (v === "no" || v === "some_of_them") return "answered_no";
+      // Defensive: live data never pairs not_yet with responded (Case 68 —
+      // medication "Not yet" leaves the check-in open → missed/cancelled path).
+      if (v === "not_yet") return "answered_no";
+      if (v !== "") {
+        console.warn(
+          `[checkInStatusToUi] unrecognised response_value on responded row: ${JSON.stringify(responseValue)} — mapping to taken`,
+        );
+      }
       return "taken";
+    }
     case "missed":
       return "missed";
     case "cancelled":
@@ -54,6 +69,7 @@ export function checkInStatusToDb(status: CheckInStatus): DbCheckInStatus | null
     case "delayed":
       return "reminded";
     case "taken":
+    case "answered_no":
       return "responded";
     case "missed":
       return "missed";
@@ -291,7 +307,7 @@ export function checkInFromRow(row: CheckinRow): CheckInResponse {
     routineKind: row.domain === "food" ? "food" : row.domain,
     scheduledAt: row.scheduled_for,
     respondedAt: row.responded_at ?? undefined,
-    status: checkInStatusToUi(row.status),
+    status: checkInStatusToUi(row.status, row.response_value),
     response: row.response_value ?? undefined,
     channel,
     notes: row.response_channel === "voice" ? "voice" : undefined,

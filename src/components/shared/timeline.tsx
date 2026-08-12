@@ -8,6 +8,8 @@ export interface TimelineItem {
   title: string;
   time: string;
   status?: CheckInStatus;
+  /** Human response text shown beside the status (e.g. "some of them"). */
+  responseLabel?: string;
   icon?: LucideIcon;
   description?: string;
 }
@@ -39,8 +41,13 @@ export function Timeline({ items, className, orientation = "vertical" }: Timelin
               </div>
               <p className="text-sm font-semibold">{item.title}</p>
               {item.status ? (
-                <div className="mt-2">
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   <StatusPill kind="checkin" status={item.status} />
+                  {item.responseLabel ? (
+                    <span className="font-mono text-xs text-muted-foreground">
+                      · {item.responseLabel}
+                    </span>
+                  ) : null}
                 </div>
               ) : null}
             </li>
@@ -68,7 +75,16 @@ export function Timeline({ items, className, orientation = "vertical" }: Timelin
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-semibold">{item.title}</p>
-                {item.status ? <StatusPill kind="checkin" status={item.status} /> : null}
+                {item.status ? (
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <StatusPill kind="checkin" status={item.status} />
+                    {item.responseLabel ? (
+                      <span className="font-mono text-xs text-muted-foreground">
+                        · {item.responseLabel}
+                      </span>
+                    ) : null}
+                  </span>
+                ) : null}
               </div>
               <time className="font-mono text-xs text-muted-foreground">{item.time}</time>
               {item.description ? (

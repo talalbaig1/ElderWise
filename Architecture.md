@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.41 |
+| **Document** | Architecture.md — v1.42 |
 | **Date** | 12 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
@@ -483,12 +483,17 @@ The front end (`CheckInStatus`) and the database (`checkins.status`) use differe
 | `upcoming` | `scheduled` | Not yet due / not yet fired. |
 | `pending` | `sent` | Check-in dispatched; awaiting reply. |
 | `delayed` | `reminded` | One reminder already sent; still waiting. |
-| `taken` | `responded` | Affirmative / completed answer recorded (e.g. yes, medicines taken). |
+| `taken` | `responded` | Affirmative answer (`response_value` `yes` / `yes_all`). |
+| `answered_no` | `responded` | Negative or partial answer (`no` / `some_of_them`; defensive `not_yet`). **In the adherence denominator with no credit** — same weight as a miss, own pie slice. Label **"Answered no"** (not "Not taken") — shared across domains; a health `no` is a fact, not a diagnosis (N1). |
 | `missed` | `missed` | Direct match — no reply after the reminder path. |
-| `cancelled` | `cancelled` | Direct match — routine disabled while check-in was still open; not a miss and not a skip. |
+| `cancelled` | `cancelled` | Direct match — routine disabled while check-in was still open; not a miss and not a skip. **Out of adherence numerator and denominator** (Case 118). |
 | `skipped` | *(no dedicated backend status)* | UI-only — elder skipped it. **Different meaning from `cancelled`.** Do not conflate. |
 
-Negative or partial medication answers that still count as a recorded response remain backend `responded`, with detail in `response_value` / `checkin_medication_items` — the UI may show a non-`taken` label for those cases without changing the backend enum.
+**Mapping (Talal, 12 August 2026):** `checkInStatusToUi(status, response_value)` — never map all `responded` to `taken`. Unrecognised `response_value` on a `responded` row → `taken` + log. List surfaces render `formatCheckInStatusWithResponse` so the CT sees e.g. `Answered no · some of them` (status drives maths; response text keeps the sentence true). No separate `partial` UI status — `some_of_them` is `answered_no`.
+
+### Viewer “today” vs elder materialisation day
+
+Dashboard range bounds (including “today” and custom date+time) use the **Care Partner’s** IANA timezone (`viewerTimeZone`). Check-ins are **materialised in the elder’s** timezone. When CT and elder zones differ, the same `scheduled_for` instant can fall on different calendar days for each — **accepted; do not reconcile in the UI.**
 
 ### SOS status — display vs dispatch
 
@@ -1135,6 +1140,7 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 
 | Date | Version | Change |
 |---|---|---|
+| 12 Aug 2026 | 1.42 | **A1 — `answered_no` + CP-timezone day bounds.** UI maps `responded`+`no`/`some_of_them` → `answered_no` (in adherence denom, no credit; own pie slice). List surfaces show response text beside status. Dashboard “today”/custom bounds use Care Partner IANA TZ; elder materialisation day divergence documented, not reconciled. |
 | 12 Aug 2026 | 1.41 | **Routine → check-in lifecycle (UI-side).** Next.js propagates food / health / medication CRUD to today's `checkins` using the elder TZ and the WF-1* slot expression; soft-delete only (CASCADE FKs forbid hard DELETE); disabled routines hidden from the active list; CT notice when today's send already went out. No n8n changes. |
 | 11 Aug 2026 | 1.40 | **Adherence pie labelling — no Cancelled slice.** Dashboard and Reports status pies are adherence composition (Taken / Delayed / Missed only); `adherence()` / `checkInStatusBreakdown` / slice values unchanged. Title and caption make the exclusion explicit (cancelled count always; pending if non-zero). Closes the A-29 open on whether to add a Cancelled slice — ruled out. Charts mounted on dashboard and reports (previously computed, never rendered). |
 | 11 Aug 2026 | 1.39 | **A-37 and A-38 assessed and deferred → PD-13 / PD-14.** Measurement recorded: 3 unrevoked links, 0 expired, 0 expiring before Demo Day, earliest expiry 10 September 2026, max 2 per elder, 2 SOS-minted / 1 dashboard-issued. Care Circle "active" filter vs reveal (A-37) and elder-wide unrevoked-link cap (A-38) close here; tracked in `PostDemoEnhancements.md`. |

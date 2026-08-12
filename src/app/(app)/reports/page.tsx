@@ -407,7 +407,7 @@ export default function ReportsPage() {
           }
           description={
             model.statusPieExcludedCaption
-              ? "Taken, delayed, and missed only — same universe as the adherence percentage"
+              ? "Taken, answered no, delayed, and missed — same universe as the adherence percentage"
               : "Hover a slice for counts"
           }
         />
@@ -431,6 +431,7 @@ export default function ReportsPage() {
                 time: t.time,
                 description: t.description,
                 status: t.status,
+                responseLabel: t.responseLabel,
               }))}
             />
           )}

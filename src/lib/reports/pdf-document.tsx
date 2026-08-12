@@ -2,7 +2,7 @@ import React from "react";
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatInTimeZone } from "@/lib/time/display";
 import {
-  formatCheckInStatus,
+  formatCheckInStatusWithResponse,
   formatSosEventStatus,
   formatSosResolveChannel,
 } from "@/lib/check-in-status";
@@ -224,7 +224,7 @@ function CheckInSection({
             {fmtElder(row.scheduledFor, data.elderTimeZone)}
           </Text>
           <Text style={{ ...styles.cell, fontFamily: baseFont }}>
-            {formatCheckInStatus(row.status)}
+            {formatCheckInStatusWithResponse(row.status, row.responseValue)}
           </Text>
           <Text style={{ ...styles.cell, fontFamily: baseFont }}>
             {row.respondedAt

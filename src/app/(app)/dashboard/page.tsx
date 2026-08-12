@@ -73,9 +73,21 @@ export default function DashboardPage() {
 
   const model = useMemo(() => {
     if (!lovedOne || !startDate || !endDate) return null;
-    let bounds = getCustomRangeBounds(startDate, endDate, startTime, endTime);
+    let bounds = getCustomRangeBounds(
+      startDate,
+      endDate,
+      startTime,
+      endTime,
+      viewerTimeZone,
+    );
     if (bounds.to < bounds.from) {
-      bounds = getCustomRangeBounds(endDate, startDate, endTime, startTime);
+      bounds = getCustomRangeBounds(
+        endDate,
+        startDate,
+        endTime,
+        startTime,
+        viewerTimeZone,
+      );
     }
     return buildDashboardModel(store, lovedOne, bounds, viewerTimeZone);
   }, [store, lovedOne, startDate, endDate, startTime, endTime, viewerTimeZone]);
@@ -452,6 +464,7 @@ export default function DashboardPage() {
               title: item.title,
               time: item.time,
               status: item.status,
+              responseLabel: item.responseLabel,
               icon:
                 item.kind === "medication"
                   ? Pill

@@ -25,9 +25,11 @@ import type {
 import { formatInTimeZone } from "@/lib/time/display";
 import {
   checkInStatusBreakdown,
-  formatCheckInStatus,
+  formatCheckInStatusWithResponse,
+  formatResponseValueLabel,
   adherenceCompositionPie,
   adherencePieExcludedCaption,
+  adherencePercent,
 } from "@/lib/check-in-status";
 
 function fmtEvent(iso: string, viewerTimeZone: string) {
@@ -169,18 +171,7 @@ function inRange(iso: string, from: Date, to: Date) {
 }
 
 function adherence(items: CheckInResponse[]): number | null {
-  const scored = items.filter(
-    (i) =>
-      i.status === "taken" ||
-      i.status === "missed" ||
-      i.status === "delayed",
-  );
-  const takenOrMissed = scored.filter(
-    (i) => i.status === "taken" || i.status === "missed",
-  );
-  if (takenOrMissed.length === 0) return null;
-  const good = scored.filter((i) => i.status === "taken" || i.status === "delayed").length;
-  return Math.round((good / scored.length) * 100);
+  return adherencePercent(items);
 }
 
 function statusBreakdown(items: CheckInResponse[]) {
@@ -315,6 +306,7 @@ export interface ReportTimelineItem {
   time: string;
   description?: string;
   status?: CheckInStatus;
+  responseLabel?: string;
   kind: string;
 }
 
@@ -396,14 +388,22 @@ export function buildReportModel(
         time: fmtEvent(item.scheduledAt, viewerTimeZone),
         description: item.notes || `Channel: ${item.channel}`,
         status: item.status,
+        responseLabel: formatResponseValueLabel(
+          item.response != null ? String(item.response) : undefined,
+        ),
         kind: item.routineKind,
       }));
 
     const tableRows = items.map((item) => ({
       Date: fmtTable(item.scheduledAt, viewerTimeZone),
       Routine: checkInTitle(item, store),
-      Status: formatCheckInStatus(item.status),
-      Response: String(item.response ?? ""),
+      Status: formatCheckInStatusWithResponse(
+        item.status,
+        item.response != null ? String(item.response) : undefined,
+      ),
+      Response: formatResponseValueLabel(
+        item.response != null ? String(item.response) : undefined,
+      ) ?? "",
       Channel: item.channel,
     }));
 
@@ -418,6 +418,7 @@ export function buildReportModel(
       metrics: [
         { label: "Adherence", value: pct == null ? "—" : `${pct}%`, hint: bounds.label },
         { label: "Taken", value: breakdown.taken },
+        { label: "Answered no", value: breakdown.answered_no },
         { label: "Delayed", value: breakdown.delayed },
         { label: "Missed", value: breakdown.missed },
       ],
@@ -606,6 +607,9 @@ export function buildReportModel(
       time: fmtEvent(item.scheduledAt, viewerTimeZone),
       description: item.routineKind,
       status: item.status,
+      responseLabel: formatResponseValueLabel(
+        item.response != null ? String(item.response) : undefined,
+      ),
       kind: item.routineKind,
       sort: +parseISO(item.scheduledAt),
     })),
@@ -634,11 +638,41 @@ export function buildReportModel(
     });
 
   const tableRows = [
-    { Area: "Medication", Adherence: medPct ?? "—", Taken: statusBreakdown(med).taken, Missed: statusBreakdown(med).missed },
-    { Area: "Meals", Adherence: foodPct ?? "—", Taken: statusBreakdown(food).taken, Missed: statusBreakdown(food).missed },
-    { Area: "Health", Adherence: healthPct ?? "—", Taken: statusBreakdown(health).taken, Missed: statusBreakdown(health).missed },
-    { Area: "SOS events", Adherence: "", Taken: sosEvents.length, Missed: sosEvents.filter((e) => e.status === "active").length },
-    { Area: "Voice journals", Adherence: "", Taken: journals.length, Missed: journals.filter((j) => j.attentionFlag).length },
+    {
+      Area: "Medication",
+      Adherence: medPct ?? "—",
+      Taken: statusBreakdown(med).taken,
+      "Answered no": statusBreakdown(med).answered_no,
+      Missed: statusBreakdown(med).missed,
+    },
+    {
+      Area: "Meals",
+      Adherence: foodPct ?? "—",
+      Taken: statusBreakdown(food).taken,
+      "Answered no": statusBreakdown(food).answered_no,
+      Missed: statusBreakdown(food).missed,
+    },
+    {
+      Area: "Health",
+      Adherence: healthPct ?? "—",
+      Taken: statusBreakdown(health).taken,
+      "Answered no": statusBreakdown(health).answered_no,
+      Missed: statusBreakdown(health).missed,
+    },
+    {
+      Area: "SOS events",
+      Adherence: "",
+      Taken: sosEvents.length,
+      "Answered no": "",
+      Missed: sosEvents.filter((e) => e.status === "active").length,
+    },
+    {
+      Area: "Voice journals",
+      Adherence: "",
+      Taken: journals.length,
+      "Answered no": "",
+      Missed: journals.filter((j) => j.attentionFlag).length,
+    },
   ];
 
   return {
@@ -669,7 +703,7 @@ export function buildReportModel(
     moodPie: moodCounts(journals),
     timeline,
     tableRows,
-    csvHeaders: ["Area", "Adherence", "Taken", "Missed"],
+    csvHeaders: ["Area", "Adherence", "Taken", "Answered no", "Missed"],
     snapshotMetrics: {
       overall: overallPct ?? "—",
       medication: medPct ?? "—",
