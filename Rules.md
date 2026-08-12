@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.25 |
+| **Document** | Rules.md — v1.26 |
 | **Date** | 12 August 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
@@ -187,6 +187,7 @@ Defaults, not dogma. Consistency across ten contributors matters more than any i
 | **C15** | **Check-in status reaches a human only after mapping BOTH the DB status and the response value, then a display formatter.** Never print a raw `checkins.status` enum (`responded`, `reminded`, `sent`, `scheduled`) to a doctor, PDF, CSV, or print view — those words are Track B vocabulary. Call `checkInStatusToUi(status, response_value)` (or load through a path that already maps), then `formatCheckInStatus` (and `formatCheckInStatusWithResponse` when the response text must sit beside the label). A `responded` row is **not** enough on its own to choose a UI status — `no` and `some_of_them` are negatives and must not render as Taken. Do not rely on CSS `capitalize` for semantics. Learned 11 August 2026 (A-29 rescope): the share page already title-cased via CSS but still showed "Reminded" for a delayed dose. |
 | **C16** | **Routine CRUD owns same-day check-in propagation in Next.js — not n8n.** On create/update/soft-delete of `food_routines`, `health_routines`, or `medications`, sync today's `checkins` in the **elder's** IANA timezone using the materialiser slot expression (`(elder-local date + wall time) AT TIME ZONE elder.timezone`). Never modify a row with `sent_at` set; never hard-delete routines (D11); never collapse multiple routines by domain or meal name. Every write needs an explicit `if (!data)` check (RLS denial returns no error). CT must be told when a change applies from tomorrow because today's check-in already left. |
 | **C17** | **Document version numbers are chosen at merge time, not branch time.** Immediately before bumping `Architecture.md`, `Rules.md`, or any companion doc, read the document headers on `main` (or the branch you are merging into) and confirm the next version — do not assume from memory or from the number you expected when the branch opened. Date the header and the changelog row to the **merge date**. Five version collisions in one day came from bumping at branch time against a stale tip. |
+| **C18** | **Onboarding must offer a Sign out exit on every wizard step.** A CT with no product elder cannot reach Settings or `/sign-in` (guest gate bounces a live session back to `/onboarding`). Sign out clears the Supabase session and the local onboarding draft, then navigates to `/sign-in`. Warn when local progress exists; never block the exit. Do not invent a `?force=` guest bypass unless a verified race requires it. |
 
 ---
 
@@ -331,6 +332,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 12 Aug 2026 | 1.26 | **C18 — onboarding Sign out on every wizard step.** Clears session + local draft; warn if progress, never block. No speculative guest-gate bypass. |
 | 12 Aug 2026 | 1.25 | **C17 — document versions at merge time.** Bump Architecture/Rules only after reading headers on `main`; date header + changelog to the merge date. |
 | 12 Aug 2026 | 1.25 | **C15 amend — map status + `response_value`.** A `responded` row is not enough on its own; `no` / `some_of_them` must not render as Taken. A-29 learning retained. |
 | 12 Aug 2026 | 1.24 | **C16 + D11 clarification — routine → check-in lifecycle.** UI-side same-day sync in elder TZ; never hard-DELETE routines (CASCADE FKs); never touch `sent_at` rows; no n8n changes for CRUD propagation. |

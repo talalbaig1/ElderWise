@@ -2,12 +2,22 @@
 
 import { formatDistanceToNow } from "date-fns";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Check, Leaf } from "lucide-react";
-import type { ReactNode } from "react";
+import { ArrowLeft, ArrowRight, Check, Leaf, LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState, type ReactNode } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { useOnboarding } from "@/components/onboarding/onboarding-context";
-import { ONBOARDING_STEP_META, ONBOARDING_WIZARD_STEPS, wizardStepIndex } from "@/lib/onboarding";
+import {
+  clearOnboardingLocalDraft,
+  useOnboarding,
+} from "@/components/onboarding/onboarding-context";
+import {
+  ONBOARDING_STEP_META,
+  ONBOARDING_WIZARD_STEPS,
+  wizardStepIndex,
+} from "@/lib/onboarding";
+import { useAuth } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 interface WizardShellProps {
@@ -23,6 +33,21 @@ interface WizardShellProps {
   busy?: boolean;
 }
 
+function draftHasProgress(input: {
+  stepId: string;
+  elderId: string | null | undefined;
+  lastSavedAt: string | null;
+  lovedOneFirstName: string;
+  carePartnerWhatsapp: string;
+}): boolean {
+  if (input.lastSavedAt) return true;
+  if (input.elderId) return true;
+  if (input.stepId !== "care-circle") return true;
+  if (input.lovedOneFirstName.trim()) return true;
+  if (input.carePartnerWhatsapp.trim()) return true;
+  return false;
+}
+
 export function WizardShell({
   children,
   onBack,
@@ -35,7 +60,10 @@ export function WizardShell({
   secondaryAction,
   busy,
 }: WizardShellProps) {
-  const { stepId, lastSavedAt, saveNow } = useOnboarding();
+  const router = useRouter();
+  const { signOut } = useAuth();
+  const { stepId, lastSavedAt, saveNow, draft } = useOnboarding();
+  const [signingOut, setSigningOut] = useState(false);
   const reduce = useReducedMotion();
   const meta = ONBOARDING_STEP_META[stepId];
   const isCompletion = stepId === "completion";
@@ -44,6 +72,36 @@ export function WizardShell({
   const progress = isCompletion ? 100 : ((stepIndex + 1) / totalSteps) * 100;
   const stepLabel = isCompletion ? "Done" : `Step ${stepIndex + 1} of ${totalSteps}`;
   const backDisabled = Boolean(busy) || stepId === "care-circle";
+
+  const handleSignOut = async () => {
+    const hasProgress = draftHasProgress({
+      stepId,
+      elderId: draft.elderId,
+      lastSavedAt,
+      lovedOneFirstName: draft.lovedOne.firstName,
+      carePartnerWhatsapp: draft.carePartner.whatsappNumber,
+    });
+    if (hasProgress) {
+      const proceed = window.confirm(
+        "Sign out? Progress saved on this device will be cleared. You can start again after signing in.",
+      );
+      if (!proceed) return;
+    }
+
+    setSigningOut(true);
+    try {
+      // Session must be gone before /sign-in mounts RequireGuest.
+      await signOut();
+      clearOnboardingLocalDraft();
+      toast.success("Signed out");
+      router.replace("/sign-in");
+      router.refresh();
+    } catch {
+      toast.error("Could not sign out. Please try again.");
+    } finally {
+      setSigningOut(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -61,14 +119,27 @@ export function WizardShell({
               </p>
             </div>
           </div>
-          <div className="text-right">
-            <p className="font-mono text-[11px] text-muted-foreground">{stepLabel}</p>
-            {lastSavedAt ? (
-              <p className="flex items-center justify-end gap-1 text-[11px] text-success">
-                <Check className="h-3 w-3" />
-                Saved {formatDistanceToNow(new Date(lastSavedAt), { addSuffix: true })}
-              </p>
-            ) : null}
+          <div className="flex items-start gap-3">
+            <div className="text-right">
+              <p className="font-mono text-[11px] text-muted-foreground">{stepLabel}</p>
+              {lastSavedAt ? (
+                <p className="flex items-center justify-end gap-1 text-[11px] text-success">
+                  <Check className="h-3 w-3" />
+                  Saved {formatDistanceToNow(new Date(lastSavedAt), { addSuffix: true })}
+                </p>
+              ) : null}
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="shrink-0 text-muted-foreground"
+              onClick={handleSignOut}
+              disabled={signingOut}
+            >
+              <LogOut className="h-4 w-4" />
+              {signingOut ? "Signing out…" : "Sign out"}
+            </Button>
           </div>
         </div>
 
