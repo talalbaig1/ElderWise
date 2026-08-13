@@ -78,8 +78,8 @@ async function assertOwnsElder(
  * After routine writes, domain_configs.frequency.times is set to the sorted
  * unique union of wall-clock times from routines that are BOTH schedulable
  * and enabled:
- *   - medications: active=true AND enabled=true (soft-deleted active=false never contribute)
- *   - food/health: enabled=true
+ *   - all three domains: active=true AND enabled=true
+ *     (soft-deleted active=false never contribute; paused enabled=false do not)
  * domain_configs.enabled mirrors whether any such routine exists.
  * That makes frequency a fully derived field for dashboard writes — a direct
  * edit to frequency would be overwritten on the next routine save.
@@ -108,8 +108,9 @@ export async function syncDomainConfig(
   } else if (domain === "food") {
     const { data, error } = await supabase
       .from("food_routines")
-      .select("check_in_time, enabled")
+      .select("check_in_time, enabled, active")
       .eq("elder_id", elderId)
+      .eq("active", true)
       .eq("enabled", true);
     if (error) return error.message;
     const rows = data ?? [];
@@ -120,8 +121,9 @@ export async function syncDomainConfig(
   } else {
     const { data, error } = await supabase
       .from("health_routines")
-      .select("time, enabled")
+      .select("time, enabled, active")
       .eq("elder_id", elderId)
+      .eq("active", true)
       .eq("enabled", true);
     if (error) return error.message;
     const rows = data ?? [];
@@ -635,7 +637,7 @@ export async function upsertFoodRoutine(item: FoodRoutine): Promise<ActionResult
 
   const { data: previous, error: previousErr } = await supabase
     .from("food_routines")
-    .select("check_in_time, enabled, start_date, end_date, days_of_week")
+    .select("check_in_time, enabled, active, start_date, end_date, days_of_week")
     .eq("id", parsed.data.id)
     .eq("elder_id", item.lovedOneId)
     .maybeSingle();
@@ -647,6 +649,7 @@ export async function upsertFoodRoutine(item: FoodRoutine): Promise<ActionResult
     id: parsed.data.id,
     elder_id: item.lovedOneId,
     enabled: parsed.data.enabled,
+    active: true,
     meal_name: parsed.data.mealName,
     meal_type: item.mealType || "custom",
     check_in_time: parsed.data.checkInTime,
@@ -662,7 +665,7 @@ export async function upsertFoodRoutine(item: FoodRoutine): Promise<ActionResult
   const { data, error } = await supabase
     .from("food_routines")
     .upsert(row, { onConflict: "id" })
-    .select("id, meal_name, enabled")
+    .select("id, meal_name, enabled, active")
     .maybeSingle();
 
   if (error) return fail(error.message);
@@ -696,7 +699,7 @@ export async function upsertFoodRoutine(item: FoodRoutine): Promise<ActionResult
   return { ok: true, notice: sync.notice };
 }
 
-/** Soft-delete: food_routines.enabled=false. Never hard DELETE. */
+/** Soft-delete: food_routines.active=false AND enabled=false. Never hard DELETE. */
 export async function softDeleteFoodRoutine(
   routineId: string,
   elderId: string,
@@ -712,15 +715,17 @@ export async function softDeleteFoodRoutine(
 
   const { data, error } = await supabase
     .from("food_routines")
-    .update({ enabled: false })
+    .update({ active: false, enabled: false })
     .eq("id", routineId)
     .eq("elder_id", elderId)
-    .select("id, enabled")
+    .select("id, active, enabled")
     .maybeSingle();
 
   if (error) return fail(error.message);
   if (!data) return fail("Meal soft-delete failed — no row returned (check RLS)");
-  if (data.enabled !== false) return fail("Meal soft-delete did not persist");
+  if (data.active !== false || data.enabled !== false) {
+    return fail("Meal soft-delete did not persist");
+  }
 
   const del = await deleteUnsentFutureForRoutine(supabase, {
     domain: "food",
@@ -766,7 +771,7 @@ export async function upsertHealthRoutine(item: HealthRoutine): Promise<ActionRe
 
   const { data: previous, error: previousErr } = await supabase
     .from("health_routines")
-    .select("time, enabled, start_date, end_date, days_of_week")
+    .select("time, enabled, active, start_date, end_date, days_of_week")
     .eq("id", parsed.data.id)
     .eq("elder_id", item.lovedOneId)
     .maybeSingle();
@@ -778,6 +783,7 @@ export async function upsertHealthRoutine(item: HealthRoutine): Promise<ActionRe
     id: parsed.data.id,
     elder_id: item.lovedOneId,
     enabled: parsed.data.enabled,
+    active: true,
     name: parsed.data.name,
     type: item.type || "custom",
     frequency: "daily",
@@ -796,7 +802,7 @@ export async function upsertHealthRoutine(item: HealthRoutine): Promise<ActionRe
   const { data, error } = await supabase
     .from("health_routines")
     .upsert(row, { onConflict: "id" })
-    .select("id, name, enabled")
+    .select("id, name, enabled, active")
     .maybeSingle();
 
   if (error) return fail(error.message);
@@ -830,7 +836,7 @@ export async function upsertHealthRoutine(item: HealthRoutine): Promise<ActionRe
   return { ok: true, notice: sync.notice };
 }
 
-/** Soft-delete: health_routines.enabled=false. Never hard DELETE. */
+/** Soft-delete: health_routines.active=false AND enabled=false. Never hard DELETE. */
 export async function softDeleteHealthRoutine(
   routineId: string,
   elderId: string,
@@ -846,15 +852,17 @@ export async function softDeleteHealthRoutine(
 
   const { data, error } = await supabase
     .from("health_routines")
-    .update({ enabled: false })
+    .update({ active: false, enabled: false })
     .eq("id", routineId)
     .eq("elder_id", elderId)
-    .select("id, enabled")
+    .select("id, active, enabled")
     .maybeSingle();
 
   if (error) return fail(error.message);
   if (!data) return fail("Health soft-delete failed — no row returned (check RLS)");
-  if (data.enabled !== false) return fail("Health soft-delete did not persist");
+  if (data.active !== false || data.enabled !== false) {
+    return fail("Health soft-delete did not persist");
+  }
 
   const del = await deleteUnsentFutureForRoutine(supabase, {
     domain: "health",

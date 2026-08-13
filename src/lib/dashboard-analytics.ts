@@ -323,6 +323,8 @@ export function buildDashboardModel(
       kind: item.routineKind,
     }));
 
+  // Upcoming invents no event for a paused routine (enabled=false).
+  // That is not the same as hiding the routine from the list — keep this filter.
   const upcoming = [
     ...store.medications
       .filter((m) => m.lovedOneId === lovedOne.id && m.enabled)

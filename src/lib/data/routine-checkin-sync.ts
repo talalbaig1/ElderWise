@@ -179,7 +179,9 @@ export async function syncFoodOrHealthCheckinToday(
     (r) => !(r.status === "scheduled" && r.sent_at == null),
   );
 
-  // Soft-disable or day no longer matches: drop unsent today only.
+  // Pause (enabled=false, active=true) or day no longer matches: drop
+  // today's unsent scheduled only. Never touch sent_at. Soft-delete uses
+  // deleteUnsentFutureForRoutine (today onward) after setting both flags.
   if (!due) {
     for (const r of unsentToday) {
       const { data, error } = await supabase
