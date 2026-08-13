@@ -48,6 +48,13 @@ function revalidateApp() {
   revalidatePath("/notifications");
 }
 
+/** Routine writes: the list, card counts, dashboard upcoming, and the shared (app) read model. */
+function revalidateRoutineSurfaces(elderId: string) {
+  revalidatePath(`/loved-ones/${elderId}`);
+  revalidatePath("/loved-ones", "layout");
+  revalidatePath("/dashboard");
+}
+
 async function requireUser() {
   const supabase = await createClient();
   const {
@@ -465,6 +472,157 @@ export async function deleteDoctor(
   return { ok: true };
 }
 
+export async function setRoutineEnabled(
+  domain: "medication" | "food" | "health",
+  id: string,
+  elderId: string,
+  enabled: boolean,
+): Promise<ActionResult> {
+  const { supabase, user, error: authErr } = await requireUser();
+  if (authErr || !user) return fail(authErr ?? "Not signed in");
+
+  const ownErr = await assertOwnsElder(supabase, elderId, user.id);
+  if (ownErr) return fail(ownErr);
+
+  const elderCtx = await loadElderScheduleContext(supabase, elderId);
+  if (!elderCtx.ok) return fail(elderCtx.error);
+
+  if (domain === "medication") {
+    const { data: previous, error: previousErr } = await supabase
+      .from("medications")
+      .select("times, enabled, active, start_date, end_date, days_of_week")
+      .eq("id", id)
+      .eq("elder_id", elderId)
+      .eq("active", true)
+      .maybeSingle();
+    if (previousErr) return fail(previousErr.message);
+    if (!previous) return fail("Medication not found or not active");
+
+    const { data, error } = await supabase
+      .from("medications")
+      .update({ enabled })
+      .eq("id", id)
+      .eq("elder_id", elderId)
+      .eq("active", true)
+      .select("id, enabled")
+      .maybeSingle();
+    if (error) return fail(error.message);
+    if (!data) return fail("Pause update failed — no row returned (check RLS)");
+    if (data.enabled !== enabled) return fail("Pause update did not persist");
+
+    const sync = await syncMedicationCheckinToday(supabase, {
+      elderId,
+      medicationId: id,
+      elderTimeZone: elderCtx.timezone,
+      consentConfirmed: elderCtx.consentConfirmed,
+      elderActive: elderCtx.active,
+      routine: {
+        enabled,
+        active: true,
+        startDate: previous.start_date as string,
+        endDate: (previous.end_date as string | null) ?? null,
+        daysOfWeek: (previous.days_of_week as string[]) ?? [],
+        wallTimes: (previous.times as string[]) ?? [],
+      },
+      previousWallTimes: (previous.times as string[]) ?? [],
+    });
+    if (sync.error) return fail(`Updated but check-in sync failed: ${sync.error}`);
+
+    revalidateRoutineSurfaces(elderId);
+    return { ok: true, notice: sync.notice };
+  }
+
+  if (domain === "food") {
+    const { data: previous, error: previousErr } = await supabase
+      .from("food_routines")
+      .select("check_in_time, enabled, active, start_date, end_date, days_of_week")
+      .eq("id", id)
+      .eq("elder_id", elderId)
+      .eq("active", true)
+      .maybeSingle();
+    if (previousErr) return fail(previousErr.message);
+    if (!previous) return fail("Meal routine not found or not active");
+
+    const { data, error } = await supabase
+      .from("food_routines")
+      .update({ enabled })
+      .eq("id", id)
+      .eq("elder_id", elderId)
+      .eq("active", true)
+      .select("id, enabled")
+      .maybeSingle();
+    if (error) return fail(error.message);
+    if (!data) return fail("Pause update failed — no row returned (check RLS)");
+    if (data.enabled !== enabled) return fail("Pause update did not persist");
+
+    const wall = String(previous.check_in_time).slice(0, 8);
+    const sync = await syncFoodOrHealthCheckinToday(supabase, {
+      domain: "food",
+      elderId,
+      routineId: id,
+      elderTimeZone: elderCtx.timezone,
+      consentConfirmed: elderCtx.consentConfirmed,
+      elderActive: elderCtx.active,
+      routine: {
+        enabled,
+        startDate: previous.start_date as string,
+        endDate: (previous.end_date as string | null) ?? null,
+        daysOfWeek: (previous.days_of_week as string[]) ?? [],
+        wallTimes: [wall],
+      },
+      previousWallTime: wall,
+    });
+    if (sync.error) return fail(`Updated but check-in sync failed: ${sync.error}`);
+
+    revalidateRoutineSurfaces(elderId);
+    return { ok: true, notice: sync.notice };
+  }
+
+  const { data: previous, error: previousErr } = await supabase
+    .from("health_routines")
+    .select("time, enabled, active, start_date, end_date, days_of_week")
+    .eq("id", id)
+    .eq("elder_id", elderId)
+    .eq("active", true)
+    .maybeSingle();
+  if (previousErr) return fail(previousErr.message);
+  if (!previous) return fail("Health routine not found or not active");
+
+  const { data, error } = await supabase
+    .from("health_routines")
+    .update({ enabled })
+    .eq("id", id)
+    .eq("elder_id", elderId)
+    .eq("active", true)
+    .select("id, enabled")
+    .maybeSingle();
+  if (error) return fail(error.message);
+  if (!data) return fail("Pause update failed — no row returned (check RLS)");
+  if (data.enabled !== enabled) return fail("Pause update did not persist");
+
+  const wall = String(previous.time).slice(0, 8);
+  const sync = await syncFoodOrHealthCheckinToday(supabase, {
+    domain: "health",
+    elderId,
+    routineId: id,
+    elderTimeZone: elderCtx.timezone,
+    consentConfirmed: elderCtx.consentConfirmed,
+    elderActive: elderCtx.active,
+    routine: {
+      enabled,
+      startDate: previous.start_date as string,
+      endDate: (previous.end_date as string | null) ?? null,
+      daysOfWeek: (previous.days_of_week as string[]) ?? [],
+      wallTimes: [wall],
+    },
+    previousWallTime: wall,
+  });
+  if (sync.error) return fail(`Updated but check-in sync failed: ${sync.error}`);
+
+  revalidateRoutineSurfaces(elderId);
+  return { ok: true, notice: sync.notice };
+}
+
 export async function upsertMedication(med: Medication): Promise<ActionResult> {
   const { supabase, user, error: authErr } = await requireUser();
   if (authErr || !user) return fail(authErr ?? "Not signed in");
@@ -552,8 +710,7 @@ export async function upsertMedication(med: Medication): Promise<ActionResult> {
   const syncErr = await syncDomainConfig(supabase, med.lovedOneId, "medication");
   if (syncErr) return fail(`Medication saved but domain_configs sync failed: ${syncErr}`);
 
-  revalidatePath(`/loved-ones/${med.lovedOneId}`);
-  revalidateApp();
+  revalidateRoutineSurfaces(med.lovedOneId);
   return { ok: true, notice: sync.notice };
 }
 
@@ -606,8 +763,7 @@ export async function softDeleteMedication(
   const syncErr = await syncDomainConfig(supabase, elderId, "medication");
   if (syncErr) return fail(`Soft-deleted but domain_configs sync failed: ${syncErr}`);
 
-  revalidatePath(`/loved-ones/${elderId}`);
-  revalidateApp();
+  revalidateRoutineSurfaces(elderId);
   return { ok: true };
 }
 
@@ -694,8 +850,7 @@ export async function upsertFoodRoutine(item: FoodRoutine): Promise<ActionResult
   const syncErr = await syncDomainConfig(supabase, item.lovedOneId, "food");
   if (syncErr) return fail(`Meal saved but domain_configs sync failed: ${syncErr}`);
 
-  revalidatePath(`/loved-ones/${item.lovedOneId}`);
-  revalidateApp();
+  revalidateRoutineSurfaces(item.lovedOneId);
   return { ok: true, notice: sync.notice };
 }
 
@@ -740,8 +895,7 @@ export async function softDeleteFoodRoutine(
   const syncErr = await syncDomainConfig(supabase, elderId, "food");
   if (syncErr) return fail(`Soft-deleted but domain_configs sync failed: ${syncErr}`);
 
-  revalidatePath(`/loved-ones/${elderId}`);
-  revalidateApp();
+  revalidateRoutineSurfaces(elderId);
   return { ok: true };
 }
 
@@ -831,8 +985,7 @@ export async function upsertHealthRoutine(item: HealthRoutine): Promise<ActionRe
   const syncErr = await syncDomainConfig(supabase, item.lovedOneId, "health");
   if (syncErr) return fail(`Health saved but domain_configs sync failed: ${syncErr}`);
 
-  revalidatePath(`/loved-ones/${item.lovedOneId}`);
-  revalidateApp();
+  revalidateRoutineSurfaces(item.lovedOneId);
   return { ok: true, notice: sync.notice };
 }
 
@@ -877,7 +1030,6 @@ export async function softDeleteHealthRoutine(
   const syncErr = await syncDomainConfig(supabase, elderId, "health");
   if (syncErr) return fail(`Soft-deleted but domain_configs sync failed: ${syncErr}`);
 
-  revalidatePath(`/loved-ones/${elderId}`);
-  revalidateApp();
+  revalidateRoutineSurfaces(elderId);
   return { ok: true };
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   DayChips,
@@ -34,6 +34,7 @@ import { DOSAGE_UNITS, type NotifyCarePartnerMode } from "@/lib/onboarding";
 import { createBlankFood, createBlankHealth, createBlankMedication } from "@/lib/loved-ones";
 import { useDomainStore } from "@/components/data/app-data-provider";
 import {
+  setRoutineEnabled,
   softDeleteFoodRoutine,
   softDeleteHealthRoutine,
   softDeleteMedication,
@@ -41,9 +42,96 @@ import {
   upsertHealthRoutine,
   upsertMedication,
 } from "@/lib/data/actions";
+import { sortRoutineList } from "@/lib/routines/sort";
 import { labelElderLocalTime } from "@/lib/time/display";
 import type { FoodRoutine, HealthRoutine, Medication, MedicationTiming } from "@/types";
 import { useRouter } from "next/navigation";
+
+type RoutineDomain = "medication" | "food" | "health";
+
+function useRoutineCardActions(
+  lovedOneId: string,
+  items: Array<{ id: string; enabled: boolean }>,
+) {
+  const router = useRouter();
+  const [busyIds, setBusyIds] = useState<Set<string>>(() => new Set());
+  const [enabledOverrides, setEnabledOverrides] = useState<Record<string, boolean>>({});
+  const [dialogBusy, setDialogBusy] = useState(false);
+  const serverKey = items.map((i) => `${i.id}:${i.enabled ? "1" : "0"}`).join("|");
+
+  useEffect(() => {
+    const byId = new Map(items.map((i) => [i.id, i.enabled]));
+    setEnabledOverrides((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const id of Object.keys(next)) {
+        if (byId.get(id) === next[id]) {
+          delete next[id];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+    // serverKey is the items fingerprint; items is read only to reconcile.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverKey]);
+
+  const markBusy = (id: string, on: boolean) => {
+    setBusyIds((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const displayEnabled = (id: string, serverEnabled: boolean) =>
+    enabledOverrides[id] ?? serverEnabled;
+
+  const toggle = async (domain: RoutineDomain, id: string, serverEnabled: boolean) => {
+    const nextEnabled = !(enabledOverrides[id] ?? serverEnabled);
+    setEnabledOverrides((prev) => ({ ...prev, [id]: nextEnabled }));
+    markBusy(id, true);
+    try {
+      const result = await setRoutineEnabled(domain, id, lovedOneId, nextEnabled);
+      if (!result.ok) {
+        setEnabledOverrides((prev) => {
+          const copy = { ...prev };
+          delete copy[id];
+          return copy;
+        });
+        toast.error(result.error);
+        return;
+      }
+      if (result.notice) toast.message(result.notice);
+      router.refresh();
+    } finally {
+      markBusy(id, false);
+    }
+  };
+
+  const runCard = async (
+    id: string,
+    work: () => Promise<{ ok: true; notice?: string } | { ok: false; error: string }>,
+    success: string,
+  ) => {
+    markBusy(id, true);
+    try {
+      const result = await work();
+      if (!result.ok) {
+        toast.error(result.error);
+        return false;
+      }
+      toastRoutineSaved(success, result.notice);
+      router.refresh();
+      return true;
+    } finally {
+      markBusy(id, false);
+    }
+  };
+
+  return { busyIds, dialogBusy, setDialogBusy, displayEnabled, toggle, runCard, router };
+}
 
 function toastRoutineSaved(fallback: string, notice?: string) {
   if (notice) {
@@ -83,20 +171,22 @@ export function MedicationTab({
   lovedOneId: string;
   lovedOneName: string;
 }) {
-  const router = useRouter();
   const { store } = useDomainStore();
   const elderTz =
     store.lovedOnes.find((lo) => lo.id === lovedOneId)?.timeZone ?? "UTC";
-  const items = store.medications.filter((m) => m.lovedOneId === lovedOneId);
+  const items = sortRoutineList(
+    store.medications.filter((m) => m.lovedOneId === lovedOneId),
+    (m) => ({ enabled: m.enabled, alertTime: m.times[0] ?? "", name: m.name }),
+  );
   const [editing, setEditing] = useState<Medication | null>(null);
-  const [busy, setBusy] = useState(false);
+  const actions = useRoutineCardActions(lovedOneId, items);
 
   const save = async (med: Medication) => {
     if (!med.daysOfWeek?.length) {
       toast.error("Select at least one day");
       return;
     }
-    setBusy(true);
+    actions.setDialogBusy(true);
     try {
       const normalized: Medication = {
         ...med,
@@ -109,9 +199,9 @@ export function MedicationTab({
       }
       toastRoutineSaved("Medication saved", result.notice);
       setEditing(null);
-      router.refresh();
+      actions.router.refresh();
     } finally {
-      setBusy(false);
+      actions.setDialogBusy(false);
     }
   };
 
@@ -129,21 +219,9 @@ export function MedicationTab({
               key={item.id}
               title={item.name || "Untitled"}
               subtitle={`${item.dosage} ${item.dosageUnit} · ${labelElderLocalTime(item.times[0] ?? "", elderTz)} · ${item.startDate}${item.endDate ? ` → ${item.endDate}` : ""}`}
-              enabled={item.enabled}
-              onToggle={async (enabled) => {
-                setBusy(true);
-                try {
-                  const result = await upsertMedication({ ...item, enabled });
-                  if (!result.ok) {
-                    toast.error(result.error);
-                    return;
-                  }
-                  if (result.notice) toast.message(result.notice);
-                  router.refresh();
-                } finally {
-                  setBusy(false);
-                }
-              }}
+              enabled={actions.displayEnabled(item.id, item.enabled)}
+              busy={actions.busyIds.has(item.id)}
+              onToggle={() => void actions.toggle("medication", item.id, item.enabled)}
               onEdit={() =>
                 setEditing({
                   ...item,
@@ -157,34 +235,16 @@ export function MedicationTab({
                   name: `${item.name} (copy)`,
                   times: [item.times[0] || "08:00"],
                 };
-                setBusy(true);
-                try {
-                  const result = await upsertMedication(copy);
-                  if (!result.ok) {
-                    toast.error(result.error);
-                    return;
-                  }
-                  toastRoutineSaved("Duplicated", result.notice);
-                  router.refresh();
-                } finally {
-                  setBusy(false);
-                }
+                await actions.runCard(item.id, () => upsertMedication(copy), "Duplicated");
               }}
               onDelete={async () => {
                 if (!window.confirm(`Remove ${item.name}? It leaves this list. History is kept.`))
                   return;
-                setBusy(true);
-                try {
-                  const result = await softDeleteMedication(item.id, lovedOneId);
-                  if (!result.ok) {
-                    toast.error(result.error);
-                    return;
-                  }
-                  toast.success("Removed");
-                  router.refresh();
-                } finally {
-                  setBusy(false);
-                }
+                await actions.runCard(
+                  item.id,
+                  () => softDeleteMedication(item.id, lovedOneId),
+                  "Removed",
+                );
               }}
             />
           ))}
@@ -332,7 +392,7 @@ export function MedicationTab({
             <Button variant="outline" onClick={() => setEditing(null)}>
               Cancel
             </Button>
-            <Button onClick={() => editing && save(editing)} disabled={busy}>
+            <Button onClick={() => editing && save(editing)} disabled={actions.dialogBusy}>
               Save
             </Button>
           </DialogFooter>
@@ -343,20 +403,26 @@ export function MedicationTab({
 }
 
 export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
-  const router = useRouter();
   const { store } = useDomainStore();
   const elderTz =
     store.lovedOnes.find((lo) => lo.id === lovedOneId)?.timeZone ?? "UTC";
-  const items = store.foodRoutines.filter((f) => f.lovedOneId === lovedOneId);
+  const items = sortRoutineList(
+    store.foodRoutines.filter((f) => f.lovedOneId === lovedOneId),
+    (f) => ({
+      enabled: f.enabled,
+      alertTime: f.checkInTime,
+      name: f.mealName,
+    }),
+  );
   const [editing, setEditing] = useState<FoodRoutine | null>(null);
-  const [busy, setBusy] = useState(false);
+  const actions = useRoutineCardActions(lovedOneId, items);
 
   const save = async (item: FoodRoutine) => {
     if (!item.daysOfWeek?.length) {
       toast.error("Select at least one day");
       return;
     }
-    setBusy(true);
+    actions.setDialogBusy(true);
     try {
       const result = await upsertFoodRoutine(item);
       if (!result.ok) {
@@ -365,9 +431,9 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
       }
       toastRoutineSaved("Meal routine saved", result.notice);
       setEditing(null);
-      router.refresh();
+      actions.router.refresh();
     } finally {
-      setBusy(false);
+      actions.setDialogBusy(false);
     }
   };
 
@@ -385,37 +451,18 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
               key={item.id}
               title={item.mealName}
               subtitle={labelElderLocalTime(item.checkInTime, elderTz)}
-              enabled={item.enabled}
-              onToggle={async (enabled) => {
-                setBusy(true);
-                try {
-                  const result = await upsertFoodRoutine({ ...item, enabled });
-                  if (!result.ok) {
-                    toast.error(result.error);
-                    return;
-                  }
-                  if (result.notice) toast.message(result.notice);
-                  router.refresh();
-                } finally {
-                  setBusy(false);
-                }
-              }}
+              enabled={actions.displayEnabled(item.id, item.enabled)}
+              busy={actions.busyIds.has(item.id)}
+              onToggle={() => void actions.toggle("food", item.id, item.enabled)}
               onEdit={() => setEditing(item)}
               onDelete={async () => {
                 if (!window.confirm(`Remove ${item.mealName}? It leaves this list. History is kept.`))
                   return;
-                setBusy(true);
-                try {
-                  const result = await softDeleteFoodRoutine(item.id, lovedOneId);
-                  if (!result.ok) {
-                    toast.error(result.error);
-                    return;
-                  }
-                  toast.success("Removed");
-                  router.refresh();
-                } finally {
-                  setBusy(false);
-                }
+                await actions.runCard(
+                  item.id,
+                  () => softDeleteFoodRoutine(item.id, lovedOneId),
+                  "Removed",
+                );
               }}
             />
           ))}
@@ -466,7 +513,7 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
             <Button variant="outline" onClick={() => setEditing(null)}>
               Cancel
             </Button>
-            <Button onClick={() => editing && save(editing)} disabled={busy}>
+            <Button onClick={() => editing && save(editing)} disabled={actions.dialogBusy}>
               Save
             </Button>
           </DialogFooter>
@@ -477,20 +524,22 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
 }
 
 export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
-  const router = useRouter();
   const { store } = useDomainStore();
   const elderTz =
     store.lovedOnes.find((lo) => lo.id === lovedOneId)?.timeZone ?? "UTC";
-  const items = store.healthRoutines.filter((h) => h.lovedOneId === lovedOneId);
+  const items = sortRoutineList(
+    store.healthRoutines.filter((h) => h.lovedOneId === lovedOneId),
+    (h) => ({ enabled: h.enabled, alertTime: h.time, name: h.name }),
+  );
   const [editing, setEditing] = useState<HealthRoutine | null>(null);
-  const [busy, setBusy] = useState(false);
+  const actions = useRoutineCardActions(lovedOneId, items);
 
   const save = async (item: HealthRoutine) => {
     if (!item.daysOfWeek?.length) {
       toast.error("Select at least one day");
       return;
     }
-    setBusy(true);
+    actions.setDialogBusy(true);
     try {
       const result = await upsertHealthRoutine(item);
       if (!result.ok) {
@@ -499,9 +548,9 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
       }
       toastRoutineSaved("Health routine saved", result.notice);
       setEditing(null);
-      router.refresh();
+      actions.router.refresh();
     } finally {
-      setBusy(false);
+      actions.setDialogBusy(false);
     }
   };
 
@@ -519,37 +568,18 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
               key={item.id}
               title={item.name}
               subtitle={`${labelElderLocalTime(item.time, elderTz)} · Answer: Yes/No`}
-              enabled={item.enabled}
-              onToggle={async (enabled) => {
-                setBusy(true);
-                try {
-                  const result = await upsertHealthRoutine({ ...item, enabled });
-                  if (!result.ok) {
-                    toast.error(result.error);
-                    return;
-                  }
-                  if (result.notice) toast.message(result.notice);
-                  router.refresh();
-                } finally {
-                  setBusy(false);
-                }
-              }}
+              enabled={actions.displayEnabled(item.id, item.enabled)}
+              busy={actions.busyIds.has(item.id)}
+              onToggle={() => void actions.toggle("health", item.id, item.enabled)}
               onEdit={() => setEditing(item)}
               onDelete={async () => {
                 if (!window.confirm(`Remove ${item.name}? It leaves this list. History is kept.`))
                   return;
-                setBusy(true);
-                try {
-                  const result = await softDeleteHealthRoutine(item.id, lovedOneId);
-                  if (!result.ok) {
-                    toast.error(result.error);
-                    return;
-                  }
-                  toast.success("Removed");
-                  router.refresh();
-                } finally {
-                  setBusy(false);
-                }
+                await actions.runCard(
+                  item.id,
+                  () => softDeleteHealthRoutine(item.id, lovedOneId),
+                  "Removed",
+                );
               }}
             />
           ))}
@@ -608,7 +638,7 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
               Cancel
             </Button>
             <Button
-              disabled={busy}
+              disabled={actions.dialogBusy}
               onClick={() =>
                 editing && save({ ...editing, answerType: "yes_no" })
               }
@@ -662,6 +692,7 @@ function RoutineCard({
   title,
   subtitle,
   enabled,
+  busy,
   onToggle,
   onEdit,
   onDelete,
@@ -670,7 +701,8 @@ function RoutineCard({
   title: string;
   subtitle: string;
   enabled: boolean;
-  onToggle: (enabled: boolean) => void | Promise<void>;
+  busy: boolean;
+  onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void | Promise<void>;
   onDuplicate?: () => void | Promise<void>;
@@ -688,12 +720,24 @@ function RoutineCard({
           <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Switch checked={enabled} onCheckedChange={onToggle} />
-          <Button size="icon" variant="ghost" onClick={onEdit} aria-label="Edit">
+          <Switch checked={enabled} onCheckedChange={onToggle} disabled={busy} />
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onEdit}
+            disabled={busy}
+            aria-label="Edit"
+          >
             <Pencil className="h-4 w-4" />
           </Button>
           {onDuplicate ? (
-            <Button size="icon" variant="ghost" onClick={onDuplicate} aria-label="Duplicate">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onDuplicate}
+              disabled={busy}
+              aria-label="Duplicate"
+            >
               <Copy className="h-4 w-4" />
             </Button>
           ) : null}
