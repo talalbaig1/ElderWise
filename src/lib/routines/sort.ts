@@ -9,7 +9,9 @@ export type RoutineSortKey = {
 
 function normalizeAlertTime(time: string): string {
   const t = time.trim();
-  return t.length >= 5 ? t.slice(0, 5) : t;
+  const match = t.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return t;
+  return `${match[1].padStart(2, "0")}:${match[2]}`;
 }
 
 export function compareRoutines(a: RoutineSortKey, b: RoutineSortKey): number {
