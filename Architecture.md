@@ -5,8 +5,8 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.43 |
-| **Date** | 12 August 2026 |
+| **Document** | Architecture.md — v1.44 |
+| **Date** | 13 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
 
@@ -255,11 +255,11 @@ care_partners ──┐
 | `elder_id` | uuid FK | |
 | `domain` | enum(`medication`,`health`,`food`) | UNIQUE with `elder_id` |
 | `enabled` | boolean | **Derived** — mirrors whether any schedulable routine exists in that domain |
-| `frequency` | jsonb | **Derived field** — the sorted union of times from routines that are both active (medications) / enabled and whose domain is enabled, refreshed on every routine write. Direct edits are overwritten on the next routine save. Shape e.g. `{"times": ["08:00","20:00"]}` (local times in the elder's tz). No fixed 3×/day (FR-ON-4). |
+| `frequency` | jsonb | **Derived field** — the sorted union of times from routines that are `active = true` AND `enabled = true` (all three domains), refreshed on every routine write. Direct edits are overwritten on the next routine save. Shape e.g. `{"times": ["08:00","20:00"]}` (local times in the elder's tz). No fixed 3×/day (FR-ON-4). |
 | `ct_notification` | enum(`every_interaction`,`only_missed`,`not_required`) | **Derived / deprecated (A4).** Not authoritative for Track B. May still be mirrored from routine rows for backward compatibility; **WF-6 does not read it** (built 3 Aug on per-routine `notify_care_partner` — A-9 closed). |
 | `escalate_to` | enum(`care_partner`) | Only the CT escalates. LCT/Doctor are SOS-only. Enum kept for v2 headroom. |
 
-> **Authority (Talal, 3 August 2026):** **`routine.enabled` (and `medications.active`) is authoritative** for whether a routine is live. **`notify_care_partner` on the routine row is authoritative** for CT notification (`every_time` \| `only_missed` \| `not_required`). `domain_configs` is a **derived cache** — workflows **must not** read it for scheduling or notify decisions. **Done:** WF-6 (`6I6OC7qJ5YhhUQxU`) reads the owning routine's `notify_care_partner` via check-in FKs, including `not_required` = total silence (no confirmation and no missed push; miss still recorded on the dashboard). A-9 closed. **A-13 closed as non-issue:** missing rows were never why food and health were silent; all three rows now exist from normal use.
+> **Authority (Talal, 3 August 2026; two-column amendment 12 August 2026):** **Dispatch is live only when `enabled = true` AND `active = true`.** `enabled` is the Care Partner's pause switch; `active` is the soft-delete tombstone — **never reuse a user-facing field as a tombstone.** **`notify_care_partner` on the routine row is authoritative** for CT notification (`every_time` \| `only_missed` \| `not_required`). `domain_configs` is a **derived cache** — workflows **must not** read it for scheduling or notify decisions. **Done:** WF-6 (`6I6OC7qJ5YhhUQxU`) reads the owning routine's `notify_care_partner` via check-in FKs, including `not_required` = total silence (no confirmation and no missed push; miss still recorded on the dashboard). A-9 closed. **A-13 closed as non-issue:** missing rows were never why food and health were silent; all three rows now exist from normal use.
 
 > **Enum migration ordering (Postgres):** `ALTER TYPE … ADD VALUE 'not_required'` **cannot** be used in the same transaction that references the new value. Enum additions for `notify_care_partner_mode` and `ct_notification_mode` **must** ship in their **own migration file(s), ahead of** any migration that writes or checks `not_required`.
 
@@ -269,7 +269,7 @@ care_partners ──┐
 |---|---|---|
 | `id` | uuid PK | |
 | `elder_id` | uuid FK | |
-| `enabled` | boolean | per-medicine toggle (FE `enabled`) |
+| `enabled` | boolean | **Pause switch** (FE `enabled`). Dispatch stops; the routine stays visible marked Inactive. |
 | `name` | text | Include **strength** in the name (e.g. `Metformin 500mg`). |
 | `dosage` | text | **Quantity per intake** (e.g. `1`, `5`) — not strength. |
 | `dosage_unit` | text | Free text (UI dropdown: `TAB` / `ML` / `CAP` / `DROPS` / `PUFF` / `UNIT`). **No enum / CHECK** — dropdown may widen without a migration. |
@@ -281,25 +281,25 @@ care_partners ──┐
 | `instructions` | text | nullable |
 | `notify_care_partner` | enum(`every_time`,`only_missed`,`not_required`) | **Authoritative** per-medicine (M6). |
 | `escalation_minutes` | integer | **per-medicine**, default 30, min 5 max 240 (FE `escalationMinutes`) — UI label: "Alert Care Partner if not taken within (minutes)". |
-| `active` | boolean | |
+| `active` | boolean | **Tombstone.** Soft-delete sets `active = false` AND `enabled = false`. Hidden from the product list; history kept. |
 
 **`food_routines`** — one row per meal check-in (FE `FoodRoutine`).
 
 | Column | Type |
 |---|---|
-| `id` uuid PK · `elder_id` uuid FK · `enabled` bool · `meal_name` text · `meal_type` enum(**unused** — §5.6) · `check_in_time` time (local) · `start_date` date NOT NULL (app supplies **today in the elder's timezone**) · `end_date` date null (no longer collected — open-ended) · `days_of_week` text[] (empty = every day; honoured by WF-1b) · `frequency` enum(**unused** by schedulers — app writes `daily`) · `notify_care_partner` enum(`every_time`,`only_missed`,`not_required`) · `escalation_minutes` int (default 45) · `notes` text (**unused**) |
+| `id` uuid PK · `elder_id` uuid FK · `enabled` bool (**pause**) · `active` bool (**tombstone**, default true) · `meal_name` text · `meal_type` enum(**unused** — §5.6) · `check_in_time` time (local) · `start_date` date NOT NULL (app supplies **today in the elder's timezone**) · `end_date` date null (no longer collected — open-ended) · `days_of_week` text[] (empty = every day; honoured by WF-1b) · `frequency` enum(**unused** by schedulers — app writes `daily`) · `notify_care_partner` enum(`every_time`,`only_missed`,`not_required`) · `escalation_minutes` int (default 45) · `notes` text (**unused**) |
 
 **`health_routines`** — one row per wellness check-in (FE `HealthRoutine`).
 
 | Column | Type |
 |---|---|
-| `id` uuid PK · `elder_id` uuid FK · `enabled` bool · `name` text · `type` enum(**unused** — §5.6) · `frequency` enum(**unused** by schedulers — app writes `daily`) · `time` time (local) · `start_date` date NOT NULL (today in elder tz) · `end_date` date null (open-ended) · `days_of_week` text[] (empty = every day; honoured by WF-1c) · `question` text (**unused**) · `answer_type` enum(**unused**) · `notify_care_partner` enum(`every_time`,`only_missed`,`not_required`) · `escalation_minutes` int (default 60) · `typical_bedtime` time null (**unused**) · `typical_wake_time` time null (**unused**) |
+| `id` uuid PK · `elder_id` uuid FK · `enabled` bool (**pause**) · `active` bool (**tombstone**, default true) · `name` text · `type` enum(**unused** — §5.6) · `frequency` enum(**unused** by schedulers — app writes `daily`) · `time` time (local) · `start_date` date NOT NULL (today in elder tz) · `end_date` date null (open-ended) · `days_of_week` text[] (empty = every day; honoured by WF-1c) · `question` text (**unused**) · `answer_type` enum(**unused**) · `notify_care_partner` enum(`every_time`,`only_missed`,`not_required`) · `escalation_minutes` int (default 60) · `typical_bedtime` time null (**unused**) · `typical_wake_time` time null (**unused**) |
 
 > **Escalation defaults differ by domain in the front end** (medication 30 min, food 45, health 60). These are **defaults**, editable per routine. The old blanket "30 across the board" is superseded.
 
-> **Column asymmetry:** `medications` has both `active` and `enabled`; `food_routines` and `health_routines` have only `enabled`, so “pause” and “delete” are the same state for those two.
+> **Two-column model — all three domains (Talal, 12 August 2026).** `enabled` = the Care Partner's pause switch. Dispatch stops; the routine **stays visible** in the routine list with the switch off and an **Inactive** marker. `active` = the tombstone. Soft-delete sets `active = false` AND `enabled = false`; the routine leaves the active list; history is preserved. **An inactive (paused) routine in any domain must be shown, marked inactive — never hidden.** **Never reuse a user-facing field as a tombstone.** PR #19 had reused `enabled` as the food/health tombstone; a paused routine then vanished from the list while remaining alive (`active = true`). That conflation is closed. **Expected side effect:** food/health rows already at `enabled = false` (backfilled `active = true`) reappear in testers' lists marked Inactive — that is intended, not a regression.
 
-> **Routine delete is soft only (Talal, 12 August 2026).** Never hard-DELETE a food or health routine — `checkins_food_routine_id_fkey` / `checkins_health_routine_id_fkey` are **`ON DELETE CASCADE`** and would wipe historical check-ins. Soft-delete = `enabled = false` (medications also `active = false`). The active routine list hides disabled rows. A true hard-delete needs a migration (SET NULL or RESTRICT) and is out of Demo Day scope.
+> **Routine delete is soft only (Talal, 12 August 2026).** Never hard-DELETE a food or health routine — `checkins_food_routine_id_fkey` / `checkins_health_routine_id_fkey` are **`ON DELETE CASCADE`** and would wipe historical check-ins. Soft-delete = `active = false` AND `enabled = false` on all three domains. A true hard-delete needs a migration (SET NULL or RESTRICT) and is out of Demo Day scope.
 
 **UI-side same-day check-in sync (Talal, 12 August 2026):** routine CRUD in Next.js (`src/lib/data/routine-checkin-sync.ts`, called from the three dashboard upserts / soft-deletes) propagates to **today's** `checkins` using the **elder's** IANA timezone — never the browser's. Slot expression matches WF-1 / WF-1b / WF-1c:
 
@@ -310,9 +310,9 @@ care_partners ──┐
 
 Multiple routines in the same domain are legitimate — **do not** collapse or dedupe by domain or meal name. Rules:
 
-1. **Create** — if the routine is due today (enabled, start/end window, `days_of_week`) and the elder is active + consented, INSERT `status=scheduled` at that slot; skip if a row already occupies the slot.
-2. **Update** — (a) today's row is `scheduled` and `sent_at IS NULL` → UPDATE `scheduled_for` to the new slot (never a second row); (b) today's row already has `sent_at` (or is responded/missed/cancelled) and the wall clock moved → INSERT a `cancelled` + `cancelled_at` row at the **new** slot so the materialiser's `NOT EXISTS` guard suppresses a duplicate send; surface to the CT that the change applies from tomorrow; (c) today no longer matches / routine disabled → delete today's unsent `scheduled` only; leave sent rows alone.
-3. **Soft-delete** — disable as above; delete only `status=scheduled AND sent_at IS NULL` from today onward for that routine (medication: only slots not still required by another live medicine).
+1. **Create** — if the routine is due today (`enabled` and `active`, start/end window, `days_of_week`) and the elder is active + consented, INSERT `status=scheduled` at that slot; skip if a row already occupies the slot.
+2. **Update** — (a) today's row is `scheduled` and `sent_at IS NULL` → UPDATE `scheduled_for` to the new slot (never a second row); (b) today's row already has `sent_at` (or is responded/missed/cancelled) and the wall clock moved → INSERT a `cancelled` + `cancelled_at` row at the **new** slot so the materialiser's `NOT EXISTS` guard suppresses a duplicate send; surface to the CT that the change applies from tomorrow; (c) today no longer matches / routine **paused** (`enabled = false`) → delete today's unsent `scheduled` only; leave sent rows alone.
+3. **Soft-delete** — set `active = false` AND `enabled = false`; delete only `status=scheduled AND sent_at IS NULL` from today onward for that routine (medication: only slots not still required by another live medicine).
 
 **Never modify a check-in with `sent_at` set.** No n8n workflow changes for this behaviour — Track B materialisers remain the overnight / cron path; the UI closes the same-day gap.
 
@@ -724,7 +724,7 @@ The n8n instance carried **21 workflows** as of 11 August 2026: 18 operational (
 
 - **Selection predicates by domain:**
   - **Medication** — `NOT EXISTS` against the **time slot**, not a simple `enabled = false` test, because a medication check-in has **no FK to a medication** — it is slot-scoped. The predicate covers disabled, soft-deleted (`active = false`), hard-deleted, and time-changed in one condition.
-  - **Food / health** — use `food_routine_id` / `health_routine_id` FKs. `food_routines` and `health_routines` have **`enabled` only**; only **`medications`** has **`active`**.
+  - **Food / health** — use `food_routine_id` / `health_routine_id` FKs. All three domains now have **`enabled` (pause) and `active` (tombstone)**. Soft-delete sets both, so the cancel branch (not-enabled) still matches.
 
 ### WF-3d · Food & Health Response Handler (`Mx035ogWEoY1MEdU`)
 - **Scope:** `domain = 'food'` and `domain = 'health'`.
@@ -1142,6 +1142,7 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 
 | Date | Version | Change |
 |---|---|---|
+| 13 Aug 2026 | 1.44 | **Pause vs soft-delete (two-column, all domains).** `enabled` = pause (stays visible, Inactive); `active` = tombstone. Ruling: Talal, 12 August 2026. Food/health gain `active` (mirroring medications). Closed the PR #19 conflation that hid paused routines. No n8n changes. |
 | 12 Aug 2026 | 1.43 | **Onboarding Sign out exit.** Wizard shell exposes Sign out on every step; clears session + local draft, then `/sign-in`. Warns when local progress exists; never blocks. `countOwnActiveElders` error→0 deferred as PD-15. |
 | 12 Aug 2026 | 1.42 | **A1 — `answered_no` + CP-timezone day bounds.** UI maps `responded`+`no`/`some_of_them` → `answered_no` (in adherence denom, no credit; own pie slice). List surfaces show response text beside status. Dashboard “today”/custom bounds use Care Partner IANA TZ; elder materialisation day divergence documented, not reconciled. |
 | 12 Aug 2026 | 1.41 | **Routine → check-in lifecycle (UI-side).** Next.js propagates food / health / medication CRUD to today's `checkins` using the elder TZ and the WF-1* slot expression; soft-delete only (CASCADE FKs forbid hard DELETE); disabled routines hidden from the active list; CT notice when today's send already went out. No n8n changes. |

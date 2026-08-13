@@ -87,9 +87,7 @@ export function MedicationTab({
   const { store } = useDomainStore();
   const elderTz =
     store.lovedOnes.find((lo) => lo.id === lovedOneId)?.timeZone ?? "UTC";
-  const items = store.medications.filter(
-    (m) => m.lovedOneId === lovedOneId && m.enabled,
-  );
+  const items = store.medications.filter((m) => m.lovedOneId === lovedOneId);
   const [editing, setEditing] = useState<Medication | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -173,7 +171,7 @@ export function MedicationTab({
                 }
               }}
               onDelete={async () => {
-                if (!window.confirm(`Remove ${item.name}? It will be hidden, not erased from history.`))
+                if (!window.confirm(`Remove ${item.name}? It leaves this list. History is kept.`))
                   return;
                 setBusy(true);
                 try {
@@ -349,9 +347,7 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
   const { store } = useDomainStore();
   const elderTz =
     store.lovedOnes.find((lo) => lo.id === lovedOneId)?.timeZone ?? "UTC";
-  const items = store.foodRoutines.filter(
-    (f) => f.lovedOneId === lovedOneId && f.enabled,
-  );
+  const items = store.foodRoutines.filter((f) => f.lovedOneId === lovedOneId);
   const [editing, setEditing] = useState<FoodRoutine | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -406,7 +402,7 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
               }}
               onEdit={() => setEditing(item)}
               onDelete={async () => {
-                if (!window.confirm(`Remove ${item.mealName}? It will be disabled, not erased.`))
+                if (!window.confirm(`Remove ${item.mealName}? It leaves this list. History is kept.`))
                   return;
                 setBusy(true);
                 try {
@@ -485,9 +481,7 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
   const { store } = useDomainStore();
   const elderTz =
     store.lovedOnes.find((lo) => lo.id === lovedOneId)?.timeZone ?? "UTC";
-  const items = store.healthRoutines.filter(
-    (h) => h.lovedOneId === lovedOneId && h.enabled,
-  );
+  const items = store.healthRoutines.filter((h) => h.lovedOneId === lovedOneId);
   const [editing, setEditing] = useState<HealthRoutine | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -542,7 +536,7 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
               }}
               onEdit={() => setEditing(item)}
               onDelete={async () => {
-                if (!window.confirm(`Remove ${item.name}? It will be disabled, not erased.`))
+                if (!window.confirm(`Remove ${item.name}? It leaves this list. History is kept.`))
                   return;
                 setBusy(true);
                 try {
@@ -682,12 +676,14 @@ function RoutineCard({
   onDuplicate?: () => void | Promise<void>;
 }) {
   return (
-    <Card>
+    <Card className={cn(!enabled && "border-dashed bg-muted/40")}>
       <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-semibold">{title}</p>
-            {!enabled ? <Badge variant="secondary">Off</Badge> : null}
+            <p className={cn("font-semibold", !enabled && "text-muted-foreground")}>
+              {title}
+            </p>
+            {!enabled ? <Badge variant="muted">Inactive</Badge> : null}
           </div>
           <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>

@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.26 |
-| **Date** | 12 August 2026 |
+| **Document** | Rules.md — v1.27 |
+| **Date** | 13 August 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
 
@@ -104,7 +104,7 @@ From `Architecture.md` §1 (P1). These are the walls that let ten people work in
 | **D9** | **`elders.consent_confirmed_at` is a hard gate, not a flag.** Any code path that schedules or sends a check-in must check it first. A NULL means that elder has not agreed to be messaged. |
 | **D10** | **`elders.address` is NOT NULL.** Mandatory even if Local Buddy / LCT is skipped. When an LCT exists, their SOS message carries the address — their purpose is to physically reach her. |
 | **D8** | **Foreign keys and indexes are not optional.** In particular `elders.whatsapp_number` must be indexed — the inbound webhook hits it on every single message. |
-| **D11** | **Drafts are hard-deleted; product data is soft-deleted.** A draft has no history worth keeping and holds a UNIQUE constraint (`elders.whatsapp_number`) hostage; a routine's history is the clinical record. **Never hard-DELETE a food/health routine** — `checkins_*_routine_id_fkey` are `ON DELETE CASCADE` and would erase check-in history. Soft-delete = `enabled = false` (medications also `active = false`); drop only unsent `scheduled` rows from today onward. |
+| **D11** | **Drafts are hard-deleted; product data is soft-deleted.** A draft has no history worth keeping and holds a UNIQUE constraint (`elders.whatsapp_number`) hostage; a routine's history is the clinical record. **Never hard-DELETE a food/health/medication routine** — `checkins_*_routine_id_fkey` are `ON DELETE CASCADE` and would erase check-in history. **Two-column model (all three domains):** `enabled` = the Care Partner's pause switch (dispatch stops; the routine **stays visible** marked Inactive); `active` = the tombstone (soft-delete sets `active = false` AND `enabled = false`; the routine leaves the active list; history is kept). **Never reuse a user-facing field as a tombstone.** A paused routine (`enabled = false`, `active = true`) is shown as inactive and **never hidden**. Drop only unsent `scheduled` rows from today onward. |
 | **D12** | **One time per medication row.** `medications.times` has exactly one entry (`CHECK (cardinality(times) = 1)`). Two doses a day = two medication rows (Duplicate). Do not reintroduce multi-time UI or writers. Do not use `array_length` for this CHECK — it returns NULL on `'{}'` and the constraint would pass. |
 | **D13** | **Applied migrations are immutable.** Once a migration is recorded in `supabase_migrations.schema_migrations`, its file is never edited. Corrections ship as a new forward migration. Editing an applied migration means the repo no longer records what was actually run, and fresh environments diverge silently from production. |
 
@@ -332,6 +332,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 13 Aug 2026 | 1.27 | **D11 — two-column pause vs soft-delete.** `enabled` = pause (shown Inactive, never hidden); `active` = tombstone on all three domains. Never reuse a user-facing field as a tombstone. Ruling: Talal, 12 August 2026. |
 | 12 Aug 2026 | 1.26 | **C18 — onboarding Sign out on every wizard step.** Clears session + local draft; warn if progress, never block. No speculative guest-gate bypass. |
 | 12 Aug 2026 | 1.25 | **C17 — document versions at merge time.** Bump Architecture/Rules only after reading headers on `main`; date header + changelog to the merge date. |
 | 12 Aug 2026 | 1.25 | **C15 amend — map status + `response_value`.** A `responded` row is not enough on its own; `no` / `some_of_them` must not render as Taken. A-29 learning retained. |

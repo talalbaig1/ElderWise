@@ -175,6 +175,8 @@ export default function LovedOnesPage() {
           )}
         >
           {filtered.map((lo) => {
+            // Card totals count dispatch-live routines only. Paused
+            // (enabled=false) stay on the Loved One routine list, not here.
             const meds = store.medications.filter((m) => m.lovedOneId === lo.id && m.enabled);
             const meals = store.foodRoutines.filter((f) => f.lovedOneId === lo.id && f.enabled);
             const activeSos = store.sosEvents.some(

@@ -112,13 +112,11 @@ export async function loadAppData(
       .order("created_at", { ascending: true }),
     supabase.from("local_caregivers").select("*"),
     supabase.from("doctors").select("*"),
-    // Soft-deleted meds (active=false) stay out of the product read model.
-    // Food/health soft-delete is enabled=false — still load those rows so
-    // checkInTitle / history can resolve names. Active lists filter enabled
-    // at the render site (routine-tabs, loved-ones cards, dashboard upcoming).
+    // Tombstone is `active=false` on all three domains. Paused rows
+    // (`enabled=false`, `active=true`) MUST still load so lists can show them.
     supabase.from("medications").select("*").eq("active", true),
-    supabase.from("food_routines").select("*"),
-    supabase.from("health_routines").select("*"),
+    supabase.from("food_routines").select("*").eq("active", true),
+    supabase.from("health_routines").select("*").eq("active", true),
     supabase.from("checkins").select("*").order("scheduled_for", { ascending: false }),
     supabase.from("sos_events").select("*").order("triggered_at", { ascending: false }),
     supabase.from("sos_notifications").select("*"),

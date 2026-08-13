@@ -194,6 +194,7 @@ export interface FoodRoutineRow {
   id: string;
   elder_id: string;
   enabled: boolean;
+  active: boolean;
   meal_name: string;
   meal_type: FoodRoutine["mealType"];
   check_in_time: string;
@@ -231,6 +232,7 @@ export interface HealthRoutineRow {
   id: string;
   elder_id: string;
   enabled: boolean;
+  active: boolean;
   name: string;
   type: HealthRoutine["type"];
   frequency: HealthRoutine["frequency"];
