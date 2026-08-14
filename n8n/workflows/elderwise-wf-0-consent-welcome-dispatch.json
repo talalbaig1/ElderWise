@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "377a4955-e681-4457-92e8-7128d85bef7d",
+  "activeVersionId": "93c150bc-82d0-444b-87f6-ed9a409783c9",
   "connections": {
     "Anyone To Welcome?": {
       "main": [
@@ -30,7 +30,7 @@
         ]
       ]
     },
-    "Every 2 Minutes": {
+    "Every 1 Minutes": {
       "main": [
         [
           {
@@ -62,7 +62,7 @@
       "parameters": {
         "operation": "executeQuery",
         "options": {
-          "connectionTimeout": 10
+          "connectionTimeout": 30
         },
         "query": "UPDATE elders e SET consent_requested_at = now() FROM care_partners cp WHERE cp.id = e.care_partner_id AND e.id = (SELECT e2.id FROM elders e2 WHERE e2.active = true AND e2.consent_attested_by_ct = true AND e2.consent_requested_at IS NULL AND e2.consent_confirmed_at IS NULL AND e2.consent_declined_at IS NULL ORDER BY e2.created_at LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING e.id AS elder_id, e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp, cp.first_name AS cp_first_name"
       },
@@ -157,13 +157,13 @@
     },
     {
       "id": "41a444fe-22b0-439e-8b5d-1619625da4a0",
-      "name": "Every 2 Minutes",
+      "name": "Every 1 Minutes",
       "parameters": {
         "rule": {
           "interval": [
             {
               "field": "minutes",
-              "minutesInterval": 2
+              "minutesInterval": 1
             }
           ]
         }
@@ -185,6 +185,9 @@
     "timeSavedMode": "fixed"
   },
   "staticData": {
+    "node:Every 1 Minutes": {
+      "recurrenceRules": []
+    },
     "node:Every 2 Minutes": {
       "recurrenceRules": []
     },
