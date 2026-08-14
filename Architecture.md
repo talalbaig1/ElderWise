@@ -5,8 +5,8 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.45 |
-| **Date** | 13 August 2026 |
+| **Document** | Architecture.md — v1.46 |
+| **Date** | 14 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
 
@@ -295,7 +295,7 @@ care_partners ──┐
 |---|---|
 | `id` uuid PK · `elder_id` uuid FK · `enabled` bool (**pause**) · `active` bool (**tombstone**, default true) · `name` text · `type` enum(**unused** — §5.6) · `frequency` enum(**unused** by schedulers — app writes `daily`) · `time` time (local) · `start_date` date NOT NULL (today in elder tz) · `end_date` date null (open-ended) · `days_of_week` text[] (empty = every day; honoured by WF-1c) · `question` text (**unused**) · `answer_type` enum(**unused**) · `notify_care_partner` enum(`every_time`,`only_missed`,`not_required`) · `escalation_minutes` int (default 60) · `typical_bedtime` time null (**unused**) · `typical_wake_time` time null (**unused**) |
 
-> **Escalation defaults differ by domain in the front end** (medication 30 min, food 45, health 60). These are **defaults**, editable per routine. The old blanket "30 across the board" is superseded.
+> **Escalation defaults differ by domain in the front end** (medication 5 min, food 45, health 60). These are **defaults**, editable per routine. The old blanket "30 across the board" is superseded. **New routines default to `notify_care_partner = every_time` in all three domains**, and their time defaults to **now in the elder's timezone** (`ROUTINE_DEFAULT_TIME_OFFSET_MINUTES`, currently 0).
 
 > **Two-column model — all three domains (Talal, 12 August 2026).** `enabled` = the Care Partner's pause switch. Dispatch stops; the routine **stays visible** in the routine list with the switch off and an **Inactive** marker. `active` = the tombstone. Soft-delete sets `active = false` AND `enabled = false`; the routine leaves the active list; history is preserved. **An inactive (paused) routine in any domain must be shown, marked inactive — never hidden.** **Never reuse a user-facing field as a tombstone.** PR #19 had reused `enabled` as the food/health tombstone; a paused routine then vanished from the list while remaining alive (`active = true`). That conflation is closed. **Expected side effect:** food/health rows already at `enabled = false` (backfilled `active = true`) reappear in testers' lists marked Inactive — that is intended, not a regression.
 
@@ -1144,6 +1144,7 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 
 | Date | Version | Change |
 |---|---|---|
+| 14 Aug 2026 | 1.46 | **Routine create defaults for qualifier run.** New dashboard/onboarding routines: time = now in elder TZ (`ROUTINE_DEFAULT_TIME_OFFSET_MINUTES` = 0), `notify_care_partner = every_time`, medication escalation 5 min (food 45 / health 60 unchanged). `startDate` uses `todayInTimeZone`, not UTC `toISOString`. Postgres `escalation_minutes` column default remains 30. |
 | 13 Aug 2026 | 1.45 | **Routine list order + pause does not resync `domain_configs`.** Lists sort active-first, then alert time, then name. `setRoutineEnabled` skips `syncDomainConfig` on purpose — no workflow SQL reads that table; WF-6 uses routine `notify_care_partner` (A-9). Do not "fix" the lag. |
 | 13 Aug 2026 | 1.44 | **Pause vs soft-delete (two-column, all domains).** `enabled` = pause (stays visible, Inactive); `active` = tombstone. Ruling: Talal, 12 August 2026. Food/health gain `active` (mirroring medications). Closed the PR #19 conflation that hid paused routines. No n8n changes. |
 | 12 Aug 2026 | 1.43 | **Onboarding Sign out exit.** Wizard shell exposes Sign out on every step; clears session + local draft, then `/sign-in`. Warns when local progress exists; never blocks. `countOwnActiveElders` error→0 deferred as PD-15. |

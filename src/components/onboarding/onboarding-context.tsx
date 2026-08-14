@@ -145,11 +145,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
           lovedOne: { ...base.lovedOne, ...r.lovedOne },
           localBuddy: r.localBuddy ?? emptyLocalBuddy(),
           doctor: r.doctor ?? emptyDoctor(),
-          foodRoutines: r.foodRoutines?.length ? r.foodRoutines : [createEmptyFood()],
+          foodRoutines: r.foodRoutines?.length ? r.foodRoutines : [createEmptyFood(r.lovedOne?.timeZone ?? base.lovedOne.timeZone)],
           medications: r.medications?.length
             ? r.medications
             : [createEmptyMedication(r.lovedOne?.timeZone ?? base.lovedOne.timeZone)],
-          healthRoutines: r.healthRoutines?.length ? r.healthRoutines : [createEmptyHealth()],
+          healthRoutines: r.healthRoutines?.length ? r.healthRoutines : [createEmptyHealth(r.lovedOne?.timeZone ?? base.lovedOne.timeZone)],
         };
         if (existing) {
           next.lovedOne = existing.lovedOne.firstName ? existing.lovedOne : next.lovedOne;

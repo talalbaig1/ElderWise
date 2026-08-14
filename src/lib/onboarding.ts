@@ -120,6 +120,31 @@ export function todayInTimeZone(timeZone: string): string {
   }
 }
 
+/**
+ * Default lead time, in minutes, added to "now" when a new routine is created.
+ * 0 = exactly now. Raise this if the create form takes longer to fill than the
+ * routine's escalation window, or the check-in materialises already stale and
+ * is marked missed without ever dispatching.
+ */
+export const ROUTINE_DEFAULT_TIME_OFFSET_MINUTES = 0;
+
+/** Current wall-clock time in `timeZone` as "HH:mm", plus the default lead time. */
+export function nowTimeInTimeZone(timeZone: string): string {
+  const at = new Date(Date.now() + ROUTINE_DEFAULT_TIME_OFFSET_MINUTES * 60_000);
+  try {
+    const formatted = new Intl.DateTimeFormat("en-GB", {
+      timeZone: timeZone || "UTC",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(at);
+    // Some ICU builds emit "24:00" for midnight under hour12:false.
+    return formatted.startsWith("24") ? `00${formatted.slice(2)}` : formatted;
+  } catch {
+    return at.toISOString().slice(11, 16);
+  }
+}
+
 export const carePartnerCircleSchema = z.object({
   whatsappNumber: phone,
   timeZone: z
@@ -280,14 +305,14 @@ function uid(prefix: string) {
   return `${prefix}-${crypto.randomUUID()}`;
 }
 
-export function createEmptyFood(): FoodRoutineDraft {
+export function createEmptyFood(elderTimeZone = "Asia/Kolkata"): FoodRoutineDraft {
   return {
     id: newRowId(),
     enabled: true,
     mealName: "Breakfast",
-    checkInTime: "09:00",
+    checkInTime: nowTimeInTimeZone(elderTimeZone),
     daysOfWeek: [...ALL_DAYS],
-    notifyCarePartner: "only_missed",
+    notifyCarePartner: "every_time",
   };
 }
 
@@ -298,24 +323,24 @@ export function createEmptyMedication(elderTimeZone = "Asia/Kolkata"): Medicatio
     name: "Metformin 500mg",
     dosage: "1",
     dosageUnit: "TAB",
-    time: "08:00",
+    time: nowTimeInTimeZone(elderTimeZone),
     startDate: todayInTimeZone(elderTimeZone),
     endDate: "",
     mealTiming: "after_food",
     daysOfWeek: [...ALL_DAYS],
-    notifyCarePartner: "only_missed",
-    escalationMinutes: 30,
+    notifyCarePartner: "every_time",
+    escalationMinutes: 5,
   };
 }
 
-export function createEmptyHealth(): HealthRoutineDraft {
+export function createEmptyHealth(elderTimeZone = "Asia/Kolkata"): HealthRoutineDraft {
   return {
     id: newRowId(),
     enabled: true,
     name: "Morning wellness",
-    time: "10:30",
+    time: nowTimeInTimeZone(elderTimeZone),
     daysOfWeek: [...ALL_DAYS],
-    notifyCarePartner: "only_missed",
+    notifyCarePartner: "every_time",
   };
 }
 
@@ -384,9 +409,9 @@ export function createDefaultDraft(
     },
     localBuddy: emptyLocalBuddy(),
     doctor: emptyDoctor(),
-    foodRoutines: [createEmptyFood()],
+    foodRoutines: [createEmptyFood(browserTimeZone)],
     medications: [createEmptyMedication(browserTimeZone)],
-    healthRoutines: [createEmptyHealth()],
+    healthRoutines: [createEmptyHealth(browserTimeZone)],
     updatedAt: new Date().toISOString(),
   };
 }
@@ -399,8 +424,8 @@ export function loadOnboardingDraft(accountId: string): OnboardingDraft | null {
     elderId: draft.elderId ?? null,
     foodRoutines:
       draft.foodRoutines?.length > 0
-        ? draft.foodRoutines.map((item) => ({ ...createEmptyFood(), ...item }))
-        : [createEmptyFood()],
+        ? draft.foodRoutines.map((item) => ({ ...createEmptyFood(draft.lovedOne?.timeZone), ...item }))
+        : [createEmptyFood(draft.lovedOne?.timeZone)],
     medications:
       draft.medications?.length > 0
         ? draft.medications.map((item) => ({
@@ -410,8 +435,8 @@ export function loadOnboardingDraft(accountId: string): OnboardingDraft | null {
         : [createEmptyMedication(draft.lovedOne?.timeZone)],
     healthRoutines:
       draft.healthRoutines?.length > 0
-        ? draft.healthRoutines.map((item) => ({ ...createEmptyHealth(), ...item }))
-        : [createEmptyHealth()],
+        ? draft.healthRoutines.map((item) => ({ ...createEmptyHealth(draft.lovedOne?.timeZone), ...item }))
+        : [createEmptyHealth(draft.lovedOne?.timeZone)],
   };
 }
 
