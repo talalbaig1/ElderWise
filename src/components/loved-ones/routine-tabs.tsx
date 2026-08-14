@@ -209,7 +209,7 @@ export function MedicationTab({
     <Section
       empty="No medications yet"
       addLabel="Add medication"
-      onAdd={() => setEditing(createBlankMedication(lovedOneId))}
+      onAdd={() => setEditing(createBlankMedication(lovedOneId, elderTz))}
       count={items.length}
     >
       {items.length === 0 ? null : (
@@ -441,7 +441,7 @@ export function MealsTab({ lovedOneId }: { lovedOneId: string }) {
     <Section
       empty="No meal check-ins yet"
       addLabel="Add meal"
-      onAdd={() => setEditing(createBlankFood(lovedOneId))}
+      onAdd={() => setEditing(createBlankFood(lovedOneId, elderTz))}
       count={items.length}
     >
       {items.length === 0 ? null : (
@@ -558,7 +558,7 @@ export function HealthTab({ lovedOneId }: { lovedOneId: string }) {
     <Section
       empty="No health routines yet"
       addLabel="Add routine"
-      onAdd={() => setEditing(createBlankHealth(lovedOneId))}
+      onAdd={() => setEditing(createBlankHealth(lovedOneId, elderTz))}
       count={items.length}
     >
       {items.length === 0 ? null : (

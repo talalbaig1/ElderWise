@@ -7,7 +7,7 @@ import type {
   Medication,
   ElderWiseStore,
 } from "@/types";
-import { ALL_DAYS } from "@/lib/onboarding";
+import { ALL_DAYS, todayInTimeZone, nowTimeInTimeZone } from "@/lib/onboarding";
 import { deriveWellbeingStatus } from "@/lib/wellbeing";
 
 /** Postgres uuid PK — never prefix; `med-…` / `food-…` fail UUID cast. */
@@ -46,23 +46,22 @@ export function createBlankLovedOne(carePartnerId: string): LovedOne {
   };
 }
 
-export function createBlankMedication(lovedOneId: string): Medication {
+export function createBlankMedication(lovedOneId: string, timeZone = "UTC"): Medication {
   const now = new Date().toISOString();
-  const today = now.slice(0, 10);
   return {
     id: newId(),
     lovedOneId,
     enabled: true,
     name: "",
-    dosage: "",
+    dosage: "1",
     dosageUnit: "TAB",
-    times: ["08:00"],
+    times: [nowTimeInTimeZone(timeZone)],
     daysOfWeek: [...ALL_DAYS],
-    startDate: today,
+    startDate: todayInTimeZone(timeZone),
     endDate: "",
     timingPreference: "before_food",
-    notifyCarePartner: "only_missed",
-    escalationMinutes: 30,
+    notifyCarePartner: "every_time",
+    escalationMinutes: 5,
     // TODO(backend/n8n): "Yes, all" records all; "Some of them" opens the 24h window
     // and sends a free-form interactive list of this elder's medicines; "Not yet" arms
     // the reminder. Templates cannot carry a dropdown — see Templates.md §1.1.
@@ -73,31 +72,29 @@ export function createBlankMedication(lovedOneId: string): Medication {
   };
 }
 
-export function createBlankFood(lovedOneId: string): FoodRoutine {
+export function createBlankFood(lovedOneId: string, timeZone = "UTC"): FoodRoutine {
   const now = new Date().toISOString();
-  const today = now.slice(0, 10);
   return {
     id: newId(),
     lovedOneId,
     enabled: true,
     mealName: "Breakfast",
     mealType: "custom",
-    checkInTime: "09:00",
-    startDate: today,
+    checkInTime: nowTimeInTimeZone(timeZone),
+    startDate: todayInTimeZone(timeZone),
     endDate: undefined,
     daysOfWeek: [...ALL_DAYS],
     frequency: "daily",
     whatsappMessageTemplate: "Hi {name}, have you had breakfast today?",
-    notifyCarePartner: "only_missed",
+    notifyCarePartner: "every_time",
     escalationMinutes: 45,
     createdAt: now,
     updatedAt: now,
   };
 }
 
-export function createBlankHealth(lovedOneId: string): HealthRoutine {
+export function createBlankHealth(lovedOneId: string, timeZone = "UTC"): HealthRoutine {
   const now = new Date().toISOString();
-  const today = now.slice(0, 10);
   return {
     id: newId(),
     lovedOneId,
@@ -105,13 +102,13 @@ export function createBlankHealth(lovedOneId: string): HealthRoutine {
     name: "Wellness check-in",
     type: "general_wellness",
     frequency: "daily",
-    time: "10:30",
-    startDate: today,
+    time: nowTimeInTimeZone(timeZone),
+    startDate: todayInTimeZone(timeZone),
     endDate: undefined,
     daysOfWeek: [...ALL_DAYS],
     question: "How are you feeling today?",
     answerType: "yes_no",
-    notifyCarePartner: "only_missed",
+    notifyCarePartner: "every_time",
     escalationMinutes: 60,
     createdAt: now,
     updatedAt: now,

@@ -468,7 +468,7 @@ export function WellnessDetailsStep() {
             onClick={() =>
               updateDraft((prev) => ({
                 ...prev,
-                foodRoutines: [...prev.foodRoutines, createEmptyFood()],
+                foodRoutines: [...prev.foodRoutines, createEmptyFood(elderTimeZone)],
               }))
             }
           >
@@ -558,7 +558,7 @@ export function WellnessDetailsStep() {
             onClick={() =>
               updateDraft((prev) => ({
                 ...prev,
-                healthRoutines: [...prev.healthRoutines, createEmptyHealth()],
+                healthRoutines: [...prev.healthRoutines, createEmptyHealth(elderTimeZone)],
               }))
             }
           >
