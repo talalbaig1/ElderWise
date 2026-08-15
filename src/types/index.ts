@@ -1,4 +1,4 @@
-/** SilaCare domain models — designed for a future Supabase/API backend. */
+/** SilaCares domain models — designed for a future Supabase/API backend. */
 
 export type ID = string;
 

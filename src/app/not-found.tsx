@@ -11,7 +11,7 @@ export default function NotFound() {
       <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">404</p>
       <h1 className="mt-2 font-display text-3xl md:text-4xl">Page not found</h1>
       <p className="mt-2 max-w-md text-muted-foreground">
-        That path does not exist in SilaCare. Head back to the dashboard or marketing home.
+        That path does not exist in SilaCares. Head back to the dashboard or marketing home.
       </p>
       <div className="mt-6 flex flex-wrap justify-center gap-2">
         <Button asChild>

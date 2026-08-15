@@ -104,7 +104,7 @@ function SignInForm() {
   return (
     <AuthShell
       title="Welcome back"
-      description="Sign in to continue caring for your Loved Ones with SilaCare."
+      description="Sign in to continue caring for your Loved Ones with SilaCares."
       footer={
         <>
           New here?{" "}

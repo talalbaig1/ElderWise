@@ -28,7 +28,7 @@ export function AuthShell({ title, description, children, footer }: AuthShellPro
         {footer ? <div className="mt-6 text-center text-sm text-muted-foreground">{footer}</div> : null}
         <p className="mt-8 text-center text-xs text-muted-foreground">
           <Link href="/" className="font-semibold text-primary hover:underline">
-            Back to SilaCare
+            Back to SilaCares
           </Link>
         </p>
       </div>

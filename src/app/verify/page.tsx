@@ -46,7 +46,7 @@ export default async function VerifyPage() {
           ← Back to dashboard
         </Link>
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          SilaCare · internal
+          SilaCares · internal
         </p>
         <h1 className="font-display text-3xl text-foreground">
           Verification console

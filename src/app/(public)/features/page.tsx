@@ -72,7 +72,7 @@ export default function FeaturesPage() {
           <SectionEyebrow>Features</SectionEyebrow>
           <SectionHeading>Everything you need to stay gently informed.</SectionHeading>
           <SectionLead>
-            SilaCare combines routines, WhatsApp check-ins, emergency coordination, and clear
+            SilaCares combines routines, WhatsApp check-ins, emergency coordination, and clear
             reports — with a calm design made for Care Partners.
           </SectionLead>
           <div className="mt-8 flex flex-wrap gap-3">

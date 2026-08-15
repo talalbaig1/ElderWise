@@ -51,7 +51,7 @@ const howItWorks = [
   {
     step: "05",
     title: "SOS reaches the Care Circle",
-    text: "When something urgent happens, SilaCare alerts the Care Partner, Local Buddy, and Family Doctor together.",
+    text: "When something urgent happens, SilaCares alerts the Care Partner, Local Buddy, and Family Doctor together.",
   },
 ];
 
@@ -108,7 +108,7 @@ const featureBlocks = [
     icon: Siren,
     eyebrow: "SOS",
     title: "A clear path when urgency appears.",
-    text: "Escalate to the Care Partner, Local Buddy, and Family Doctor. SilaCare supports coordination — always contact local emergency services in a crisis.",
+    text: "Escalate to the Care Partner, Local Buddy, and Family Doctor. SilaCares supports coordination — always contact local emergency services in a crisis.",
     image: marketingImages.familyPhone,
   },
   {
@@ -147,7 +147,7 @@ export default function HomePage() {
         <div className="relative mx-auto flex min-h-[100svh] max-w-6xl flex-col justify-end px-4 pb-16 pt-28 sm:px-6 sm:pb-20 lg:pb-24">
           <div className="max-w-2xl">
             <p className="font-display text-5xl tracking-tight text-white sm:text-6xl lg:text-7xl">
-              SilaCare
+              SilaCares
             </p>
             <h1 className="mt-5 font-display text-2xl leading-snug text-white/95 sm:text-3xl lg:text-[2.15rem]">
               Remote caregiving for elders through WhatsApp — so family stays close to daily care.
@@ -162,7 +162,7 @@ export default function HomePage() {
                 size="lg"
                 className="bg-white text-primary hover:bg-white/90"
               >
-                <Link href="/sign-up">Start caring with SilaCare</Link>
+                <Link href="/sign-up">Start caring with SilaCares</Link>
               </Button>
               <Button
                 asChild
@@ -187,7 +187,7 @@ export default function HomePage() {
             <SectionEyebrow>How it works</SectionEyebrow>
             <SectionHeading>From setup to everyday peace of mind.</SectionHeading>
             <SectionLead>
-              Five simple steps — so you know exactly how SilaCare helps you care for someone you
+              Five simple steps — so you know exactly how SilaCares helps you care for someone you
               love.
             </SectionLead>
           </MotionItem>
@@ -208,10 +208,10 @@ export default function HomePage() {
         </div>
       </MotionSection>
 
-      {/* Why families choose SilaCare */}
+      {/* Why families choose SilaCares */}
       <MotionSection className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
         <MotionItem>
-          <SectionEyebrow>Why families choose SilaCare</SectionEyebrow>
+          <SectionEyebrow>Why families choose SilaCares</SectionEyebrow>
           <SectionHeading>Everyday reassurance, rooted in love.</SectionHeading>
           <SectionLead>
             Built for adult children and relatives who want to stay connected to a Loved One’s day —
@@ -252,7 +252,7 @@ export default function HomePage() {
               Caring from a distance should not feel like guessing.
             </SectionHeading>
             <SectionLead>
-              Did they take their medicine? Did lunch happen? Is today a good day? SilaCare turns
+              Did they take their medicine? Did lunch happen? Is today a good day? SilaCares turns
               those unanswered questions into gentle WhatsApp check-ins and clear signals — so love
               can feel close again.
             </SectionLead>
@@ -315,7 +315,7 @@ export default function HomePage() {
               Everyone has a clear role when it matters.
             </SectionHeading>
             <SectionLead className="text-white/75">
-              SilaCare connects the people around your Loved One — with language that feels human
+              SilaCares connects the people around your Loved One — with language that feels human
               and responsibilities that stay clear.
             </SectionLead>
           </MotionItem>
@@ -385,7 +385,7 @@ export default function HomePage() {
       <MotionSection id="about" className="border-y bg-card/60">
         <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
           <MotionItem>
-            <SectionEyebrow>About SilaCare</SectionEyebrow>
+            <SectionEyebrow>About SilaCares</SectionEyebrow>
             <SectionHeading>Families who want to stay close.</SectionHeading>
             <SectionLead>
               Real distance. Real love. A calmer way to keep showing up for the people you care for.

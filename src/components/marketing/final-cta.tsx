@@ -35,7 +35,7 @@ export function FinalCta({
               size="lg"
               className="bg-white text-primary hover:bg-white/90"
             >
-              <Link href="/sign-up">Start caring with SilaCare</Link>
+              <Link href="/sign-up">Start caring with SilaCares</Link>
             </Button>
             <Button
               asChild

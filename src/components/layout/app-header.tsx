@@ -59,7 +59,7 @@ export function AppHeader({ onMenuClick }: AppHeaderProps) {
         </Button>
 
         <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-lg leading-none">SilaCare</p>
+          <p className="truncate font-display text-lg leading-none">SilaCares</p>
           <p className="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground sm:block">
             Care Partner
           </p>

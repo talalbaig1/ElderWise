@@ -79,7 +79,7 @@ export function buildPrintHtml(model: ReportModel) {
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>${model.title} · SilaCare</title>
+  <title>${model.title} · SilaCares</title>
   <style>
     body { font-family: Georgia, "Times New Roman", serif; color: #1E2B27; margin: 32px; }
     h1 { font-size: 22px; margin: 0 0 4px; }
@@ -101,7 +101,7 @@ export function buildPrintHtml(model: ReportModel) {
   </style>
 </head>
 <body>
-  <div class="brand">SilaCare</div>
+  <div class="brand">SilaCares</div>
   <h1>${model.title}</h1>
   <div class="meta">
     ${model.lovedOne.firstName} ${model.lovedOne.lastName} · ${model.rangeLabel}<br/>

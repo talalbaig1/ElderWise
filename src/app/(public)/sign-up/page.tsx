@@ -105,7 +105,7 @@ function SignUpForm() {
     });
 
     const hasElder = await hasOwnProductElder(supabase);
-    toast.success("Welcome to SilaCare", {
+    toast.success("Welcome to SilaCares", {
       description: "Let’s set up your Loved One next.",
     });
     router.replace(postAuthPath(hasElder));
@@ -222,7 +222,7 @@ function SignUpForm() {
               <Link href="/privacy" className="font-semibold text-primary hover:underline">
                 Privacy
               </Link>{" "}
-              policy, and understand SilaCare supports family communication and is not a
+              policy, and understand SilaCares supports family communication and is not a
               substitute for emergency services.
             </span>
           </label>

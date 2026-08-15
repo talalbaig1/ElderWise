@@ -107,7 +107,7 @@ export function WhatsAppDemo() {
 
       <div className="space-y-3 border-t bg-card p-4">
         <p className="text-sm text-muted-foreground">
-          Choose a response to see how SilaCare updates the Care Partner view.
+          Choose a response to see how SilaCares updates the Care Partner view.
         </p>
         <div className="flex flex-wrap gap-2">
           {(

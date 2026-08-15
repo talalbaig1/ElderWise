@@ -21,7 +21,7 @@ export default function TermsPage() {
           <h2 className="font-display text-xl">Who you are agreeing with</h2>
           <p>Nobody, in the legal sense.</p>
           <p>
-            SilaCare is a <strong>non-commercial student capstone project</strong> by Group 7 of
+            SilaCares is a <strong>non-commercial student capstone project</strong> by Group 7 of
             Cohort 7 of the AI Generalist Fellowship.{" "}
             <strong>There is no registered company operating it</strong>, no contract of service
             is being offered, and no fee is being charged.
@@ -35,7 +35,7 @@ export default function TermsPage() {
         <section className="space-y-2">
           <h2 className="font-display text-xl">Use it as a demonstration</h2>
           <p>
-            SilaCare is built for coursework and demonstration. Please use test data. Do not
+            SilaCares is built for coursework and demonstration. Please use test data. Do not
             enter real medical information, real home addresses, or the real WhatsApp number of an
             elderly person who has not clearly agreed to receive messages.
           </p>
@@ -44,14 +44,14 @@ export default function TermsPage() {
         <section className="space-y-2">
           <h2 className="font-display text-xl">No medical advice</h2>
           <p>
-            SilaCare does not provide medical advice, diagnosis, or treatment, and is not a
+            SilaCares does not provide medical advice, diagnosis, or treatment, and is not a
             medical device. Nothing it displays or sends should be used to make a clinical
             decision. Medication reminders reflect only what a care partner typed in — they are
             not verified against any prescription, drug database, or clinician.
           </p>
           <p>
             <strong>Always consult a qualified healthcare professional.</strong> Never disregard
-            or delay professional medical advice because of something SilaCare showed you.
+            or delay professional medical advice because of something SilaCares showed you.
           </p>
         </section>
 
@@ -63,7 +63,7 @@ export default function TermsPage() {
           </p>
           <p>
             <strong>
-              SilaCare is not connected to emergency services and must not be relied upon in an
+              SilaCares is not connected to emergency services and must not be relied upon in an
               emergency.
             </strong>{" "}
             Call your local emergency number.
@@ -74,7 +74,7 @@ export default function TermsPage() {
           <h2 className="font-display text-xl">Consent from the person being cared for</h2>
           <p>
             You must have the clear agreement of the elderly person before adding them. You are
-            confirming that they have agreed to receive WhatsApp messages from SilaCare. Do not
+            confirming that they have agreed to receive WhatsApp messages from SilaCares. Do not
             add someone who has not agreed, or who cannot meaningfully agree.
           </p>
         </section>
@@ -89,13 +89,13 @@ export default function TermsPage() {
             The database is reset during development, and the project may be shut down entirely
             when the fellowship ends.
           </p>
-          <p>Do not store anything in SilaCare that you would be upset to lose.</p>
+          <p>Do not store anything in SilaCares that you would be upset to lose.</p>
         </section>
 
         <section className="space-y-2">
           <h2 className="font-display text-xl">No warranty</h2>
           <p>
-            SilaCare is provided as-is, with no warranty of any kind. It may be unavailable,
+            SilaCares is provided as-is, with no warranty of any kind. It may be unavailable,
             messages may not send, data may be lost, and features may change or disappear without
             notice. It is maintained by students alongside their coursework.
           </p>
@@ -104,7 +104,7 @@ export default function TermsPage() {
         <section className="space-y-2">
           <h2 className="font-display text-xl">Third-party services</h2>
           <p>
-            Using SilaCare means your messages pass through WhatsApp, operated by Meta, and are
+            Using SilaCares means your messages pass through WhatsApp, operated by Meta, and are
             subject to Meta&apos;s own terms and policies. Other third-party services are listed in
             the Privacy Policy.
           </p>
@@ -113,7 +113,7 @@ export default function TermsPage() {
         <section className="space-y-2">
           <h2 className="font-display text-xl">Acceptable use</h2>
           <p>
-            Do not use SilaCare to harass, monitor, or contact anyone without their agreement; to
+            Do not use SilaCares to harass, monitor, or contact anyone without their agreement; to
             send unlawful or harmful content; or to attempt to access another person&apos;s data.
           </p>
         </section>
@@ -134,7 +134,7 @@ export default function TermsPage() {
         </section>
 
         <p className="text-xs italic leading-relaxed text-muted-foreground">
-          SilaCare — AIGF Cohort 7, Group 7. A student capstone project.
+          SilaCares — AIGF Cohort 7, Group 7. A student capstone project.
         </p>
       </div>
       <p className="mt-10 text-sm">

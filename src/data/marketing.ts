@@ -2,12 +2,12 @@ export const marketingFaq = [
   {
     question: "Does the Loved One need to install an app?",
     answer:
-      "No. SilaCare reaches your Loved One through familiar WhatsApp conversations. They reply with simple responses like Yes, No, or Remind me later.",
+      "No. SilaCares reaches your Loved One through familiar WhatsApp conversations. They reply with simple responses like Yes, No, or Remind me later.",
   },
   {
     question: "How do WhatsApp reminders work?",
     answer:
-      "You set medication, meal, and wellness routines. SilaCare sends check-ins at the scheduled times. Responses appear on your Care Partner dashboard, history, and reports.",
+      "You set medication, meal, and wellness routines. SilaCares sends check-ins at the scheduled times. Responses appear on your Care Partner dashboard, history, and reports.",
   },
   {
     question: "Can I manage more than one Loved One?",
@@ -17,7 +17,7 @@ export const marketingFaq = [
   {
     question: "Who receives an SOS alert?",
     answer:
-      "When an SOS is triggered, SilaCare notifies the Care Partner, Local Buddy, and Family Doctor in the Loved One’s care circle. In a real emergency, always contact local emergency services.",
+      "When an SOS is triggered, SilaCares notifies the Care Partner, Local Buddy, and Family Doctor in the Loved One’s care circle. In a real emergency, always contact local emergency services.",
   },
   {
     question: "Can routines be changed later?",
@@ -46,7 +46,7 @@ export const testimonials = [
   },
   {
     quote:
-      "When something needs attention, SilaCare makes the next step clear without sounding alarming.",
+      "When something needs attention, SilaCares makes the next step clear without sounding alarming.",
     name: "Amira K.",
     role: "Care Partner · Niece",
   },

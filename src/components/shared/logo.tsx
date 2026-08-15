@@ -13,7 +13,7 @@ export function Logo({ className, showWordmark = true, href = "/" }: LogoProps) 
     <span className={cn("inline-flex items-center gap-2.5", className)}>
       <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-2xl bg-primary text-primary-foreground shadow-sm">
         <Image
-          src="/images/silacare-logo.png"
+          src="/images/silacares-logo.png"
           alt=""
           width={36}
           height={36}
@@ -22,10 +22,10 @@ export function Logo({ className, showWordmark = true, href = "/" }: LogoProps) 
       </span>
       {showWordmark ? (
         <span className="font-display text-xl tracking-tight text-foreground">
-          SilaCare
+          SilaCares
         </span>
       ) : (
-        <span className="sr-only">SilaCare</span>
+        <span className="sr-only">SilaCares</span>
       )}
     </span>
   );

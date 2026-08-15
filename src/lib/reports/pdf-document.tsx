@@ -147,12 +147,12 @@ export function ReportPdfDocument({ data }: { data: ReportPayload }) {
 
   return (
     <Document
-      title={`SilaCare ${data.kindLabel} report — ${elderName}`}
-      author="SilaCare"
+      title={`SilaCares ${data.kindLabel} report — ${elderName}`}
+      author="SilaCares"
       subject={`${data.kindLabel} report`}
     >
       <Page size="A4" style={{ ...styles.page, fontFamily: baseFont }}>
-        <Text style={{ ...styles.brand, fontFamily: baseFont }}>SilaCare</Text>
+        <Text style={{ ...styles.brand, fontFamily: baseFont }}>SilaCares</Text>
         <Text style={{ ...styles.title, fontFamily: baseFont }}>
           {data.kindLabel} report
         </Text>

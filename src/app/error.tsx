@@ -23,7 +23,7 @@ export default function GlobalError({
       </span>
       <h1 className="font-display text-3xl">Something went wrong</h1>
       <p className="mt-2 max-w-md text-muted-foreground">
-        SilaCare hit an unexpected error. Your care data is stored in SilaCare&apos;s cloud
+        SilaCares hit an unexpected error. Your care data is stored in SilaCares&apos;s cloud
         database — try again or return home. If it keeps happening, sign out and back in.
       </p>
       <div className="mt-6 flex flex-wrap justify-center gap-2">

@@ -15,7 +15,7 @@ interface TimePickerProps {
   disabled?: boolean;
 }
 
-/** Native time input styled for SilaCare — accessible and mobile-friendly. */
+/** Native time input styled for SilaCares — accessible and mobile-friendly. */
 export function TimePicker({
   id,
   label,

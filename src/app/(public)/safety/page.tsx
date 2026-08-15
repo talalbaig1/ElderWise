@@ -20,7 +20,7 @@ export default function SafetyPage() {
           <SectionEyebrow>Safety</SectionEyebrow>
           <SectionHeading>Clear escalation. Honest limits. Human support.</SectionHeading>
           <SectionLead>
-            SilaCare helps families coordinate when something feels urgent — while staying clear
+            SilaCares helps families coordinate when something feels urgent — while staying clear
             that we are not a replacement for emergency services or medical professionals.
           </SectionLead>
         </MotionItem>
@@ -32,7 +32,7 @@ export default function SafetyPage() {
             {
               icon: ShieldAlert,
               title: "SOS escalation",
-              text: "When an SOS is triggered, SilaCare notifies the Care Partner, Local Buddy, and Family Doctor in the Loved One’s care circle.",
+              text: "When an SOS is triggered, SilaCares notifies the Care Partner, Local Buddy, and Family Doctor in the Loved One’s care circle.",
             },
             {
               icon: Users,
@@ -42,7 +42,7 @@ export default function SafetyPage() {
             {
               icon: Phone,
               title: "Always call local emergency services",
-              text: "In a real emergency, contact local emergency services immediately. SilaCare supports family communication — it does not replace 911 or equivalent services.",
+              text: "In a real emergency, contact local emergency services immediately. SilaCares supports family communication — it does not replace 911 or equivalent services.",
             },
           ].map((item) => {
             const Icon = item.icon;
@@ -65,13 +65,13 @@ export default function SafetyPage() {
         <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
           <MotionItem>
             <SectionEyebrow>Important disclaimers</SectionEyebrow>
-            <SectionHeading>What SilaCare is — and is not.</SectionHeading>
+            <SectionHeading>What SilaCares is — and is not.</SectionHeading>
             <ul className="mt-8 space-y-4 text-muted-foreground">
               <li className="rounded-2xl border bg-background px-5 py-4 text-sm leading-relaxed">
-                SilaCare supports family communication and routine monitoring.
+                SilaCares supports family communication and routine monitoring.
               </li>
               <li className="rounded-2xl border bg-background px-5 py-4 text-sm leading-relaxed">
-                SilaCare is not a substitute for professional medical advice, diagnosis, or treatment.
+                SilaCares is not a substitute for professional medical advice, diagnosis, or treatment.
               </li>
               <li className="rounded-2xl border bg-background px-5 py-4 text-sm leading-relaxed">
                 Voice Journal mood summaries are reflective aids, not clinical conclusions.

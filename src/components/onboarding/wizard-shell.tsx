@@ -113,7 +113,7 @@ export function WizardShell({
               <Leaf className="h-4 w-4" />
             </span>
             <div>
-              <p className="font-display text-lg leading-none">SilaCare</p>
+              <p className="font-display text-lg leading-none">SilaCares</p>
               <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                 Onboarding
               </p>

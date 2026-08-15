@@ -18,14 +18,14 @@ export default function PrivacyPage() {
       </p>
       <div className="mt-8 space-y-6 text-sm leading-relaxed text-foreground/90">
         <section className="space-y-2">
-          <h2 className="font-display text-xl">What SilaCare is</h2>
+          <h2 className="font-display text-xl">What SilaCares is</h2>
           <p>
-            SilaCare is a <strong>non-commercial student capstone project</strong> built by
+            SilaCares is a <strong>non-commercial student capstone project</strong> built by
             Group 7 of Cohort 7 of the AI Generalist Fellowship (AIGF), an educational programme
             run by Outskill.
           </p>
           <p>
-            There is <strong>no registered company</strong> behind SilaCare. It is operated by
+            There is <strong>no registered company</strong> behind SilaCares. It is operated by
             the project team as coursework. It is not a business, not a commercial service, and
             not a product you are purchasing or subscribing to.
           </p>
@@ -34,7 +34,7 @@ export default function PrivacyPage() {
         <section className="space-y-2">
           <h2 className="font-display text-xl">Please do not enter real health information</h2>
           <p>
-            SilaCare is a <strong>demonstration project</strong>. It has not been
+            SilaCares is a <strong>demonstration project</strong>. It has not been
             security-audited, it carries no uptime or data-protection guarantees, and it is
             maintained by students as part of a time-limited course.
           </p>
@@ -51,7 +51,7 @@ export default function PrivacyPage() {
               without the ability to recover it.
             </strong>{" "}
             This is not a remote possibility — the project team resets the database during
-            development. Do not rely on SilaCare to store anything you would be upset to lose.
+            development. Do not rely on SilaCares to store anything you would be upset to lose.
           </p>
         </section>
 
@@ -118,7 +118,7 @@ export default function PrivacyPage() {
 
         <section className="space-y-2">
           <h2 className="font-display text-xl">Who your data is shared with</h2>
-          <p>SilaCare runs on third-party services that necessarily process your data:</p>
+          <p>SilaCares runs on third-party services that necessarily process your data:</p>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-sm">
               <thead>
@@ -230,14 +230,14 @@ export default function PrivacyPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="font-display text-xl">What SilaCare is not</h2>
+          <h2 className="font-display text-xl">What SilaCares is not</h2>
           <ul className="list-disc space-y-1 pl-5">
             <li>
-              <strong>Not a HIPAA covered entity or business associate.</strong> SilaCare makes
+              <strong>Not a HIPAA covered entity or business associate.</strong> SilaCares makes
               no HIPAA compliance claim of any kind.
             </li>
             <li>
-              <strong>Not a medical device.</strong> SilaCare does not diagnose, treat, or make
+              <strong>Not a medical device.</strong> SilaCares does not diagnose, treat, or make
               clinical recommendations, and provides no medical advice.
             </li>
             <li>
@@ -251,7 +251,7 @@ export default function PrivacyPage() {
         <section className="space-y-2">
           <h2 className="font-display text-xl">Children</h2>
           <p>
-            SilaCare is not intended for anyone under 18 and we do not knowingly collect data from
+            SilaCares is not intended for anyone under 18 and we do not knowingly collect data from
             children.
           </p>
         </section>
@@ -272,7 +272,7 @@ export default function PrivacyPage() {
         </section>
 
         <p className="text-xs italic leading-relaxed text-muted-foreground">
-          SilaCare — AIGF Cohort 7, Group 7. A student capstone project.
+          SilaCares — AIGF Cohort 7, Group 7. A student capstone project.
         </p>
       </div>
       <p className="mt-10 text-sm">

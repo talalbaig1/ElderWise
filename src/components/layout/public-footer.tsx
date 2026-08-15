@@ -43,7 +43,7 @@ export function PublicFooter() {
               </Link>
             </li>
             <li>
-              <a href="mailto:hello@silacare.demo" className="hover:text-foreground">
+              <a href="mailto:hello@silacares.demo" className="hover:text-foreground">
                 Contact
               </a>
             </li>
@@ -80,8 +80,8 @@ export function PublicFooter() {
           <h3 className="mb-3 text-sm font-semibold">Connect</h3>
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li>
-              <a href="mailto:hello@silacare.demo" className="hover:text-foreground">
-                hello@silacare.demo
+              <a href="mailto:hello@silacares.demo" className="hover:text-foreground">
+                hello@silacares.demo
               </a>
             </li>
             <li>
@@ -100,9 +100,9 @@ export function PublicFooter() {
 
       <div className="border-t">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <p>© {new Date().getFullYear()} SilaCare. Demo marketing experience.</p>
+          <p>© {new Date().getFullYear()} SilaCares. Demo marketing experience.</p>
           <p className="max-w-xl sm:text-right">
-            SilaCare supports family communication and routine monitoring. It is not a substitute
+            SilaCares supports family communication and routine monitoring. It is not a substitute
             for professional medical advice or emergency services.
           </p>
         </div>
