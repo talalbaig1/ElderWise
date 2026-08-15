@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Leaf } from "lucide-react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface LogoProps {
@@ -11,15 +11,21 @@ interface LogoProps {
 export function Logo({ className, showWordmark = true, href = "/" }: LogoProps) {
   const content = (
     <span className={cn("inline-flex items-center gap-2.5", className)}>
-      <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
-        <Leaf className="h-4 w-4" aria-hidden />
+      <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-2xl bg-primary text-primary-foreground shadow-sm">
+        <Image
+          src="/images/silacare-logo.png"
+          alt=""
+          width={36}
+          height={36}
+          className="h-9 w-9 object-contain"
+        />
       </span>
       {showWordmark ? (
         <span className="font-display text-xl tracking-tight text-foreground">
-          ElderWise
+          SilaCare
         </span>
       ) : (
-        <span className="sr-only">ElderWise</span>
+        <span className="sr-only">SilaCare</span>
       )}
     </span>
   );

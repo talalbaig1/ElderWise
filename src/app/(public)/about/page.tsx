@@ -16,10 +16,10 @@ export default function AboutPage() {
     <>
       <MotionSection className="mx-auto max-w-6xl px-4 pb-10 pt-16 sm:px-6 sm:pt-20">
         <MotionItem>
-          <SectionEyebrow>About ElderWise</SectionEyebrow>
+          <SectionEyebrow>About SilaCare</SectionEyebrow>
           <SectionHeading>Built for the love that stretches across distance.</SectionHeading>
           <SectionLead>
-            ElderWise exists for adult children and families who want to stay present in a Loved
+            SilaCare exists for adult children and families who want to stay present in a Loved
             One’s everyday wellbeing — medication, meals, mood, and moments that matter — without
             turning care into a hospital portal.
           </SectionLead>
@@ -35,7 +35,7 @@ export default function AboutPage() {
               </p>
               <p className="mt-5 text-muted-foreground leading-relaxed">
                 We believe technology should feel warm, calm, and trustworthy when families are
-                already carrying enough. ElderWise uses familiar WhatsApp conversations, clear Care
+                already carrying enough. SilaCare uses familiar WhatsApp conversations, clear Care
                 Partner dashboards, and honest safety language so support stays human.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
@@ -59,7 +59,7 @@ export default function AboutPage() {
                 </p>
               </div>
               <p className="mt-10 text-sm leading-relaxed text-white/75">
-                ElderWise helps Care Partners coordinate routines, receive WhatsApp responses, and
+                SilaCare helps Care Partners coordinate routines, receive WhatsApp responses, and
                 mobilise a trusted Care Circle — so remote caregiving stays warm, clear, and close.
               </p>
             </div>

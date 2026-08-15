@@ -21,8 +21,8 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "ElderWise",
-    template: "%s · ElderWise",
+    default: "SilaCare",
+    template: "%s · SilaCare",
   },
   description:
     "Staying close, from a distance. Everyday reassurance for the people who matter most.",

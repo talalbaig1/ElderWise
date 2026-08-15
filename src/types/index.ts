@@ -1,4 +1,4 @@
-/** ElderWise domain models — designed for a future Supabase/API backend. */
+/** SilaCare domain models — designed for a future Supabase/API backend. */
 
 export type ID = string;
 

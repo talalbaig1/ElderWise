@@ -53,7 +53,7 @@ export function CompletionStep() {
           <CheckCircle2 className="h-10 w-10" />
         </motion.div>
         <h2 className="font-display text-3xl leading-tight">
-          You are all set. ElderWise will help you stay connected to {name}&apos;s everyday
+          You are all set. SilaCare will help you stay connected to {name}&apos;s everyday
           wellbeing.
         </h2>
         <p className="mt-4 max-w-md text-muted-foreground">

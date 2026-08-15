@@ -34,7 +34,7 @@ export function ShareGate({ token }: { token: string }) {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center gap-6 px-6 py-16">
-      <p className="font-display text-2xl tracking-tight text-foreground">ElderWise</p>
+      <p className="font-display text-2xl tracking-tight text-foreground">SilaCare</p>
       <h1 className="font-display text-3xl tracking-tight">Care summary</h1>
       <p className="text-muted-foreground">
         This private link is for the Family Doctor. Continue only if you were
@@ -90,7 +90,7 @@ function ShareSummaryView({ summary }: { summary: DoctorShareSummary }) {
     <main className="mx-auto max-w-2xl space-y-10 px-6 py-12">
       <header className="space-y-2 border-b pb-6">
         <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-          ElderWise · Doctor share · {tz}
+          SilaCare · Doctor share · {tz}
         </p>
         <h1 className="font-display text-3xl tracking-tight">{name}</h1>
         <p className="text-sm text-muted-foreground">{summary.elder.address}</p>
@@ -226,7 +226,7 @@ function ShareSummaryView({ summary }: { summary: DoctorShareSummary }) {
       </section>
 
       <p className="border-t pt-6 font-mono text-[11px] text-muted-foreground">
-        Read-only facts for clinical context. ElderWise does not diagnose or advise.
+        Read-only facts for clinical context. SilaCare does not diagnose or advise.
       </p>
     </main>
   );

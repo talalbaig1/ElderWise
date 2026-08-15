@@ -27,7 +27,7 @@ export const CASCADE_ROLE_META: Record<
   loved_one: {
     label: "Loved One",
     short: "LO",
-    description: "SOS triggered from WhatsApp or the ElderWise demo",
+    description: "SOS triggered from WhatsApp or the SilaCare demo",
   },
   care_partner: {
     label: "Care Partner",
@@ -272,7 +272,7 @@ export function acknowledgeSos(
     callsMade: e.callsMade.includes("Called Loved One")
       ? e.callsMade
       : [...e.callsMade, "Called Loved One"],
-    whatsappActions: [...e.whatsappActions, `Acknowledged by ${byName} via ElderWise`],
+    whatsappActions: [...e.whatsappActions, `Acknowledged by ${byName} via SilaCare`],
     cascadeSteps: steps,
     timeline,
     carePartnerNotified: true,

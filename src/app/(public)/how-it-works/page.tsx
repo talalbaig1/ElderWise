@@ -35,7 +35,7 @@ const steps = [
   {
     step: "05",
     title: "SOS reaches the Care Circle",
-    text: "When something urgent happens, ElderWise alerts the Care Partner, Local Buddy, and Family Doctor together.",
+    text: "When something urgent happens, SilaCare alerts the Care Partner, Local Buddy, and Family Doctor together.",
   },
 ];
 
@@ -47,7 +47,7 @@ export default function HowItWorksPage() {
           <SectionEyebrow>How it works</SectionEyebrow>
           <SectionHeading>From setup to everyday peace of mind.</SectionHeading>
           <SectionLead>
-            ElderWise is remote caregiving for elders through WhatsApp — a guided journey from
+            SilaCare is remote caregiving for elders through WhatsApp — a guided journey from
             first setup to daily reassurance, reports, and SOS support.
           </SectionLead>
         </MotionItem>
@@ -86,7 +86,7 @@ export default function HowItWorksPage() {
 
         <div className="mt-10 flex flex-wrap gap-3">
           <Button asChild size="lg">
-            <Link href="/sign-up">Start caring with ElderWise</Link>
+            <Link href="/sign-up">Start caring with SilaCare</Link>
           </Button>
           <Button asChild size="lg" variant="outline">
             <Link href="/features">Explore features</Link>

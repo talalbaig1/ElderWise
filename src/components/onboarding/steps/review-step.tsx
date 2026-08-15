@@ -196,7 +196,7 @@ export function ReviewStep() {
             />
             <span className="leading-relaxed text-muted-foreground">
               <span className="font-medium text-foreground">
-                I confirm {elderName} has agreed to receive ElderWise check-in messages on
+                I confirm {elderName} has agreed to receive SilaCare check-in messages on
                 WhatsApp.
               </span>
               <span className="mt-1 block text-xs">
@@ -217,7 +217,7 @@ export function ReviewStep() {
                 The medication details above are accurate to the best of my knowledge.
               </span>
               <span className="mt-1 block text-xs">
-                ElderWise does not provide medical advice or diagnosis — always consult a doctor.
+                SilaCare does not provide medical advice or diagnosis — always consult a doctor.
               </span>
             </span>
           </label>
@@ -261,7 +261,7 @@ export function ReviewStep() {
         </div>
 
         <p className="text-xs text-muted-foreground">
-          ElderWise supports family communication and routine monitoring. It is not a substitute
+          SilaCare supports family communication and routine monitoring. It is not a substitute
           for professional medical advice or emergency services.
         </p>
       </div>

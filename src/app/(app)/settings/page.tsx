@@ -354,7 +354,7 @@ export default function SettingsPage() {
               <CardHeader>
                 <CardTitle>Notification channels</CardTitle>
                 <CardDescription>
-                  Choose how ElderWise reaches you. Preferences persist in localStorage.
+                  Choose how SilaCare reaches you. Preferences persist in localStorage.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
