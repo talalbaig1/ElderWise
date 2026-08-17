@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "ad0a2c4a-ec48-4507-b169-82be2de26fff",
+  "activeVersionId": "c384282d-7145-45d6-a2c5-eae5a047521c",
   "connections": {
     "Called By WF-2": {
       "main": [
@@ -53,7 +53,7 @@
         [
           {
             "index": 0,
-            "node": "SOS Trigger?",
+            "node": "SOS Cancel?",
             "type": "main"
           }
         ]
@@ -130,6 +130,24 @@
           {
             "index": 0,
             "node": "Decide Route",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "SOS Cancel?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Call 'ElderWise WF-10 - SOS Cancel Handler'",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "SOS Trigger?",
             "type": "main"
           }
         ]
@@ -215,9 +233,7 @@
       "id": "1caa3ed4-189b-43b2-b6d6-d98e18ac493d",
       "name": "Parse Inbound Message",
       "parameters": {
-        "jsCode": "// Payload may arrive as the WhatsApp Trigger output, the raw Meta envelope,\n// or wrapped under .body. Try every plausible shape rather than assuming one.\nconst first = $input.first()?.json ?? {};\nconst candidates = [first, first.body, first.body?.entry?.[0]?.changes?.[0]?.value, first.entry?.[0]?.changes?.[0]?.value].filter(Boolean);\n\nlet value = null;\nfor (const c of candidates) {\n  if (Array.isArray(c?.messages) && c.messages.length > 0) { value = c; break; }\n}\n\n// Delivery-status callbacks (sent / delivered / read) carry a `statuses` array\n// and no `messages`. Normal traffic, not errors. Report and stop.\nif (!value) {\n  const isStatus = candidates.some(function (c) { return Array.isArray(c?.statuses); });\n  return [{ json: { parsed: false, reason: isStatus ? 'delivery status callback' : 'no messages array found', sender_e164: '', button_norm: '', text_norm: '', context_wamid: '', top_level_keys: Object.keys(first).toString() } }];\n}\n\nconst msg = value.messages[0];\nconst waId = msg.from ?? value.contacts?.[0]?.wa_id ?? '';\n\n// Numbers are stored with a leading +; Meta returns them without one.\nconst senderE164 = waId ? (String(waId).charAt(0) === '+' ? String(waId) : '+' + String(waId)) : '';\n\n// Quick-reply text arrives in two different shapes.\nconst rawButton = msg.button?.text ?? msg.interactive?.button_reply?.title ?? '';\n\n// Never compare raw strings (Templates.md 3.2). Apostrophe strip runs FIRST.\nconst buttonNorm = String(rawButton).toLowerCase().replace(/[\\u0027\\u2018\\u2019\\u0060]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();\n\n// Same normaliser for free text, so the SOS trigger matches on identical rules.\nconst textNorm = String(msg.text?.body ?? '').toLowerCase().replace(/[\\u0027\\u2018\\u2019\\u0060]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();\n\nconst ok = senderE164.length > 1;\n\nreturn [{ json: { parsed: ok, reason: ok ? 'message' : 'message with no sender', sender_e164: senderE164, wa_id_raw: String(waId), message_type: msg.type ?? 'unknown', wa_message_id: msg.id ?? '', context_wamid: msg.context?.id ?? '', media_id: msg.audio?.id ?? '', button_text_raw: String(rawButton), button_norm: buttonNorm, text_body: msg.text?.body ?? '', text_norm: textNorm } }];",
-        "language": "javaScript",
-        "mode": "runOnceForAllItems"
+        "jsCode": "// Payload may arrive as the WhatsApp Trigger output, the raw Meta envelope,\n// or wrapped under .body. Try every plausible shape rather than assuming one.\nconst first = $input.first()?.json ?? {};\nconst candidates = [first, first.body, first.body?.entry?.[0]?.changes?.[0]?.value, first.entry?.[0]?.changes?.[0]?.value].filter(Boolean);\n\nlet value = null;\nfor (const c of candidates) {\n  if (Array.isArray(c?.messages) && c.messages.length > 0) { value = c; break; }\n}\n\n// Delivery-status callbacks (sent / delivered / read) carry a `statuses` array\n// and no `messages`. Normal traffic, not errors. Report and stop.\nif (!value) {\n  const isStatus = candidates.some(function (c) { return Array.isArray(c?.statuses); });\n  return [{ json: { parsed: false, reason: isStatus ? 'delivery status callback' : 'no messages array found', sender_e164: '', button_norm: '', text_norm: '', context_wamid: '', top_level_keys: Object.keys(first).toString() } }];\n}\n\nconst msg = value.messages[0];\nconst waId = msg.from ?? value.contacts?.[0]?.wa_id ?? '';\n\n// Numbers are stored with a leading +; Meta returns them without one.\nconst senderE164 = waId ? (String(waId).charAt(0) === '+' ? String(waId) : '+' + String(waId)) : '';\n\n// Quick-reply text arrives in two different shapes.\nconst rawButton = msg.button?.text ?? msg.interactive?.button_reply?.title ?? '';\n\n// Never compare raw strings (Templates.md 3.2). Apostrophe strip runs FIRST.\nconst buttonNorm = String(rawButton).toLowerCase().replace(/[\\u0027\\u2018\\u2019\\u0060]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();\n\n// Same normaliser for free text, so the SOS trigger matches on identical rules.\nconst textNorm = String(msg.text?.body ?? '').toLowerCase().replace(/[\\u0027\\u2018\\u2019\\u0060]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();\n\nconst ok = senderE164.length > 1;\n\nreturn [{ json: { parsed: ok, reason: ok ? 'message' : 'message with no sender', sender_e164: senderE164, wa_id_raw: String(waId), message_type: msg.type ?? 'unknown', wa_message_id: msg.id ?? '', context_wamid: msg.context?.id ?? '', media_id: msg.audio?.id ?? '', button_text_raw: String(rawButton), button_norm: buttonNorm, text_body: msg.text?.body ?? '', text_norm: textNorm } }];"
       },
       "position": [
         224,
@@ -245,9 +261,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "loose"
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         448,
@@ -271,8 +290,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $json.sender_e164 }}"
         },
-        "query": "SELECT $1::text AS sender, (e.id IS NOT NULL) AS found, e.id AS elder_id, COALESCE(e.first_name, '') AS elder_first_name, (e.consent_requested_at IS NOT NULL) AS consent_requested, (e.consent_confirmed_at IS NOT NULL) AS consent_confirmed, (e.consent_declined_at IS NOT NULL) AS consent_declined FROM (SELECT 1) AS probe LEFT JOIN elders e ON e.whatsapp_number = $1::text AND e.active = true",
-        "resource": "database"
+        "query": "SELECT $1::text AS sender, (e.id IS NOT NULL) AS found, e.id AS elder_id, COALESCE(e.first_name, '') AS elder_first_name, (e.consent_requested_at IS NOT NULL) AS consent_requested, (e.consent_confirmed_at IS NOT NULL) AS consent_confirmed, (e.consent_declined_at IS NOT NULL) AS consent_declined FROM (SELECT 1) AS probe LEFT JOIN elders e ON e.whatsapp_number = $1::text AND e.active = true"
       },
       "position": [
         672,
@@ -285,9 +303,7 @@
       "id": "fb9a6d6a-e77a-480c-897b-e58e18d402d4",
       "name": "Decide Route",
       "parameters": {
-        "jsCode": "const db = $input.first().json;\nconst parsed = $('Parse Inbound Message').first().json;\n\n// Exact normalised forms of the approved button labels (Templates.md 3.2).\nconst CONSENT_YES = 'yes thats fine';\nconst CONSENT_NO = 'no thank you';\nconst MED_BUTTONS = ['yes all', 'some of them', 'not yet'];\n\n// Food and health both use bare Yes / No, which cannot be told apart by text.\n// Attribution is by context_wamid against checkins.wa_message_id in WF-3d.\nconst FOOD_HEALTH_BUTTONS = ['yes', 'no'];\n\n// Whole-message exact match only (Talal, 3 Aug 2026). A contains-match would\n// fire a three-person emergency on \"can you help me with my tablets?\".\nconst SOS_TRIGGERS = ['sos', 'help'];\n\n// All four approved SOS resolution labels, normalised (Templates.md 3.2).\nconst SOS_RESOLVERS = ['i am responding', 'im responding', 'im on my way', 'acknowledge'];\n\nlet route = 'unhandled';\n\n// SOS trigger is checked FIRST and short-circuits everything else (P2).\n// Fires regardless of consent state, including a declined elder: she is the\n// sender, and the alerts go to her care circle, not to her (S-4).\nif (db.found === true && SOS_TRIGGERS.indexOf(parsed.text_norm) !== -1) {\n  route = 'sos_trigger';\n}\n\n// SOS resolution comes from the care circle, who are NOT in elders, so this\n// sits outside the db.found block. Attribution is by context_wamid in WF-4b,\n// never by sender number - one person may hold several roles (S-6).\nif (route === 'unhandled' && SOS_RESOLVERS.indexOf(parsed.button_norm) !== -1 && parsed.context_wamid) {\n  route = 'sos_resolution';\n}\n\nif (route === 'unhandled' && db.found === true) {\n  // Consent is only in play before she has confirmed or declined.\n  if (db.consent_confirmed === false && db.consent_declined === false) {\n    if (parsed.button_norm === CONSENT_YES) { route = 'consent_yes'; }\n    else if (parsed.button_norm === CONSENT_NO) { route = 'consent_no'; }\n  }\n\n  // Routine replies only count for a consented elder. A declined or pending\n  // elder should never be in a check-in cycle at all.\n  if (route === 'unhandled' && db.consent_confirmed === true && db.consent_declined === false) {\n    if (MED_BUTTONS.indexOf(parsed.button_norm) !== -1) {\n      route = 'med_response';\n    } else if (FOOD_HEALTH_BUTTONS.indexOf(parsed.button_norm) !== -1 && parsed.context_wamid) {\n      // A \"No\" here is a recorded negative response, NOT a missed check-in\n      // (Templates.md 3.2). WF-3d records it as responded.\n      route = 'food_health_response';\n    } else if (parsed.message_type === 'audio' && parsed.media_id) {\n      // Voice note on an open check-in. WF-5 resolves the check-in BEFORE it\n      // downloads any media, so an elder with no open check-in never has audio\n      // stored. This gate is defence in depth, not the primary safeguard.\n      route = 'voice_note';\n    }\n  }\n}\n\nreturn [{ json: Object.assign({}, db, parsed, { route: route }) }];",
-        "language": "javaScript",
-        "mode": "runOnceForAllItems"
+        "jsCode": "const db = $input.first().json;\nconst parsed = $('Parse Inbound Message').first().json;\n\n// Exact normalised forms of the approved button labels (Templates.md 3.2).\nconst CONSENT_YES = 'yes thats fine';\nconst CONSENT_NO = 'no thank you';\nconst MED_BUTTONS = ['yes all', 'some of them', 'not yet'];\n\n// Food and health both use bare Yes / No, which cannot be told apart by text.\n// Attribution is by context_wamid against checkins.wa_message_id in WF-3d.\nconst FOOD_HEALTH_BUTTONS = ['yes', 'no'];\n\n// Whole-message exact match only (Talal, 3 Aug 2026). A contains-match would\n// fire a three-person emergency on \"can you help me with my tablets?\".\nconst SOS_TRIGGERS = ['sos', 'help'];\n\n// Same discipline for cancel: whole-message exact match, never a substring.\nconst CANCEL_TRIGGERS = ['cancel'];\n\n// All four approved SOS resolution labels, normalised (Templates.md 3.2).\nconst SOS_RESOLVERS = ['i am responding', 'im responding', 'im on my way', 'acknowledge'];\n\nlet route = 'unhandled';\n\n// SOS trigger is checked FIRST and short-circuits everything else (P2).\n// Fires regardless of consent state, including a declined elder: she is the\n// sender, and the alerts go to her care circle, not to her (S-4).\nif (db.found === true && SOS_TRIGGERS.indexOf(parsed.text_norm) !== -1) {\n  route = 'sos_trigger';\n}\n\n// Elder stands down her own alert (Option A, ruled 17 Aug 2026). WF-10 checks\n// that an open sos_event actually exists; a stray \"cancel\" gets a plain reply.\nif (route === 'unhandled' && db.found === true && CANCEL_TRIGGERS.indexOf(parsed.text_norm) !== -1) {\n  route = 'sos_cancel';\n}\n\n// SOS resolution comes from the care circle, who are NOT in elders, so this\n// sits outside the db.found block. Attribution is by context_wamid in WF-4b,\n// never by sender number - one person may hold several roles (S-6).\nif (route === 'unhandled' && SOS_RESOLVERS.indexOf(parsed.button_norm) !== -1 && parsed.context_wamid) {\n  route = 'sos_resolution';\n}\n\nif (route === 'unhandled' && db.found === true) {\n  // Consent is only in play before she has confirmed or declined.\n  if (db.consent_confirmed === false && db.consent_declined === false) {\n    if (parsed.button_norm === CONSENT_YES) { route = 'consent_yes'; }\n    else if (parsed.button_norm === CONSENT_NO) { route = 'consent_no'; }\n  }\n\n  // Routine replies only count for a consented elder. A declined or pending\n  // elder should never be in a check-in cycle at all.\n  if (route === 'unhandled' && db.consent_confirmed === true && db.consent_declined === false) {\n    if (MED_BUTTONS.indexOf(parsed.button_norm) !== -1) {\n      route = 'med_response';\n    } else if (FOOD_HEALTH_BUTTONS.indexOf(parsed.button_norm) !== -1 && parsed.context_wamid) {\n      // A \"No\" here is a recorded negative response, NOT a missed check-in\n      // (Templates.md 3.2). WF-3d records it as responded.\n      route = 'food_health_response';\n    } else if (parsed.message_type === 'audio' && parsed.media_id) {\n      // Voice note on an open check-in. WF-5 resolves the check-in BEFORE it\n      // downloads any media, so an elder with no open check-in never has audio\n      // stored. This gate is defence in depth, not the primary safeguard.\n      route = 'voice_note';\n    }\n  }\n}\n\nreturn [{ json: Object.assign({}, db, parsed, { route: route }) }];"
       },
       "position": [
         896,
@@ -304,6 +320,7 @@
           "combinator": "and",
           "conditions": [
             {
+              "id": "20385342-c5fc-4c01-8e39-ca774241d2c7",
               "leftValue": "={{ $json.route }}",
               "operator": {
                 "operation": "equals",
@@ -314,13 +331,16 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "strict"
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
           }
-        }
+        },
+        "options": {}
       },
       "position": [
-        1120,
-        96
+        1312,
+        208
       ],
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3
@@ -329,20 +349,22 @@
       "id": "d9c4f25e-ac49-4918-b1a6-b5ff10ed1d13",
       "name": "Call WF-4 SOS Orchestrator",
       "parameters": {
-        "mode": "once",
         "options": {
           "waitForSubWorkflow": false
         },
-        "source": "database",
         "workflowId": {
           "__rl": true,
           "mode": "id",
           "value": "HSEp1YhQFHjga9qa"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {}
         }
       },
       "position": [
-        1344,
-        0
+        1536,
+        112
       ],
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3
@@ -365,13 +387,16 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "strict"
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
-        1344,
-        192
+        1536,
+        304
       ],
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3
@@ -380,20 +405,22 @@
       "id": "19a62f56-6034-4384-a749-74643c31a9b1",
       "name": "Call WF-4b Resolution Handler",
       "parameters": {
-        "mode": "once",
         "options": {
           "waitForSubWorkflow": true
         },
-        "source": "database",
         "workflowId": {
           "__rl": true,
           "mode": "id",
           "value": "jh2P2gibpCsnyhoy"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {}
         }
       },
       "position": [
-        1568,
-        96
+        1760,
+        208
       ],
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3
@@ -416,13 +443,16 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "strict"
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
-        1568,
-        288
+        1760,
+        400
       ],
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3
@@ -442,12 +472,11 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $json.elder_id }}"
         },
-        "query": "UPDATE elders SET consent_confirmed_at = now() WHERE id = $1::uuid AND consent_confirmed_at IS NULL AND consent_declined_at IS NULL RETURNING id AS elder_id, first_name, consent_confirmed_at",
-        "resource": "database"
+        "query": "UPDATE elders SET consent_confirmed_at = now() WHERE id = $1::uuid AND consent_confirmed_at IS NULL AND consent_declined_at IS NULL RETURNING id AS elder_id, first_name, consent_confirmed_at"
       },
       "position": [
-        1792,
-        192
+        1984,
+        304
       ],
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6
@@ -470,13 +499,16 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "strict"
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
-        1792,
-        384
+        1984,
+        496
       ],
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3
@@ -496,12 +528,11 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $json.elder_id }}"
         },
-        "query": "UPDATE elders SET consent_declined_at = now() WHERE id = $1::uuid AND consent_confirmed_at IS NULL AND consent_declined_at IS NULL RETURNING id AS elder_id, first_name, consent_declined_at",
-        "resource": "database"
+        "query": "UPDATE elders SET consent_declined_at = now() WHERE id = $1::uuid AND consent_confirmed_at IS NULL AND consent_declined_at IS NULL RETURNING id AS elder_id, first_name, consent_declined_at"
       },
       "position": [
-        2016,
-        288
+        2208,
+        400
       ],
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6
@@ -524,13 +555,16 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "strict"
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
-        2016,
-        480
+        2208,
+        592
       ],
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3
@@ -539,20 +573,22 @@
       "id": "23ca64c7-87fa-4a90-8652-5bc91dc10b8a",
       "name": "Call WF-3a Response Handler",
       "parameters": {
-        "mode": "once",
         "options": {
           "waitForSubWorkflow": true
         },
-        "source": "database",
         "workflowId": {
           "__rl": true,
           "mode": "id",
           "value": "j0CWtHYyzplmad09"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {}
         }
       },
       "position": [
-        2240,
-        384
+        2432,
+        496
       ],
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3
@@ -575,13 +611,16 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "strict"
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
-        2240,
-        576
+        2432,
+        688
       ],
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3
@@ -590,20 +629,22 @@
       "id": "2e90b63a-d80a-47a4-84c9-c30b7745af85",
       "name": "Call WF-3d Food and Health Response",
       "parameters": {
-        "mode": "once",
         "options": {
           "waitForSubWorkflow": true
         },
-        "source": "database",
         "workflowId": {
           "__rl": true,
           "mode": "id",
           "value": "Mx035ogWEoY1MEdU"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {}
         }
       },
       "position": [
-        2464,
-        480
+        2656,
+        592
       ],
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3
@@ -626,13 +667,16 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "strict"
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
-        2464,
-        672
+        2656,
+        784
       ],
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3
@@ -641,20 +685,22 @@
       "id": "d4a8167b-d148-4495-b39d-b82e745e289a",
       "name": "Call WF-5 Voice Transcription",
       "parameters": {
-        "mode": "once",
         "options": {
           "waitForSubWorkflow": false
         },
-        "source": "database",
         "workflowId": {
           "__rl": true,
           "mode": "id",
           "value": "IC6oR4fuQd2VMkfQ"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {}
         }
       },
       "position": [
-        2688,
-        576
+        2880,
+        688
       ],
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3
@@ -664,8 +710,8 @@
       "name": "Unhandled - Future Branches Here",
       "parameters": {},
       "position": [
-        2688,
-        768
+        2880,
+        880
       ],
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1
@@ -680,6 +726,70 @@
       ],
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1
+    },
+    {
+      "id": "d0332008-3863-44a7-9fc5-014a9e47d200",
+      "name": "SOS Cancel?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "28fd6b93-7cf5-4c7f-9541-3c54c5050225",
+              "leftValue": "={{ $json.route }}",
+              "operator": {
+                "name": "filter.operator.equals",
+                "operation": "equals",
+                "type": "string"
+              },
+              "rightValue": "sos_cancel"
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        1120,
+        96
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "id": "d9422ffe-f404-4398-8e25-738b3ac31889",
+      "name": "Call 'ElderWise WF-10 - SOS Cancel Handler'",
+      "parameters": {
+        "options": {
+          "waitForSubWorkflow": false
+        },
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ElderWise WF-10 - SOS Cancel Handler",
+          "cachedResultUrl": "/workflow/CPDmCJh8e1WO8Sod",
+          "mode": "list",
+          "value": "CPDmCJh8e1WO8Sod"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [],
+          "value": {}
+        }
+      },
+      "position": [
+        1328,
+        0
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3
     }
   ],
   "settings": {
