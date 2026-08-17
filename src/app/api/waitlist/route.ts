@@ -108,20 +108,18 @@ export async function POST(request: Request) {
   }
 
   const payload = parsed.data;
+  const id = crypto.randomUUID();
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("waitlist")
-    .insert({
-      full_name: payload.fullName,
-      email: payload.email,
-      phone: payload.phone,
-      whatsapp: payload.whatsapp,
-      caring_for: payload.caringFor ?? null,
-      location: payload.location ?? null,
-      consent: payload.consent,
-    })
-    .select("id")
-    .maybeSingle();
+  const { error } = await supabase.from("waitlist").insert({
+    id,
+    full_name: payload.fullName,
+    email: payload.email,
+    phone: payload.phone,
+    whatsapp: payload.whatsapp,
+    caring_for: payload.caringFor ?? null,
+    location: payload.location ?? null,
+    consent: payload.consent,
+  });
 
   if (error) {
     console.error("[waitlist] insert failed", error.message);
@@ -129,21 +127,15 @@ export async function POST(request: Request) {
     return json({ ok: false, error: "Could not join the waitlist. Please try again." }, 500);
   }
 
-  if (!data) {
-    console.error("[waitlist] insert returned no row (RLS denial or empty result)");
-    Sentry.captureMessage("Waitlist insert returned no row", { level: "error" });
-    return json({ ok: false, error: "Could not join the waitlist. Please try again." }, 500);
-  }
-
   try {
-    await notifyN8n(data.id);
+    await notifyN8n(id);
   } catch (error) {
     console.error("[waitlist] n8n notify threw after insert", {
-      waitlist_id: data.id,
+      waitlist_id: id,
       body: error instanceof Error ? error.message : String(error),
     });
-    Sentry.captureException(error, { extra: { waitlist_id: data.id } });
+    Sentry.captureException(error, { extra: { waitlist_id: id } });
   }
 
-  return json({ ok: true, id: data.id }, 200);
+  return json({ ok: true, id }, 200);
 }
