@@ -18,10 +18,10 @@ export default function SafetyPage() {
       <MotionSection className="mx-auto max-w-6xl px-4 pb-10 pt-16 sm:px-6 sm:pt-20">
         <MotionItem>
           <SectionEyebrow>Safety</SectionEyebrow>
-          <SectionHeading>Clear escalation. Honest limits. Human support.</SectionHeading>
+          <SectionHeading>Everyone knows their role. Including us.</SectionHeading>
           <SectionLead>
-            ElderWise helps families coordinate when something feels urgent — while staying clear
-            that we are not a replacement for emergency services or medical professionals.
+            ElderWise helps families coordinate when something feels urgent. It is not a replacement
+            for emergency services or medical professionals.
           </SectionLead>
         </MotionItem>
       </MotionSection>
@@ -32,17 +32,17 @@ export default function SafetyPage() {
             {
               icon: ShieldAlert,
               title: "SOS escalation",
-              text: "When an SOS is triggered, ElderWise notifies the Care Partner, Local Buddy, and Family Doctor in the Loved One’s care circle.",
+              text: "When an SOS is triggered, ElderWise notifies everyone in your Loved One’s Care Circle at once.",
             },
             {
               icon: Users,
               title: "Trusted people, clear roles",
-              text: "Local Buddies can respond nearby. Care Partners stay informed remotely. Doctors are reserved for urgent situations.",
+              text: "Local Buddies can be there in person. Care Partners stay informed remotely. Doctors are notified only in urgent situations.",
             },
             {
               icon: Phone,
               title: "Always call local emergency services",
-              text: "In a real emergency, contact local emergency services immediately. ElderWise supports family communication — it does not replace 911 or equivalent services.",
+              text: "In a real emergency, call local emergency services immediately. ElderWise supports family communication. It does not replace emergency services.",
             },
           ].map((item) => {
             const Icon = item.icon;
@@ -74,10 +74,11 @@ export default function SafetyPage() {
                 ElderWise is not a substitute for professional medical advice, diagnosis, or treatment.
               </li>
               <li className="rounded-2xl border bg-background px-5 py-4 text-sm leading-relaxed">
-                Voice Journal mood summaries are reflective aids, not clinical conclusions.
+                Voice Journal mood summaries are there to help you reflect. They are not clinical
+                assessments.
               </li>
               <li className="rounded-2xl border border-sos/20 bg-sos-soft/60 px-5 py-4 text-sm leading-relaxed text-foreground">
-                In a real emergency, contact local emergency services first.
+                In a real emergency, call local emergency services first.
               </li>
             </ul>
             <Button asChild className="mt-8" variant="outline">
@@ -88,8 +89,8 @@ export default function SafetyPage() {
       </MotionSection>
 
       <FinalCta
-        title="Care with clarity and care with honesty."
-        description="Set up a trusted circle so the right people know when to step in."
+        title="Care with clarity and honesty."
+        description="Set up a Care Circle so the right people know when to step in."
       />
     </>
   );

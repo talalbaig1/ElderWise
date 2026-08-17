@@ -36,7 +36,7 @@ export default function FaqPage() {
     <>
       <MotionSection className="mx-auto max-w-3xl px-4 pb-8 pt-16 sm:px-6 sm:pt-20">
         <MotionItem>
-          <SectionEyebrow>FAQ</SectionEyebrow>
+          <SectionEyebrow>FAQs</SectionEyebrow>
           <SectionHeading>Answers for Care Partners getting started.</SectionHeading>
           <SectionLead>
             If you still have questions, explore how ElderWise works or begin with a Care Partner
@@ -44,10 +44,10 @@ export default function FaqPage() {
           </SectionLead>
           <div className="mt-6 flex flex-wrap gap-3">
             <Button asChild>
-              <Link href="/sign-up">Get Started</Link>
+              <Link href="/sign-up">Get started</Link>
             </Button>
             <Button asChild variant="outline">
-              <Link href="/how-it-works">How it works</Link>
+              <Link href="/how-it-works">See how it works</Link>
             </Button>
           </div>
         </MotionItem>

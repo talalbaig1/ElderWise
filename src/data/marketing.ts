@@ -1,28 +1,28 @@
 export const marketingFaq = [
   {
-    question: "Does the Loved One need to install an app?",
+    question: "Does your Loved One need to install an app?",
     answer:
-      "No. ElderWise reaches your Loved One through familiar WhatsApp conversations. They reply with simple responses like Yes, No, or Remind me later.",
+      "No. ElderWise reaches your Loved One through familiar WhatsApp conversations. They reply with simple responses like Yes, all, Some of them, or Not yet.",
   },
   {
     question: "How do WhatsApp reminders work?",
     answer:
-      "You set medication, meal, and wellness routines. ElderWise sends check-ins at the scheduled times. Responses appear on your Care Partner dashboard, history, and reports.",
+      "You set medication, meal, and wellbeing routines. ElderWise sends check-ins at the scheduled times. Responses appear on your Care Partner dashboard, history, and reports.",
   },
   {
     question: "Can I manage more than one Loved One?",
     answer:
-      "Yes. Care Partners can support multiple Loved Ones — for example a parent and a grandparent — and switch between them from the dashboard.",
+      "Yes. Care Partners can support multiple Loved Ones, for example a parent and a grandparent, and switch between them from the dashboard.",
   },
   {
     question: "Who receives an SOS alert?",
     answer:
-      "When an SOS is triggered, ElderWise notifies the Care Partner, Local Buddy, and Family Doctor in the Loved One’s care circle. In a real emergency, always contact local emergency services.",
+      "When an SOS is triggered, ElderWise notifies everyone in your Loved One’s Care Circle at once. In a real emergency, always call local emergency services.",
   },
   {
     question: "Can routines be changed later?",
     answer:
-      "Absolutely. Medication times, meal check-ins, and wellness questions can be edited, paused, or expanded whenever your Loved One’s needs change.",
+      "Absolutely. Medication times, meal check-ins, and wellbeing questions can be edited, paused, or expanded whenever your Loved One’s needs change.",
   },
   {
     question: "Can reports be downloaded?",

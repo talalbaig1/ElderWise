@@ -3,7 +3,8 @@ export const publicNav = [
   { href: "/how-it-works", label: "How It Works" },
   { href: "/safety", label: "Safety" },
   { href: "/about", label: "About" },
-  { href: "/faq", label: "FAQ" },
+  { href: "/faq", label: "FAQs" },
+  { href: "/waitlist", label: "Waitlist" },
 ] as const;
 
 export const appNav = [

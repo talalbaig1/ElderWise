@@ -28,7 +28,7 @@ export function PublicFooter() {
             ))}
             <li>
               <Link href="/sign-up" className="hover:text-foreground">
-                Get Started
+                Get started
               </Link>
             </li>
           </ul>
@@ -70,7 +70,7 @@ export function PublicFooter() {
             </li>
             <li>
               <Link href="/faq" className="hover:text-foreground">
-                FAQ
+                FAQs
               </Link>
             </li>
           </ul>
@@ -101,10 +101,16 @@ export function PublicFooter() {
       <div className="border-t">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <p>© {new Date().getFullYear()} ElderWise. Demo marketing experience.</p>
-          <p className="max-w-xl sm:text-right">
-            ElderWise supports family communication and routine monitoring. It is not a substitute
-            for professional medical advice or emergency services.
-          </p>
+          <div className="max-w-xl space-y-2 sm:text-right">
+            <p>
+              ElderWise supports family communication and routine monitoring. It is not a substitute
+              for professional medical advice or emergency services.
+            </p>
+            <p>
+              WhatsApp is a trademark of Meta Platforms, Inc. ElderWise is not affiliated with or
+              endorsed by WhatsApp or Meta.
+            </p>
+          </div>
         </div>
       </div>
     </footer>

@@ -1,8 +1,8 @@
 | Field | Value |
 | --- | --- |
-| **Document** | PostDemoEnhancements.md — v1.5 |
+| **Document** | PostDemoEnhancements.md — v1.6 |
 | **Project** | ElderWise · AIGF Cohort 7 · Group 7 |
-| **Date** | 12 August 2026 |
+| **Date** | 17 August 2026 |
 | **Status** | Deferred by ruling — scheduled to begin after Demo Day, 29 August 2026 |
 
 ## Purpose
@@ -218,6 +218,35 @@ Accounts that never finish onboarding leave a `care_partners` row (often `whatsa
 
 **Deferred 12 August 2026.** Out of Demo Day scope; account-semantics risk if rushed. Complements the onboarding Sign out exit (local draft clear) — does not replace it.
 
+### PD-17 · Voice journal retention
+
+**Layer:** storage + product policy · **Owner:** Talal · **Deferred 17 August 2026 (Talal)**
+
+Voice audio and transcripts are stored indefinitely with no expiry. Accepted for the capstone. A retention policy is owed after Demo Day.
+
+Related: A-23 / PD-8 (voice-notes bucket objects) and A-24 (consent does not cover storing recordings). This item is the product-level retention decision, not the bucket-cleanup mechanism.
+
+### PD-18 · Waitlist email deliverability
+
+**Layer:** n8n / email · **Owner:** Talal · **Deferred 17 August 2026 (Talal)**
+
+WF-8 confirmations send from a personal Gmail account via OAuth. Adequate for the capstone. A real transactional provider with a verified sending domain is the post-demo fix.
+
+### PD-19 · Waitlist email uniqueness — **open decision**
+
+**Layer:** database / WF-8 · **Owner:** Talal · **Opened 17 August 2026. Not resolved.**
+
+There is no unique constraint on `waitlist.email`. Duplicates are permitted at the database.
+
+A unique index would dedupe, but under an insert-only, no-select policy a unique violation is the only signal an anonymous caller ever receives back — which makes it an **email-enumeration oracle**.
+
+**Options (neither chosen):**
+
+1. Leave duplicates and dedupe in WF-8 on `lower(email)`.
+2. Add a unique index and accept the oracle.
+
+Do not write uniqueness up as settled. Record any future ruling here.
+
 ## Explicitly NOT deferred
 
 Recorded here so nobody mistakes them for register items:
@@ -233,6 +262,7 @@ Recorded here so nobody mistakes them for register items:
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 17 Aug 2026 | 1.6 | **PD-17 / PD-18 / PD-19 added.** Voice journal retention (indefinite, accepted for capstone). Waitlist email from personal Gmail (transactional provider post-demo). Waitlist email uniqueness — **open decision**, not resolved. |
 | 12 Aug 2026 | 1.5 | **PD-16 added.** Automated cleanup of abandoned signups — time-based discriminator (not “no active elder” alone), two-phase flag→delete (14 days), audit table before CASCADE, prefer `pg_cron`. Also corrects “Explicitly NOT deferred” test-case count from 110 unrun → 67 remaining (reconciled 12 August 2026). |
 | 12 Aug 2026 | 1.4 | **PD-15 added.** `countOwnActiveElders` `if (error) return 0` footgun — failed query looks like empty; all four gates send onboarded CTs to onboarding. Client guards cannot simply throw (AuthLoading forever). Deferred after shipping onboarding Sign out. |
 | 11 Aug 2026 | 1.3 | **PD-13 and PD-14 added.** From Architecture A-37 / A-38 (assessed and deferred). PD-13 — align Care Circle "active" share-link filter with reveal (observable from 10 September 2026). PD-14 — elder-wide cap on unrevoked share links; note A-36's partial index excludes SOS-minted rows by predicate. Measurement: 3 unrevoked links, 0 expired, 0 expiring before Demo Day, earliest expiry 10 September 2026, max 2 per elder, 2 SOS-minted / 1 dashboard-issued. |

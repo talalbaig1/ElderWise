@@ -17,9 +17,9 @@ interface FinalCtaProps {
 }
 
 export function FinalCta({
-  eyebrow = "Begin with calm confidence",
-  title = "Stay close to their everyday wellbeing.",
-  description = "Create a Care Partner account, add your Loved One, and build a routine that feels human — not clinical.",
+  eyebrow = "Ready when you are",
+  title = "Stay close to their everyday care.",
+  description = "Create a Care Partner account, add your Loved One, and build a routine that feels human, not clinical.",
 }: FinalCtaProps) {
   return (
     <MotionSection className="relative overflow-hidden bg-primary text-primary-foreground">
@@ -35,7 +35,7 @@ export function FinalCta({
               size="lg"
               className="bg-white text-primary hover:bg-white/90"
             >
-              <Link href="/sign-up">Start caring with ElderWise</Link>
+              <Link href="/sign-up">Get started</Link>
             </Button>
             <Button
               asChild

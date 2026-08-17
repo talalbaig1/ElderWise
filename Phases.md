@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.19 |
-| **Date** | 10 August 2026 |
+| **Document** | Phases.md — v1.20 |
+| **Date** | 17 August 2026 |
 | **Demo Day** | **Saturday 29 August 2026** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Templates.md` |
 
@@ -125,6 +125,7 @@ Build all 8 screens against hardcoded fixtures. **No database. No auth. No API.*
 | A2.7 | ~~Dashboard SOS-resolution route handler + **authenticated webhook to n8n** (§8, WF-4).~~ — **DONE.** n8n receiver **ElderWise WF-4a - SOS Resolution Receiver** (`jeNrf7b7ne3JX2Xu`) + `src/app/api/sos/resolve/route.ts`, verified end to end in production **2 August 2026**. |
 | A2.8 | ~~Reports / PDF generation.~~ — **DONE** (23–24 Jul). |
 | A2.9 | ~~**Verification console** — read-only, approval-gated; closed `CheckId` registry; `/verify` outside `(app)`; `scripts/verify-console-phase4.mjs`.~~ — **DONE 4 August 2026** (`feat/verify-console`, commit `a7d88a8`). See `Architecture.md` §11.2, `Rules.md` C11. Migration `20260804130000_console_access.sql` written; Talal applies. |
+| A2.10 | ~~**Public waitlist** — `public.waitlist` + insert-only RLS, `/waitlist` + landing `WaitlistSection`, `POST /api/waitlist`, **WF-8** email dispatch (`V9VTNaLGJkFGUTFN`).~~ — **DONE 17 August 2026.** WhatsApp confirmation (`elderwise_wl_confirmation`) is **pending Meta approval**, not delivered. |
 
 **Owner:** Ferdous (schema) + TBD (application wiring).
 
@@ -338,6 +339,7 @@ Work deferred until after Demo Day (29 August 2026) is tracked in **`PostDemoEnh
 
 | Date | Version | Change |
 |---|---|---|
+| 17 Aug 2026 | 1.20 | **Waitlist delivered.** Table + insert-only RLS, public form, `POST /api/waitlist`, WF-8 email dispatch (`V9VTNaLGJkFGUTFN`). WhatsApp confirmation pending Meta approval of `elderwise_wl_confirmation` — not delivered. Recorded as A2.10. |
 | 10 Aug 2026 | 1.19 | **D-8 — Google OAuth withdrawn from the MVP.** §1.1 step 3 and A3.1 corrected: auth is email + password only. A3.1 previously claimed Google OAuth was **DONE** when it was never built — false-completion claim struck; placeholders removed 10 Aug; work deferred as `PostDemoEnhancements.md` PD-9. Post-demo range updated to PD-1–PD-11 (adds PD-9 / PD-10 / PD-11). |
 | 9 Aug 2026 | 1.18 | **Post-Demo Day register.** Deferred work lives in `PostDemoEnhancements.md` and is **not** in scope for any current phase (ruling 9 Aug 2026). |
 | 4 Aug 2026 | 1.17 | **Verification console delivered (Track A).** A2.9 DONE — read-only `/verify` console, `console_access` gate, Phase 4 behavioural tests green; `Architecture.md` §11.2, `Rules.md` C11. |
