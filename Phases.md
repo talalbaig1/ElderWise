@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.22 |
+| **Document** | Phases.md — v1.24 |
 | **Date** | 17 August 2026 |
 | **Demo Day** | **Saturday 29 August 2026** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Templates.md` |
@@ -127,6 +127,7 @@ Build all 8 screens against hardcoded fixtures. **No database. No auth. No API.*
 | A2.9 | ~~**Verification console** — read-only, approval-gated; closed `CheckId` registry; `/verify` outside `(app)`; `scripts/verify-console-phase4.mjs`.~~ — **DONE 4 August 2026** (`feat/verify-console`, commit `a7d88a8`). See `Architecture.md` §11.2, `Rules.md` C11. Migration `20260804130000_console_access.sql` written; Talal applies. |
 | A2.10 | ~~**Public waitlist** — `public.waitlist` + insert-only RLS, `/waitlist` + landing `WaitlistSection`, `POST /api/waitlist`, **WF-8** email dispatch (`V9VTNaLGJkFGUTFN`).~~ — **DONE 17 August 2026.** WhatsApp confirmation (`elderwise_wl_confirmation`) is **pending Meta approval**, not delivered. |
 | A2.11 | ~~**Hard delete Loved One** — `DELETE /api/loved-ones/[id]`, session RLS then Storage API + prefix sweep; list-dialog copy with live counts.~~ — **DONE 17 August 2026.** Soft delete rejected (Talal). Profile-page control deferred (PD-24). |
+| A2.12 | ~~**Hard delete Care Partner account** — `DELETE /api/account`, collect-then-`deleteUser`, Settings → Account card.~~ — **DONE 17 August 2026.** Re-onboarding with the same email and WhatsApp numbers is the purpose. Export-before-delete deferred (PD-25). |
 
 **Owner:** Ferdous (schema) + TBD (application wiring).
 
@@ -341,6 +342,8 @@ Work deferred until after Demo Day (29 August 2026) is tracked in **`PostDemoEnh
 
 | Date | Version | Change |
 |---|---|---|
+| 17 Aug 2026 | 1.24 | **Routine default time +2 min.** `ROUTINE_DEFAULT_TIME_OFFSET_MINUTES` = 2 (live-demo create must not be swept to missed before dispatch). Account-delete audit: `storage_remaining` `-1` on sweep failure. |
+| 17 Aug 2026 | 1.23 | **Care Partner account delete delivered.** A2.12: `DELETE /api/account` (collect elders / storage keys, then `auth.admin.deleteUser`). |
 | 17 Aug 2026 | 1.22 | **Loved One hard delete delivered.** A2.11: `DELETE /api/loved-ones/[id]` (session RLS, then `voice-notes` Storage API + prefix sweep). Soft delete rejected. |
 | 17 Aug 2026 | 1.21 | **Voice journal + SOS cancel delivered.** WF-9 (`2KWtzSH22fTNxed9`), WF-10 (`CPDmCJh8e1WO8Sod`), `voice_journals` with RLS, WF-5 / WF-2a rewires. Full manual test pass on the live handset, 17 August 2026. Recorded as B3.6. |
 | 17 Aug 2026 | 1.20 | **Waitlist delivered.** Table + insert-only RLS, public form, `POST /api/waitlist`, WF-8 email dispatch (`V9VTNaLGJkFGUTFN`). WhatsApp confirmation pending Meta approval of `elderwise_wl_confirmation` — not delivered. Recorded as A2.10. |

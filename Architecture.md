@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.50 |
+| **Document** | Architecture.md — v1.52 |
 | **Date** | 17 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
@@ -298,7 +298,7 @@ waitlist   (no FKs, no path to auth.users — public signups; see §5.2 / §6.1)
 |---|---|
 | `id` uuid PK · `elder_id` uuid FK · `enabled` bool (**pause**) · `active` bool (**tombstone**, default true) · `name` text · `type` enum(**unused** — §5.6) · `frequency` enum(**unused** by schedulers — app writes `daily`) · `time` time (local) · `start_date` date NOT NULL (today in elder tz) · `end_date` date null (open-ended) · `days_of_week` text[] (empty = every day; honoured by WF-1c) · `question` text (**unused**) · `answer_type` enum(**unused**) · `notify_care_partner` enum(`every_time`,`only_missed`,`not_required`) · `escalation_minutes` int (default 60) · `typical_bedtime` time null (**unused**) · `typical_wake_time` time null (**unused**) |
 
-> **Escalation defaults differ by domain in the front end** (medication 5 min, food 45, health 60). These are **defaults**, editable per routine. The old blanket "30 across the board" is superseded. **New routines default to `notify_care_partner = every_time` in all three domains**, and their time defaults to **now in the elder's timezone** (`ROUTINE_DEFAULT_TIME_OFFSET_MINUTES`, currently 0).
+> **Escalation defaults differ by domain in the front end** (medication 5 min, food 45, health 60). These are **defaults**, editable per routine. The old blanket "30 across the board" is superseded. **New routines default to `notify_care_partner = every_time` in all three domains**, and their time defaults to **now in the elder's timezone plus two minutes** (`ROUTINE_DEFAULT_TIME_OFFSET_MINUTES` = 2). Two minutes of lead time stops a live-demo create from materialising into a slot that has already passed and being swept to missed without dispatch; it is short enough not to feel like a delay.
 
 > **Two-column model — all three domains (Talal, 12 August 2026).** `enabled` = the Care Partner's pause switch. Dispatch stops; the routine **stays visible** in the routine list with the switch off and an **Inactive** marker. `active` = the tombstone. Soft-delete sets `active = false` AND `enabled = false`; the routine leaves the active list; history is preserved. **An inactive (paused) routine in any domain must be shown, marked inactive — never hidden.** **Never reuse a user-facing field as a tombstone.** PR #19 had reused `enabled` as the food/health tombstone; a paused routine then vanished from the list while remaining alive (`active = true`). That conflation is closed. **Expected side effect:** food/health rows already at `enabled = false` (backfilled `active = true`) reappear in testers' lists marked Inactive — that is intended, not a regression.
 
@@ -475,22 +475,22 @@ Index: `(elder_id, domain, scheduled_for)` and `(status, scheduled_for)` — the
 | `created_at` | timestamptz NOT NULL | default `now()` |
 | `notified_at` | timestamptz | nullable. Set by WF-8 after the confirmation email sends. NULL = not yet notified (replayable). |
 
-**`deletion_events`** — append-only record of hard deletes (Loved One removal from the app, and leftover `voice-notes` objects swept by WF-11). **Deliberately carries no foreign keys:** none to `elders`, because the referenced row is what was destroyed; none to `auth.users`, because that chain is `ON DELETE CASCADE` and would erase the audit along with the account. Live on 17 August 2026. RLS enabled with **zero policies**; `anon` and `authenticated` revoked. Session-client inserts fail. Writes use the service-role client (Next.js `createAdminClient()` after ownership is proven, or n8n's Postgres credential).
+**`deletion_events`** — append-only record of hard deletes (Loved One removal, Care Partner account delete, leftover `voice-notes` objects swept by WF-11). **Deliberately carries no foreign keys:** none to `elders`, because the referenced row is what was destroyed; none to `auth.users`, because that chain is `ON DELETE CASCADE` and would erase the audit along with the account. Live on 17 August 2026. RLS enabled with **zero policies**; `anon` and `authenticated` revoked. Session-client inserts fail. Writes use the service-role client (Next.js `createAdminClient()` after ownership is proven, or n8n's Postgres credential).
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | uuid PK | default `gen_random_uuid()` |
-| `source` | text NOT NULL | `app` (dashboard hard delete) or `wf11` (scheduled sweep). CHECK. |
+| `source` | text NOT NULL | `app` (Loved One hard delete) · `account` (Care Partner account delete) · `wf11` (scheduled sweep). CHECK. |
 | `elder_id` | uuid | nullable. Copied, not referenced. |
 | `elder_first_name` | text | nullable. From the ownership select, before the row is gone. |
 | `care_partner_id` | uuid | nullable. Copied from the session `user.id`. Not an FK. |
 | `rows_deleted` | jsonb | default `{}`. Table → count, counted **server-side before** the DELETE. Never from the request body. |
 | `storage_keys` | text[] | default `{}`. Keys the Storage API actually removed. |
-| `storage_remaining` | int | default 0. From the post-removal prefix re-list. |
+| `storage_remaining` | int | default 0. From the post-removal prefix re-list. **`0` = re-listed and verified empty. `-1` = the storage sweep threw; the count is unknown.** Do not write `0` when the sweep failed. |
 | `note` | text | nullable |
 | `created_at` | timestamptz | default `now()` |
 
-`DELETE /api/loved-ones/[id]` inserts `source = 'app'` **after** the verification re-list. If that insert fails, the request still returns success — the elder is already gone. WF-11 is the backstop: 15-minute cron, own row with `source = 'wf11'`.
+`DELETE /api/loved-ones/[id]` inserts `source = 'app'` **after** the verification re-list. `DELETE /api/account` inserts `source = 'account'` — one row per elder plus a summary row (`elder_id` NULL, note names the elder count). If that insert fails, the request still returns success — the rows are already gone. WF-11 is the backstop: 15-minute cron, own row with `source = 'wf11'`.
 
 ---
 
@@ -610,6 +610,23 @@ Soft-deleting a product elder was proposed and **rejected**. `DELETE /api/loved-
 **Accepted race:** a Loved One deleted in the seconds between a scheduler send node firing and the row disappearing can receive one final WhatsApp check-in. WF-1 / WF-1b / WF-1c do not crash; the terminal `UPDATE` matches zero rows and stops. Documented, not fixed.
 
 The only UI entry point is the Loved Ones list dialog. A delete control on `/loved-ones/[id]` is deferred (`PostDemoEnhancements.md` PD-24).
+
+### 5.9 Care Partner account delete (Talal, 17 August 2026)
+
+Purpose: **re-onboarding**. After deletion the same person must be able to sign up again with the **same email** and onboard elders on the **same WhatsApp numbers**. `elders.whatsapp_number` is a plain UNIQUE with no tombstone — only a hard delete frees the number.
+
+`care_partners.id` is the **only** public FK to `auth.users`, `ON DELETE CASCADE`. That chain reaches elders and every descendant. Therefore **one** `auth.admin.deleteUser()` removes the account and every child row. Do not write per-table deletes. `deletion_events.care_partner_id` has no FK, so audit rows survive.
+
+`DELETE /api/account`:
+
+1. Session `getUser()`. No user → **401**.
+2. Request body email must match the session email (case-insensitive, trimmed). Mismatch → **400**. Nothing is deleted.
+3. **Admin client.** Collect every elder id for this Care Partner (including `active = false`), per-elder cascade counts (admin — `watchdog_alerts` has no authenticated SELECT), and every `audio_path` from `voice_journals` and `voice_replies`. Once the auth user is gone these are unrecoverable (`Rules.md` SEC12).
+4. `auth.admin.deleteUser(user.id)`.
+5. Storage API remove of collected keys, then `{elder_id}/` prefix sweep per elder. Leftovers logged; request still succeeds — **WF-11** is the backstop.
+6. `deletion_events` `source = 'account'`: one row per elder, plus a summary row (`elder_id` NULL). Insert failure is logged, not returned.
+
+UI: Settings → Account, last card after Sign out. Confirm button disabled until the typed email matches.
 
 ## 6. Data isolation (RLS) — P4
 
@@ -1184,7 +1201,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 
 ### 12.5 Security posture (as built)
 
-- **The service-role key appears in exactly one Next.js module:** `src/lib/supabase/admin.ts`. Importers: doctor share-link server paths, `GET /api/voice-journal/[id]/audio` (sign after session RLS), `DELETE /api/loved-ones/[id]` (storage remove and `deletion_events` insert after session RLS). Every other app data path uses the anon key with the user's session so RLS applies. (n8n still holds the service-role key as trusted infrastructure — unchanged from §6.) The admin client is constructed **only after** ownership is proven with the session client (`Rules.md` SEC11).
+- **The service-role key appears in exactly one Next.js module:** `src/lib/supabase/admin.ts`. Importers: doctor share-link server paths, `GET /api/voice-journal/[id]/audio` (sign after session RLS), `DELETE /api/loved-ones/[id]` (storage remove and `deletion_events` insert after session RLS), `DELETE /api/account` (collect, `deleteUser`, storage, audit after session `getUser`). Every other app data path uses the anon key with the user's session so RLS applies. (n8n still holds the service-role key as trusted infrastructure — unchanged from §6.) The admin client is constructed **only after** ownership is proven with the session client (`Rules.md` SEC11).
 - **Rate limiting is fail-open by design.** If the limiter is unreachable, misconfigured, or unset, the request proceeds and a warning is logged. The share token and the user session are the real access controls; a limiter outage must not stop a doctor reading a share or a CT downloading a PDF. Do not harden to fail-closed.
 - **The PDF route verifies elder ownership before generating.** A report is health data leaving the system. Cap: **5 requests per minute per user id**.
 - **Supabase Auth “IP address forwarding” is Off** (recorded, not changed). Auth's per-IP quotas may not key on the end-user IP behind Vercel.
@@ -1280,6 +1297,8 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 
 | Date | Version | Change |
 |---|---|---|
+| 17 Aug 2026 | 1.52 | **Routine default time +2 min.** `ROUTINE_DEFAULT_TIME_OFFSET_MINUTES` = 2 so a live-demo create is not swept to missed before dispatch. **`deletion_events.storage_remaining`:** `0` = verified empty; `-1` = sweep failed, count unknown. |
+| 17 Aug 2026 | 1.51 | **Care Partner account delete.** `DELETE /api/account`: collect elders / counts / audio paths with the admin client, then one `auth.admin.deleteUser()` (the cascade root). `deletion_events` `source='account'` — one row per elder plus a summary. Re-onboarding with the same email and WhatsApp numbers is the purpose. |
 | 17 Aug 2026 | 1.50 | **`deletion_events` + WF-11 on the map.** Append-only audit of hard deletes; no FKs to `elders` or `auth.users` (CASCADE would erase the audit). App insert is service-role after the storage re-list; failure does not fail the request. WF-11 (15-minute cron, `source='wf11'`) is the leftover-object backstop. |
 | 17 Aug 2026 | 1.49 | **Product Loved One hard delete.** `DELETE /api/loved-ones/[id]`: session RLS then Storage API + `{elder_id}/` prefix sweep (`storage.objects` has no RLS, so cascade cannot clear `voice-notes`). Soft delete rejected (Talal). Accepted scheduler race documented. WF-11 is the leftover-object backstop. Profile-page delete control → PD-24. |
 | 17 Aug 2026 | 1.48 | **Voice journal + SOS cancel.** Workflow map 22 → **24**: WF-9 (`2KWtzSH22fTNxed9`) ingest to `voice_journals`; WF-10 (`CPDmCJh8e1WO8Sod`) elder `cancel` (Option A: `resolved`, `resolved_by_role` NULL → WF-4c *"Someone"*). WF-5 false branch → WF-9; unprompted voice **is** stored (Talal, 17 Aug — prior "never has audio stored" safeguard superseded). Classifier is not reliable emergency detection. E2E on live handset 17 Aug. |
