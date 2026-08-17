@@ -386,7 +386,8 @@ export function buildReportModel(
         id: item.id,
         title: checkInTitle(item, store),
         time: fmtEvent(item.scheduledAt, viewerTimeZone),
-        description: item.notes || `Channel: ${item.channel}`,
+        description:
+          item.voiceTranscript || item.notes || `Channel: ${item.channel}`,
         status: item.status,
         responseLabel: formatResponseValueLabel(
           item.response != null ? String(item.response) : undefined,
@@ -440,10 +441,16 @@ export function buildReportModel(
 
   if (kind === "voice_journal") {
     const attention = journals.filter((j) => j.attentionFlag).length;
+    const timed = journals.filter(
+      (j): j is typeof j & { durationSeconds: number } =>
+        typeof j.durationSeconds === "number",
+    );
     const avgDuration =
-      journals.length > 0
-        ? Math.round(journals.reduce((s, j) => s + j.durationSeconds, 0) / journals.length)
-        : 0;
+      timed.length > 0
+        ? Math.round(
+            timed.reduce((s, j) => s + j.durationSeconds, 0) / timed.length,
+          )
+        : null;
     const moods = moodCounts(journals);
     const summary =
       journals.length === 0
@@ -463,7 +470,8 @@ export function buildReportModel(
     const tableRows = journals.map((j) => ({
       Date: fmtTable(j.recordedAt, viewerTimeZone),
       Mood: j.mood,
-      DurationSec: j.durationSeconds,
+      DurationSec:
+        typeof j.durationSeconds === "number" ? j.durationSeconds : "—",
       Themes: j.themes.join("; "),
       Summary: j.aiSummary,
       Attention: j.attentionFlag ? "yes" : "no",
@@ -480,7 +488,9 @@ export function buildReportModel(
       lovedOne,
       metrics: [
         { label: "Entries", value: journals.length },
-        { label: "Avg length", value: `${avgDuration}s` },
+        ...(avgDuration != null
+          ? [{ label: "Avg length", value: `${avgDuration}s` }]
+          : []),
         { label: "Attention flags", value: attention },
         { label: "Top mood", value: moods[0]?.name ?? "—" },
       ],
@@ -494,7 +504,7 @@ export function buildReportModel(
       snapshotMetrics: {
         entries: journals.length,
         attentionFlags: attention,
-        avgDurationSeconds: avgDuration,
+        ...(avgDuration != null ? { avgDurationSeconds: avgDuration } : {}),
       },
     };
   }

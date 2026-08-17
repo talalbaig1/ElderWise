@@ -18,6 +18,8 @@ import type {
   LocalBuddy,
   FamilyDoctor,
   NotificationCategory,
+  MoodTag,
+  VoiceJournalEntry,
 } from "@/types";
 
 export type DbCheckInStatus =
@@ -506,4 +508,85 @@ export function ctNotificationFromRow(
     read: false,
     href: row.checkin_id ? "/dashboard" : "/notifications",
   };
+}
+
+export interface VoiceJournalRow {
+  id: string;
+  elder_id: string;
+  recorded_at: string;
+  duration_seconds: number | null;
+  transcript: string | null;
+  ai_summary: string | null;
+  mood: string | null;
+  themes: unknown;
+  attention_flag: boolean | null;
+}
+
+const MOOD_TAGS: ReadonlySet<string> = new Set([
+  "positive",
+  "calm",
+  "tired",
+  "lonely",
+  "concerned",
+  "neutral",
+]);
+
+function moodFromRow(value: string | null): MoodTag {
+  const v = (value ?? "").trim().toLowerCase();
+  return MOOD_TAGS.has(v) ? (v as MoodTag) : "neutral";
+}
+
+function themesFromRow(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .filter((t): t is string => typeof t === "string")
+      .map((t) => t.trim())
+      .filter(Boolean);
+  }
+  if (typeof value === "string" && value.trim()) {
+    return value
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+/** First ~120 characters on a word boundary, with an ellipsis. */
+export function transcriptPreviewFrom(transcript: string | null | undefined): string {
+  const t = (transcript ?? "").trim();
+  if (!t) return "";
+  if (t.length <= 120) return t;
+  const cut = t.slice(0, 120);
+  const lastSpace = cut.lastIndexOf(" ");
+  const base = lastSpace > 80 ? cut.slice(0, lastSpace) : cut;
+  return `${base}…`;
+}
+
+export function voiceJournalFromRow(row: VoiceJournalRow): VoiceJournalEntry {
+  const transcript = row.transcript?.trim() || undefined;
+  const duration =
+    typeof row.duration_seconds === "number" && Number.isFinite(row.duration_seconds)
+      ? row.duration_seconds
+      : undefined;
+
+  return {
+    id: row.id,
+    lovedOneId: row.elder_id,
+    recordedAt: row.recorded_at,
+    ...(duration !== undefined ? { durationSeconds: duration } : {}),
+    audioUrl: `/api/voice-journal/${row.id}/audio`,
+    transcriptPreview: transcriptPreviewFrom(row.transcript),
+    ...(transcript ? { transcript } : {}),
+    aiSummary: (row.ai_summary ?? "").trim(),
+    mood: moodFromRow(row.mood),
+    themes: themesFromRow(row.themes),
+    attentionFlag: Boolean(row.attention_flag),
+  };
+}
+
+export interface VoiceReplyRow {
+  checkin_id: string;
+  transcript: string | null;
+  created_at: string;
 }
