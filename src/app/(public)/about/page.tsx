@@ -20,8 +20,8 @@ export default function AboutPage() {
           <SectionHeading>Built for the love that stretches across distance.</SectionHeading>
           <SectionLead>
             ElderWise exists for adult children and families who want to stay present in a Loved
-            One’s everyday wellbeing — medication, meals, mood, and moments that matter — without
-            turning care into a hospital portal.
+            One’s everyday wellbeing. That includes medication, meals, mood, and moments that matter,
+            without turning care into a hospital portal.
           </SectionLead>
         </MotionItem>
       </MotionSection>
@@ -40,7 +40,7 @@ export default function AboutPage() {
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button asChild>
-                  <Link href="/sign-up">Get Started</Link>
+                  <Link href="/sign-up">Get started</Link>
                 </Button>
                 <Button asChild variant="outline">
                   <Link href="/safety">Our safety stance</Link>
