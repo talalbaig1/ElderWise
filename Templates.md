@@ -4,12 +4,12 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · Team Lead: Talal Baig |
-| **Document** | Templates.md — v1.13 |
-| **Date** | 11 August 2026 |
+| **Document** | Templates.md — v1.14 |
+| **Date** | 17 August 2026 |
 | **Purpose** | Every message ElderWise sends. **Reconciled against the live Meta WABA — this document now records what Meta actually approved, not what was drafted.** |
 | **WABA** | `1495493002256968` · display number **966503330619** |
 | **Owner** | Talal (submission) · Sama + Reema (copy & tone) |
-| **Status** | 🟢 **ALL 16 APPROVED** — full message set cleared by Meta, including the health v2 pair |
+| **Status** | 16 UTILITY templates **APPROVED** in the WABA · **1 MARKETING pending** (`elderwise_wl_confirmation`) |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Phases.md` |
 
 > **⚠️ Authority note.** §4–6 below are **transcribed verbatim from the Meta Graph API**
@@ -109,7 +109,7 @@ review, and the SOS set must not be disturbed.
 
 ## 3. Template registry — live status
 
-Retrieved from Meta **7 August 2026** via the read-only audit workflow `PADE2m75e6xVGS2e` (execution `40237`). All 16 APPROVED.
+Retrieved from Meta **7 August 2026** via the read-only audit workflow `PADE2m75e6xVGS2e` (execution `40237`). Those 16 remain APPROVED. `elderwise_wl_confirmation` (below) is pending and was not in that snapshot.
 
 | # | Template name | Audience | Status | Vars | Buttons | Meta template ID |
 |---|---|---|---|---|---|---|
@@ -129,9 +129,18 @@ Retrieved from Meta **7 August 2026** via the read-only audit workflow `PADE2m75
 | 14 | `elderwise_sos_resolved` | CT / LCT / DR | ✅ APPROVED | 3 | 0 | `1380761780602851` |
 | 15 | `elderwise_ep_health_checkin_v2` | Elder | ✅ APPROVED | 2 | 2 | `1736094100935290` |
 | 16 | `elderwise_ep_health_reminder_v2` | Elder | ✅ APPROVED | 2 | 2 | `1057601289992008` |
+| — | `elderwise_wl_confirmation` | Waitlist registrant (`wl`) | ⏳ PENDING | — | — | — |
 
 **Also present in the account:** `hello_world` (Meta's sample, `en_US`). Not ours, not used,
 harmless. Do not delete it — it is Meta's connectivity test message.
+
+### 3.0a Waitlist confirmation — ⏳ PENDING (submitted 17 August 2026)
+
+**`elderwise_wl_confirmation`.** Submitted to Meta 17 August 2026. **Reclassified by Meta as MARKETING.** Status **pending approval**. Purpose: waitlist signup confirmation.
+
+The recipient is a waitlist registrant — neither an elder (`ep`) nor a care partner (`ct`). This introduces a **fourth audience prefix** `wl`. Existing prefixes in this document: `ep`, `ct`, `sos`.
+
+WF-8 currently sends **email only**. The WhatsApp branch is not built until this template is APPROVED.
 
 ### 3.0 Health v2 pair — ✅ APPROVED 7 August 2026
 
@@ -679,7 +688,8 @@ people who are not consented elders.
 | **27 July** | **All 14 submitted.** Several reformatted during upload to clear Meta validation errors. | ✅ Done |
 | **28 July** | **13 approved.** `elderwise_sos_alert_doctor` still in review. Live state reconciled into this document. | ✅ Done |
 | **2 August** | **All 14 approved.** `elderwise_sos_alert_doctor` cleared review unchanged. Verified via Graph API. | ✅ Done |
-| **7 August** | **Health v2 pair approved.** `elderwise_ep_health_checkin_v2` and `elderwise_ep_health_reminder_v2` cleared review as `UTILITY` / `en`. 16 approved. Verified via Graph API. | ▶️ Current |
+| **7 August** | **Health v2 pair approved.** `elderwise_ep_health_checkin_v2` and `elderwise_ep_health_reminder_v2` cleared review as `UTILITY` / `en`. 16 approved. Verified via Graph API. | ✅ Done |
+| **17 August** | **`elderwise_wl_confirmation` submitted.** Meta reclassified as MARKETING. Pending approval. 16 approved remain in service; WhatsApp waitlist confirmation not live. | ▶️ Current |
 | **🚦 9 August** | **Channel go/no-go.** Full set approved → **WhatsApp as planned.** | ✅ Cleared early |
 | ~~By 16 August~~ | ~~Template 12 approved, or SOS demo runs on the CT + LCT path alone~~ | ✅ Closed 2 Aug |
 
@@ -698,6 +708,7 @@ placeholder count not matching the samples · buttons over 20 characters.
 
 | Date | Version | Change |
 |---|---|---|
+| 17 Aug 2026 | **1.14** | **`elderwise_wl_confirmation` submitted** (Meta MARKETING, pending). Fourth audience prefix `wl`. Header status no longer “all approved”. 16 WABA-approved templates unchanged. |
 | 11 Aug 2026 | **1.13** | **"Not on Record" supersedes `NA` for absent Buddy/Doctor (§3.3).** Send-time substitution only; DB still untouched; no placeholder rows. Share-link mint failure (`{{3}}` of template 12) still fails open to `NA` (§3.4). Accepted demo defect on templates 10/12 prose recorded; real fix → PD-12. WF-4 Load Care Circle live with four `COALESCE(..., 'Not on Record')` defaults. |
 | 11 Aug 2026 | **1.12** | **Medication check-in copy corrected; A-11 / OT-9 wording signed off.** §1.1 example and §4 template 2 body now match the live Meta-approved text (`Hi *{{1}}* — it's *{{2}}*, time for your medicines: *{{3}} *Did you take them?`). Stray `*{{3}} *` asterisk recorded as a known approved cosmetic defect (Rules W8 — fix needs `_v2`). Period labels: wording signed off by Sama, 10 Aug 2026 — `< 12:00` Morning · `< 17:00` Afternoon · `< 21:00` Evening · else Night are the expected result. |
 | 4 Aug 2026 | **OT-10 opened (no version bump).** Template 8 `{{2}}` domain asymmetry — medication uses derived period label; food/health name the routine/meal. Parked with Sama alongside OT-9 wording sign-off. **No §4–6 body edits.** |

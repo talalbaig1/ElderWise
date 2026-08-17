@@ -5,8 +5,8 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.46 |
-| **Date** | 14 August 2026 |
+| **Document** | Architecture.md — v1.47 |
+| **Date** | 17 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
 
@@ -20,7 +20,7 @@ Five rules govern every decision below. They are not negotiable without a decisi
 
 | # | Principle |
 |---|---|
-| **P1** | **The message path and the dashboard are two separate systems that meet only at the database.** n8n owns everything that touches WhatsApp. Next.js owns everything a human clicks. **One documented exception:** Next.js fires an authenticated server-side webhook to n8n when an SOS is resolved from the dashboard (§8, WF-4) — because on the SOS path, latency is the harm. The database remains the source of truth even there. n8n **never** calls Next.js. |
+| **P1** | **The message path and the dashboard are two separate systems that meet only at the database.** n8n owns everything that touches WhatsApp. Next.js owns everything a human clicks. **Two documented exceptions**, both authenticated **server-side** webhooks after a write has committed: (1) SOS resolution from the dashboard → WF-4a (§8); (2) waitlist signup → WF-8 (§8). The database remains the source of truth. A webhook failure must not fail the user's request. n8n **never** calls Next.js. |
 | **P2** | **The SOS path is sacred.** It is the highest-reliability path in the system. It never queues behind routine reminder traffic, and a failure in it is the most severe class of defect in this codebase. |
 | **P3** | **Never guess on behalf of an elderly person.** If the system cannot determine an answer with confidence, it asks again in plain language. It does not infer, assume, or default. |
 | **P4** | **Data isolation is enforced at the database, not in application code.** Row-Level Security is the boundary. Application bugs must not be able to leak one family's data to another. |
@@ -154,6 +154,8 @@ care_partners ──┐
     │           │                        └── 0..1  ── voice_replies
     │           ├── 1:many ── sos_events ── 1:many ── sos_notifications
     │           └── 1:many ── ct_notifications
+
+waitlist   (no FKs, no path to auth.users — public signups; see §5.2 / §6.1)
 ```
 
 ### 5.2 Tables
@@ -255,7 +257,7 @@ care_partners ──┐
 | `elder_id` | uuid FK | |
 | `domain` | enum(`medication`,`health`,`food`) | UNIQUE with `elder_id` |
 | `enabled` | boolean | **Derived** — mirrors whether any schedulable routine exists in that domain |
-| `frequency` | jsonb | **Derived field** — the sorted union of times from routines that are `active = true` AND `enabled = true` (all three domains), refreshed on create / edit / soft-delete. **Not resynced on pause/resume** (`setRoutineEnabled`) — the cache may lag `enabled`. That is deliberate: no SQL node in any of the 21 committed workflows queries `domain_configs`, and WF-6 derives `notify_mode` from the routine tables (`COALESCE(MIN(m/f/h.notify_care_partner))`, A-9). Do not "fix" the staleness and do not start reading `domain_configs`. Direct edits are overwritten on the next full routine save. Shape e.g. `{"times": ["08:00","20:00"]}` (local times in the elder's tz). No fixed 3×/day (FR-ON-4). |
+| `frequency` | jsonb | **Derived field** — the sorted union of times from routines that are `active = true` AND `enabled = true` (all three domains), refreshed on create / edit / soft-delete. **Not resynced on pause/resume** (`setRoutineEnabled`) — the cache may lag `enabled`. That is deliberate: no SQL node in any of the 22 committed workflows queries `domain_configs`, and WF-6 derives `notify_mode` from the routine tables (`COALESCE(MIN(m/f/h.notify_care_partner))`, A-9). Do not "fix" the staleness and do not start reading `domain_configs`. Direct edits are overwritten on the next full routine save. Shape e.g. `{"times": ["08:00","20:00"]}` (local times in the elder's tz). No fixed 3×/day (FR-ON-4). |
 | `ct_notification` | enum(`every_interaction`,`only_missed`,`not_required`) | **Derived / deprecated (A4).** Not authoritative for Track B. May still be mirrored from routine rows for backward compatibility; **WF-6 does not read it** (built 3 Aug on per-routine `notify_care_partner` — A-9 closed). |
 | `escalate_to` | enum(`care_partner`) | Only the CT escalates. LCT/Doctor are SOS-only. Enum kept for v2 headroom. |
 
@@ -433,6 +435,22 @@ Index: `(elder_id, domain, scheduled_for)` and `(status, scheduled_for)` — the
 
 **`voice_journal_entries`** — **not created in the MVP.** The Voice Journal screen is a hard-coded demo placeholder (FR-DB-6) that renders an **empty state**. There is no `public.voice_journal_entries` table in migrations; `load-app-data.ts` always returns an empty `voiceJournals` array. Do not invent this table or assume it exists in wipe/seed scripts.
 
+**`waitlist`** — public marketing signups. **No foreign keys and no dependents.** This is the only table in the schema not reachable from `auth.users`. n8n reads and stamps it over the Postgres credential (bypasses RLS).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | Generated in `POST /api/waitlist` via `crypto.randomUUID()` and inserted explicitly. Not `gen_random_uuid()` at the database, and **not** read back via `RETURNING` (§6.1). |
+| `full_name` | text NOT NULL | |
+| `email` | text NOT NULL | **No unique constraint.** Duplicate emails are permitted at the database. Whether to add one is an **open decision** (`PostDemoEnhancements.md` PD-19) — do not treat uniqueness as settled. |
+| `phone` | text NOT NULL | |
+| `whatsapp` | text NOT NULL | |
+| `caring_for` | text | nullable; `parent` \| `spouse` \| `other` |
+| `location` | text | nullable |
+| `consent` | boolean NOT NULL | Must be `true`. The insert policy `WITH CHECK`s this. |
+| `source` | text NOT NULL | default `web` |
+| `created_at` | timestamptz NOT NULL | default `now()` |
+| `notified_at` | timestamptz | nullable. Set by WF-8 after the confirmation email sends. NULL = not yet notified (replayable). |
+
 ---
 
 ## 5.3 Front-end ↔ schema naming map
@@ -535,7 +553,7 @@ Draft discard remains **hard DELETE** (D11). Product activation (`active = true`
 
 ## 6. Data isolation (RLS) — P4
 
-Every table above carries a path to `care_partners.id`. RLS is enabled on **all** of them, with policies of the form:
+Every **family-data** table above carries a path to `care_partners.id`. RLS is enabled on **all** of them, with policies of the form:
 
 ```sql
 -- Example: elders
@@ -561,6 +579,21 @@ create policy "CT reads own checkins" on checkins
 - RLS is enabled on every table. No exceptions. A table without RLS is a data breach with a delay fuse.
 - **n8n uses the service-role key** and therefore bypasses RLS. This is deliberate — n8n is trusted infrastructure, not a user session. The service-role key **must never leave the n8n server or the Next.js server runtime**. It is never sent to a browser.
 - **The Doctor share link does not use RLS.** A token is not a session and `auth.uid()` is null. Instead: a Next.js **server-side** route validates the token hash, checks `revoked_at` and `expires_at`, resolves it to exactly one `elder_id`, and queries with the service-role key **scoped to that elder only**. The token never reaches the database and the browser never gets a Supabase key. (See §7.3.)
+- **`waitlist` is the exception to “path to `care_partners.id`”.** See §6.1.
+
+### 6.1 Public unauthenticated writes (`waitlist`)
+
+This is the first table in ElderWise that accepts writes from visitors who are not signed in.
+
+**Policy (one only):** `waitlist_public_insert` — `FOR INSERT TO anon, authenticated WITH CHECK (consent = true)`. No SELECT, UPDATE, or DELETE policy exists for `anon` or `authenticated`. A client-role `SELECT` returns 0 rows even when rows are present — verified 17 August 2026. The signup list is not readable from the browser.
+
+**Why the policy names both `anon` and `authenticated`:** a signed-in Care Partner posting the public form carries the `authenticated` role, not `anon`. An `anon`-only policy silently rejects them (`Rules.md` SEC9). Verified: insert as `anon` succeeds; insert as `authenticated` succeeds.
+
+**Request path:** browser → `POST /api/waitlist` → rate limit (`elderwise:rl:waitlist`, 8 per 10 minutes per IP, **fail-open**) → Zod validation → route-generated `crypto.randomUUID()` → anon insert **with no `RETURNING`** → fire-and-forget WF-8 webhook → `{ ok: true, id }`. Public UI: `/waitlist` and `WaitlistSection` on the landing page (above `FinalCta`).
+
+**Why there is no `RETURNING`:** under an insert-only policy, `INSERT … RETURNING` raises **Postgres error 42501**. Verified by probe on 17 August 2026. Adding a SELECT policy to make `RETURNING` work would make the signup list readable and reintroduce email enumeration. The id is therefore generated in the route and passed in the insert payload. Do not "fix" this by adding a SELECT policy (`Rules.md` D14).
+
+**n8n after commit:** Next.js POSTs to `N8N_WAITLIST_WEBHOOK_URL` with `X-ElderWise-Signature` and body `{ "waitlist_id": "<uuid>" }` **after** the insert commits. A webhook failure is logged to Sentry and **must not fail the user's request** — the row is already saved and WF-8 can be replayed (rows with `notified_at IS NULL`).
 
 ---
 
@@ -600,7 +633,7 @@ Supabase Auth — **email + password only**. Session in an httpOnly cookie via t
 
 ## 8. The message path (n8n)
 
-The n8n instance carried **21 workflows** as of 11 August 2026: 18 operational (including WF-7 Dispatch Watchdog), the shared Error Workflow, and two read-only utilities (Template Audit, Credential Check). Verified by full enumeration. (Prior working map said twenty as of 9 August 2026; sixteen as of 4 August 2026 — gaps were incomplete documentation, not missing builds.)
+The n8n instance carried **22 workflows** as of 17 August 2026: 19 operational (including WF-7 Dispatch Watchdog and WF-8 Waitlist Confirmation Dispatch), the shared Error Workflow, and two read-only utilities (Template Audit, Credential Check). Verified by full enumeration. (21 as of 11 August 2026; prior working map said twenty as of 9 August 2026; sixteen as of 4 August 2026 — gaps were incomplete documentation, not missing builds.)
 
 | Workflow | n8n ID | Trigger | Role |
 |---|---|---|---|
@@ -622,11 +655,12 @@ The n8n instance carried **21 workflows** as of 11 August 2026: 18 operational (
 | **WF-4d** SOS Nudge Sweep | `EY36qDhdv5FqfL0W` | **cron 1 min** | Nudge rounds 1–3, template 13 |
 | **WF-6** Care Partner Notifications (All Domains) | `6I6OC7qJ5YhhUQxU` | sub-workflow | Templates 8 and 9 |
 | **WF-7** Dispatch Watchdog | `8G8s8dNSVySDbPpm` | cron 5 min | Alerts when a check-in was never sent (A-30); once per check-in via `watchdog_alerts` |
+| **WF-8** Waitlist Confirmation Dispatch | `V9VTNaLGJkFGUTFN` | webhook | Email confirmation after a public waitlist insert (`POST /webhook/elderwise-waitlist`) |
 | **Error Workflow** | `uvBstI6J42nNhIYz` | error trigger | Shared Track B failure path → Telegram + Gmail (§11.1) |
 | **Template Audit** (read-only) | `PADE2m75e6xVGS2e` | Manual, inactive | Utility — not on the message path |
 | **Credential Check** (read-only) | `5nVL2BdvqeX2i0AU` | Manual, inactive | Verifies both Supabase credentials (Postgres query + Storage bucket listing) |
 
-**Track B message-path workflows: built** (4 August 2026). **WF-7 Dispatch Watchdog built** (10–11 August 2026). **Remaining:** open items A-31, A-34, A-35; accepted MVP items A-5 / A-14 / A-17–A-19 / A-22 / A-24; `some_of_them` fourth gate output accepted as A-12.
+**Track B message-path workflows: built** (4 August 2026). **WF-7 Dispatch Watchdog built** (10–11 August 2026). **WF-8 Waitlist Confirmation Dispatch built** (17 August 2026) — email only; WhatsApp confirmation pending Meta approval of `elderwise_wl_confirmation`. **Remaining:** open items A-31, A-34, A-35; accepted MVP items A-5 / A-14 / A-17–A-19 / A-22 / A-24; `some_of_them` fourth gate output accepted as A-12.
 > **Three defects fixed this evening (3 Aug 2026) — record as defects, not design intent:**
 >
 > 1. **`days_of_week` was ignored (medication).** WF-1's materialise query never referenced the column, so a Monday/Wednesday/Friday medication fired **every day**. Fixed in all three scheduler queries (WF-1, WF-1b, WF-1c). Empty array means every day; the day name is derived locale-independently from `extract(dow …)` and an explicit array, not `to_char`.
@@ -871,6 +905,14 @@ Verified: manual execution `76386` returned `[]` and halted at the query (quiet 
 
 **Known gap:** WF-7 detects check-ins **created but never sent**. It cannot detect **materialisation failure**, where no row is created at all — the 10 August time-zone outage (**A-35**) produced no rows to be overdue and WF-7 was correctly silent. That failure mode is a node error and is covered by the error workflow instead.
 
+### WF-8 · Waitlist Confirmation Dispatch (`V9VTNaLGJkFGUTFN`) — **built 17 August 2026, active**
+
+- **Trigger:** webhook from Next.js `POST /api/waitlist` after the insert commits. Path: `POST /webhook/elderwise-waitlist`. Header: `X-ElderWise-Signature`. Body: `{ "waitlist_id": "<uuid>" }`. Production URL: `https://vmi3189816.contaboserver.net/webhook/elderwise-waitlist`.
+- **Webhook-bearing** — edit in the n8n UI only (`Rules.md` §6a / W7). Do not re-import the JSON export.
+- **Chain:** Webhook → Load Waitlist Row → Row Found? → Already Notified? → Send Confirmation Email (Gmail) → Stamp `notified_at` → 200. Unknown id → 404. Already notified (`notified_at` set) → 200 with no resend.
+- **Email only.** The WhatsApp branch is **not built** — blocked on Meta approval of `elderwise_wl_confirmation` (`Templates.md`). Do not document WhatsApp confirmation as delivered.
+- n8n reads and writes `public.waitlist` over the Postgres credential (bypasses RLS). Next.js never sends the email.
+
 ### Credential Check — read-only utility (`5nVL2BdvqeX2i0AU`)
 - **Trigger:** Manual. **Inactive** — not on the message path.
 - Verifies both Supabase credentials: a Postgres query plus a Storage bucket listing.
@@ -1043,6 +1085,7 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 | Supabase anon key | Vercel public env | (safe by design — RLS protects it) |
 | Meta WhatsApp token | n8n credentials | anywhere else |
 | **n8n SOS-resolution webhook secret** | Vercel server env + n8n | Never `NEXT_PUBLIC_*`; never client-side |
+| **n8n waitlist webhook URL + secret** | Vercel server env + n8n (`N8N_WAITLIST_WEBHOOK_URL` / `_SECRET`) | Never `NEXT_PUBLIC_*`; never client-side |
 | OpenAI / STT keys | n8n credentials | client-side |
 | Doctor share tokens | Hashed in the DB; raw token exists only in the URL | Stored raw. Ever. |
 
@@ -1144,6 +1187,7 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 
 | Date | Version | Change |
 |---|---|---|
+| 17 Aug 2026 | 1.47 | **Waitlist + WF-8.** `public.waitlist` (no FKs; insert-only RLS; route-generated id; no `RETURNING` — 42501). `POST /api/waitlist` → WF-8 (`V9VTNaLGJkFGUTFN`, email only). Workflow map 21 → **22**. Public unauthenticated writes recorded as §6.1. P1: second Next.js→n8n webhook exception. Email uniqueness still open (PD-19). |
 | 14 Aug 2026 | 1.46 | **Routine create defaults for qualifier run.** New dashboard/onboarding routines: time = now in elder TZ (`ROUTINE_DEFAULT_TIME_OFFSET_MINUTES` = 0), `notify_care_partner = every_time`, medication escalation 5 min (food 45 / health 60 unchanged). `startDate` uses `todayInTimeZone`, not UTC `toISOString`. Postgres `escalation_minutes` column default remains 30. |
 | 13 Aug 2026 | 1.45 | **Routine list order + pause does not resync `domain_configs`.** Lists sort active-first, then alert time, then name. `setRoutineEnabled` skips `syncDomainConfig` on purpose — no workflow SQL reads that table; WF-6 uses routine `notify_care_partner` (A-9). Do not "fix" the lag. |
 | 13 Aug 2026 | 1.44 | **Pause vs soft-delete (two-column, all domains).** `enabled` = pause (stays visible, Inactive); `active` = tombstone. Ruling: Talal, 12 August 2026. Food/health gain `active` (mirroring medications). Closed the PR #19 conflation that hid paused routines. No n8n changes. |
