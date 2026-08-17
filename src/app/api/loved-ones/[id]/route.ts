@@ -95,10 +95,10 @@ function embedCount(value: unknown): number {
   return typeof count === "number" ? count : Number(count) || 0;
 }
 
-type SessionClient = Awaited<ReturnType<typeof createClient>>;
+type AdminClient = ReturnType<typeof createAdminClient>;
 
 async function innerJoinCount(
-  supabase: SessionClient,
+  supabase: AdminClient,
   table: string,
   parent: "checkins" | "sos_events",
   elderId: string,
@@ -120,7 +120,7 @@ async function innerJoinCount(
  * Grandchildren have no `elder_id` — each is `count(*)` through an inner join.
  */
 async function countRowsDeleted(
-  supabase: SessionClient,
+  supabase: AdminClient,
   elderId: string,
 ): Promise<Record<string, number>> {
   const [embedRes, medicationItems, voiceReplies, watchdogAlerts, sosNotifications] =
@@ -240,7 +240,19 @@ export async function DELETE(
     ...replyPaths,
   ]);
 
-  const rowsDeleted = await countRowsDeleted(supabase, id);
+  let admin: AdminClient | undefined;
+  let rowsDeleted: Record<string, number> = {};
+  try {
+    admin = createAdminClient();
+  } catch (error) {
+    console.error(
+      "[loved-ones/delete] admin client failed:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+  if (admin) {
+    rowsDeleted = await countRowsDeleted(admin, id);
+  }
 
   const { data: deleted, error: deleteError } = await supabase
     .from("elders")
@@ -265,8 +277,7 @@ export async function DELETE(
   let storageRemaining = 0;
   let storageKeys: string[] = [];
 
-  try {
-    const admin = createAdminClient();
+  if (admin) {
     try {
       const bucket = admin.storage.from("voice-notes");
       const removedFromCatalog = await removeKeys(bucket, collectedKeys);
@@ -299,11 +310,6 @@ export async function DELETE(
     if (auditError) {
       console.error("[loved-ones/delete] deletion_events insert failed:", auditError.message);
     }
-  } catch (error) {
-    console.error(
-      "[loved-ones/delete] admin client failed:",
-      error instanceof Error ? error.message : error,
-    );
   }
 
   return NextResponse.json({
