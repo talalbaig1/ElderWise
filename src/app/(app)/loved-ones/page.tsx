@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import {
@@ -53,7 +54,37 @@ function isWellbeingFilter(value: string): value is WellbeingFilter {
   return (WELLBEING_FILTER_VALUES as readonly string[]).includes(value);
 }
 
-/** Dropdown options — values must be WellbeingStatus members (not "all" / "unknown"). */
+function joinCountPhrases(parts: string[]): string {
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0];
+  if (parts.length === 2) return `${parts[0]} and ${parts[1]}`;
+  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+
+function countPhrase(n: number, singular: string, plural: string): string {
+  return `${n} ${n === 1 ? singular : plural}`;
+}
+
+/** Dialog body. Copy signed off with the 17 August 2026 hard-delete brief (Sama). */
+function lovedOneDeleteWarning(opts: {
+  firstName: string;
+  checkIns: number;
+  sosEvents: number;
+  voiceRecordings: number;
+}): string {
+  const parts: string[] = [];
+  if (opts.checkIns > 0) parts.push(countPhrase(opts.checkIns, "check-in", "check-ins"));
+  if (opts.sosEvents > 0) parts.push(countPhrase(opts.sosEvents, "SOS event", "SOS events"));
+  if (opts.voiceRecordings > 0) {
+    parts.push(countPhrase(opts.voiceRecordings, "voice recording", "voice recordings"));
+  }
+  const lead =
+    parts.length === 0
+      ? `This permanently removes ${opts.firstName} from your account.`
+      : `This permanently removes ${joinCountPhrases(parts)}.`;
+  return `${lead} There is no recovery.`;
+}
+
 /** Labels locked with status-pill (Sama, 8 August 2026). */
 const WELLBEING_SELECT_ITEMS = [
   { value: "stable", label: "Doing well" },
@@ -63,10 +94,12 @@ const WELLBEING_SELECT_ITEMS = [
 
 export default function LovedOnesPage() {
   const { store, setSelectedLovedOneId, hydrated, viewerTimeZone } = useDomainStore();
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<WellbeingFilter>("all");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const filtered = useMemo(() => {
     return store.lovedOnes.filter((lo) => {
@@ -81,11 +114,45 @@ export default function LovedOnesPage() {
     return <div className="h-40 animate-pulse rounded-2xl bg-secondary" />;
   }
 
-  const confirmDelete = () => {
-    toast.message("Deletes save in a later pass", {
-      description: "Use Care Plan edits for now.",
-    });
-    setDeleteId(null);
+  const pendingDelete = store.lovedOnes.find((lo) => lo.id === deleteId) ?? null;
+  const deleteWarning = pendingDelete
+    ? lovedOneDeleteWarning({
+        firstName: pendingDelete.firstName,
+        checkIns: store.checkIns.filter((c) => c.lovedOneId === pendingDelete.id).length,
+        sosEvents: store.sosEvents.filter((e) => e.lovedOneId === pendingDelete.id).length,
+        voiceRecordings:
+          store.voiceJournals.filter((j) => j.lovedOneId === pendingDelete.id).length +
+          store.checkIns.filter(
+            (c) =>
+              c.lovedOneId === pendingDelete.id &&
+              (Boolean(c.voiceTranscript) || c.notes === "voice"),
+          ).length,
+      })
+    : "";
+
+  const confirmDelete = async () => {
+    if (!pendingDelete || deleting) return;
+    const wasLast = store.lovedOnes.length === 1;
+    const name = pendingDelete.firstName;
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/loved-ones/${pendingDelete.id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        toast.error(body?.error === "Not found" ? "Loved One not found." : "Could not delete Loved One.");
+        return;
+      }
+      setDeleteId(null);
+      toast.success(`${name} was removed.`);
+      router.refresh();
+      if (wasLast) router.replace("/onboarding");
+    } catch {
+      toast.error("Could not delete Loved One.");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -284,16 +351,13 @@ export default function LovedOnesPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Remove Loved One?</DialogTitle>
-            <DialogDescription>
-              This removes their routines, care circle links, and related history from your account
-              device. This cannot be undone.
-            </DialogDescription>
+            <DialogDescription>{deleteWarning}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteId(null)}>
+            <Button variant="outline" onClick={() => setDeleteId(null)} disabled={deleting}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
+            <Button variant="destructive" onClick={() => void confirmDelete()} disabled={deleting}>
               Delete
             </Button>
           </DialogFooter>

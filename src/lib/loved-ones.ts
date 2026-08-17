@@ -5,7 +5,6 @@ import type {
   LocalBuddy,
   LovedOne,
   Medication,
-  ElderWiseStore,
 } from "@/types";
 import { ALL_DAYS, todayInTimeZone, nowTimeInTimeZone } from "@/lib/onboarding";
 import { deriveWellbeingStatus } from "@/lib/wellbeing";
@@ -140,33 +139,5 @@ export function createBlankDoctor(lovedOneId: string): FamilyDoctor {
     clinicName: "",
     createdAt: now,
     updatedAt: now,
-  };
-}
-
-/** Remove a Loved One and cascade related records. */
-export function removeLovedOneFromStore(
-  store: ElderWiseStore,
-  lovedOneId: string,
-): ElderWiseStore {
-  const remaining = store.lovedOnes.filter((lo) => lo.id !== lovedOneId);
-  const selectedLovedOneId =
-    store.selectedLovedOneId === lovedOneId
-      ? remaining[0]?.id ?? null
-      : store.selectedLovedOneId;
-
-  return {
-    ...store,
-    lovedOnes: remaining,
-    localBuddies: store.localBuddies.filter((b) => b.lovedOneId !== lovedOneId),
-    doctors: store.doctors.filter((d) => d.lovedOneId !== lovedOneId),
-    medications: store.medications.filter((m) => m.lovedOneId !== lovedOneId),
-    foodRoutines: store.foodRoutines.filter((f) => f.lovedOneId !== lovedOneId),
-    healthRoutines: store.healthRoutines.filter((h) => h.lovedOneId !== lovedOneId),
-    checkIns: store.checkIns.filter((c) => c.lovedOneId !== lovedOneId),
-    sosEvents: store.sosEvents.filter((e) => e.lovedOneId !== lovedOneId),
-    voiceJournals: store.voiceJournals.filter((j) => j.lovedOneId !== lovedOneId),
-    reports: store.reports.filter((r) => r.lovedOneId !== lovedOneId),
-    notifications: store.notifications.filter((n) => n.lovedOneId !== lovedOneId),
-    selectedLovedOneId,
   };
 }
