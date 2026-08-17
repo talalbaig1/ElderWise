@@ -273,6 +273,8 @@ export interface CheckInResponse {
   response?: ResponseChoice | string | number;
   channel: "whatsapp" | "manual" | "simulated";
   notes?: string;
+  /** Whisper transcript when this check-in was answered by voice. Display only. */
+  voiceTranscript?: string;
 }
 
 export interface SOSEvent {
@@ -305,8 +307,9 @@ export interface VoiceJournalEntry {
   id: ID;
   lovedOneId: ID;
   recordedAt: string;
-  durationSeconds: number;
-  /** Optional demo/playable audio URL or generated blob URL */
+  /** Always omitted today — Meta's inbound audio has no duration. Never coalesce to 0. */
+  durationSeconds?: number;
+  /** Same-origin route that redirects to a short-lived signed URL */
   audioUrl?: string;
   /** Short snippet shown in lists */
   transcriptPreview: string;

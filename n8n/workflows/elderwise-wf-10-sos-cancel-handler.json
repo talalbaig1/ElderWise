@@ -1,0 +1,355 @@
+{
+  "activeVersionId": "ae3642e5-ce9c-4865-9ec7-0e0a268fbf29",
+  "connections": {
+    "Call WF-4c Resolution Broadcast": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send Cancel Acknowledgement",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Called With Cancel": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Resolve Open SOS",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Find Elder For Nothing-To-Cancel": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send Nothing To Cancel",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Mark SOS Resolved": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Resolution Written?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Open SOS Found?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Mark SOS Resolved",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Find Elder For Nothing-To-Cancel",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Resolution Written?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Call WF-4c Resolution Broadcast",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Already Resolved - Race, No Broadcast",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Resolve Open SOS": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Open SOS Found?",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "description": "WF-10 handles an elder texting CANCEL: resolves their open sos_event, broadcasts the stand-down via WF-4c, and acknowledges the elder. Replies plainly when there is nothing to cancel.",
+  "id": "CPDmCJh8e1WO8Sod",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "name": "ElderWise WF-10 - SOS Cancel Handler",
+  "nodes": [
+    {
+      "id": "58722997-ce37-4090-a1c0-a6551a148a7a",
+      "name": "Called With Cancel",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        192
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "f8ca9570-efaf-4655-97f0-bc0ce42f6c4f",
+      "name": "Resolve Open SOS",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 30,
+          "queryReplacement": "={{ [ $json.sender_e164 ] }}"
+        },
+        "query": "SELECT s.id AS sos_event_id, e.id AS elder_id, e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp FROM sos_events s JOIN elders e ON e.id = s.elder_id WHERE e.whatsapp_number = $1::text AND s.status = 'open' AND e.active AND e.consent_confirmed_at IS NOT NULL AND e.consent_declined_at IS NULL ORDER BY s.triggered_at DESC LIMIT 1",
+        "resource": "database"
+      },
+      "position": [
+        224,
+        192
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "73c3763b-39fd-44be-b5c8-38f1802d48f2",
+      "name": "Open SOS Found?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.sos_event_id }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          }
+        }
+      },
+      "position": [
+        448,
+        192
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "f3026a28-72f9-42b6-bcd4-b3aa5aac51b4",
+      "name": "Mark SOS Resolved",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 30,
+          "queryReplacement": "={{ [ $('Resolve Open SOS').first().json.sos_event_id ] }}"
+        },
+        "query": "UPDATE sos_events SET status = 'resolved'::sos_status, resolved_at = now(), resolved_channel = 'whatsapp'::sos_resolve_channel WHERE id = $1::uuid AND status = 'open' RETURNING id AS sos_event_id, status::text AS status_text, resolved_at",
+        "resource": "database"
+      },
+      "position": [
+        672,
+        96
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "bf3d3220-5564-4a3a-b2e1-29a5870410c1",
+      "name": "Resolution Written?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.sos_event_id }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          }
+        }
+      },
+      "position": [
+        896,
+        96
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "id": "8f66987e-5fd4-4017-b8a0-4ceab91495dc",
+      "name": "Call WF-4c Resolution Broadcast",
+      "parameters": {
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Baydb7saYNyAayMC"
+        }
+      },
+      "position": [
+        1120,
+        0
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Khl54gAdR4rvZaUO",
+          "name": "WhatsApp 966503330619"
+        }
+      },
+      "id": "b441ae73-8648-4613-8b55-a10640401a9f",
+      "name": "Send Cancel Acknowledgement",
+      "parameters": {
+        "additionalFields": {},
+        "operation": "send",
+        "phoneNumberId": "1084405194760141",
+        "recipientPhoneNumber": "={{ $('Resolve Open SOS').first().json.elder_whatsapp }}",
+        "textBody": "={{ 'Thank you, ' + $('Resolve Open SOS').first().json.elder_first_name + \". I've let your care circle know it was a false alarm.\" }}"
+      },
+      "position": [
+        1344,
+        0
+      ],
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "webhookId": "fb050556-1b70-4a10-9466-e84f9a2c09f8"
+    },
+    {
+      "id": "bddd2ddf-055f-452f-bc86-8cd9c30c91c1",
+      "name": "Already Resolved - Race, No Broadcast",
+      "parameters": {},
+      "position": [
+        1120,
+        192
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "6ed7e000-57e7-4758-bb5b-bb876c8728c7",
+      "name": "Find Elder For Nothing-To-Cancel",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 30,
+          "queryReplacement": "={{ [ $('Called With Cancel').first().json.sender_e164 ] }}"
+        },
+        "query": "SELECT e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp FROM elders e WHERE e.whatsapp_number = $1::text AND e.active AND e.consent_confirmed_at IS NOT NULL AND e.consent_declined_at IS NULL LIMIT 1",
+        "resource": "database"
+      },
+      "position": [
+        672,
+        288
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Khl54gAdR4rvZaUO",
+          "name": "WhatsApp 966503330619"
+        }
+      },
+      "id": "cdd96ef6-ae66-4d12-8289-848cb3614b0e",
+      "name": "Send Nothing To Cancel",
+      "parameters": {
+        "additionalFields": {},
+        "operation": "send",
+        "phoneNumberId": "1084405194760141",
+        "recipientPhoneNumber": "={{ $json.elder_whatsapp }}",
+        "textBody": "={{ 'Thank you, ' + $json.elder_first_name + '. There is no active alert to cancel right now.' }}"
+      },
+      "position": [
+        896,
+        288
+      ],
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "webhookId": "f59fe391-0e2f-43ee-be7e-8301f831d27b"
+    },
+    {
+      "id": "4bfa193e-8e0c-47d6-9d30-2c26f5cc1c7f",
+      "name": "Sticky Note b8c4da77",
+      "parameters": {
+        "color": 5,
+        "content": "## WF-10 SOS Cancel Handler\n\nCalled by WF-2a when a consented elder sends the whole message CANCEL.\n\nOption A (ruled 17 Aug 2026): status goes to resolved, NOT cancelled - sos_status has only open and resolved. resolved_by_role stays NULL, so WF-4c names the resolver as Someone.\n\nGuarded: a zero-row UPDATE emits success:true, so Resolution Written? gates the broadcast. No open event = a plain reply, not a failure.",
+        "height": 200,
+        "width": 520
+      },
+      "position": [
+        672,
+        352
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null
+}

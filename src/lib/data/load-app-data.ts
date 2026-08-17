@@ -15,6 +15,7 @@ import type {
   AuthSession,
   UserSettings,
   DoctorShareLink,
+  VoiceJournalEntry,
 } from "@/types";
 import { defaultSettings } from "@/data/mock";
 import {
@@ -28,6 +29,7 @@ import {
   doctorFromRow,
   sosEventFromRows,
   ctNotificationFromRow,
+  voiceJournalFromRow,
   type CarePartnerRow,
   type ElderRow,
   type MedicationRow,
@@ -39,6 +41,8 @@ import {
   type SosEventRow,
   type SosNotificationRow,
   type CtNotificationRow,
+  type VoiceJournalRow,
+  type VoiceReplyRow,
 } from "@/lib/supabase/mappers";
 import { deriveWellbeingStatus } from "@/lib/wellbeing";
 
@@ -54,8 +58,7 @@ export interface AppReadModel {
   sosEvents: SOSEvent[];
   notifications: AppNotification[];
   viewerTimeZone: string;
-  /** Always empty in MVP — voice_journal_entries table does not exist */
-  voiceJournals: [];
+  voiceJournals: VoiceJournalEntry[];
   doctorShareLinks: DoctorShareLink[];
   /** Always empty until templates seeded */
   messageTemplates: [];
@@ -73,7 +76,7 @@ export const EMPTY_APP_READ_MODEL: AppReadModel = {
   sosEvents: [],
   notifications: [],
   viewerTimeZone: "UTC",
-  voiceJournals: [],
+  voiceJournals: new Array<VoiceJournalEntry>(),
   doctorShareLinks: [],
   messageTemplates: [],
 };
@@ -170,6 +173,56 @@ export async function loadAppData(
   );
 
   const elderRows = (eldersRes.data ?? []) as ElderRow[];
+  const elderIds = elderRows.map((r) => r.id);
+  const checkinIds = checkIns.map((c) => c.id);
+
+  const emptyChild = {
+    data: [] as never[],
+    error: null,
+  };
+
+  const [journalsRes, repliesRes] = await Promise.all([
+    elderIds.length > 0
+      ? supabase
+          .from("voice_journals")
+          .select(
+            "id, elder_id, recorded_at, duration_seconds, transcript, ai_summary, mood, themes, attention_flag",
+          )
+          .in("elder_id", elderIds)
+          .order("recorded_at", { ascending: false })
+      : Promise.resolve(emptyChild),
+    checkinIds.length > 0
+      ? supabase
+          .from("voice_replies")
+          .select("checkin_id, transcript, created_at")
+          .in("checkin_id", checkinIds)
+          .order("created_at", { ascending: false })
+      : Promise.resolve(emptyChild),
+  ]);
+
+  const childReadErrors: Array<{ table: string; message: string }> = [
+    { table: "voice_journals", message: journalsRes.error?.message ?? "" },
+    { table: "voice_replies", message: repliesRes.error?.message ?? "" },
+  ].filter((e) => e.message);
+  for (const err of childReadErrors) {
+    console.error(`[loadAppData] ${err.table} read failed:`, err.message);
+  }
+
+  // C19/C14: RLS denial returns no error and no rows. Null data → empty, not a crash.
+  const journalRows = !journalsRes.data ? [] : (journalsRes.data as VoiceJournalRow[]);
+  const voiceJournals = journalRows.map((r) => voiceJournalFromRow(r));
+
+  const replyRows = !repliesRes.data ? [] : (repliesRes.data as VoiceReplyRow[]);
+  const transcriptByCheckin = new Map<string, string>();
+  for (const row of replyRows) {
+    if (transcriptByCheckin.has(row.checkin_id)) continue;
+    const text = row.transcript?.trim();
+    if (text) transcriptByCheckin.set(row.checkin_id, text);
+  }
+  const checkInsWithVoice = checkIns.map((c) => {
+    const voiceTranscript = transcriptByCheckin.get(c.id);
+    return voiceTranscript ? { ...c, voiceTranscript } : c;
+  });
   const sosNotifications = (sosNotifRes.data ?? []) as SosNotificationRow[];
   const sosEventRows = (sosRes.data ?? []) as SosEventRow[];
 
@@ -233,11 +286,11 @@ export async function loadAppData(
     medications,
     foodRoutines,
     healthRoutines,
-    checkIns,
+    checkIns: checkInsWithVoice,
     sosEvents,
     notifications,
     viewerTimeZone: carePartner?.timeZone ?? "UTC",
-    voiceJournals: [],
+    voiceJournals,
     doctorShareLinks,
     messageTemplates: [],
   };
@@ -267,7 +320,7 @@ export function toAnalyticsStore(
     healthRoutines: data.healthRoutines,
     checkIns: data.checkIns,
     sosEvents: data.sosEvents,
-    voiceJournals: [],
+    voiceJournals: data.voiceJournals,
     notifications: data.notifications,
     reports: [],
     settings: settings ?? defaultSettings,

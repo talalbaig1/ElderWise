@@ -211,7 +211,7 @@ export default function PrivacyPage() {
           </p>
           <p>
             To request deletion of your account and data, email{" "}
-            <strong>silacare0@gmail.com</strong>. We will action reasonable requests, but we
+            <strong>elderwise0@gmail.com</strong>. We will action reasonable requests, but we
             cannot promise a response time — this is a student project without staffed support.
           </p>
         </section>
@@ -267,7 +267,7 @@ export default function PrivacyPage() {
         <section className="space-y-2">
           <h2 className="font-display text-xl">Contact</h2>
           <p>
-            <strong>silacare0@gmail.com</strong>
+            <strong>elderwise0@gmail.com</strong>
           </p>
         </section>
 

@@ -15,6 +15,7 @@ import {
 import { FaqAccordion } from "@/components/marketing/faq-accordion";
 import { FinalCta } from "@/components/marketing/final-cta";
 import { MarketingPhoto } from "@/components/marketing/marketing-photo";
+import { WaitlistSection } from "@/components/marketing/waitlist-section";
 import {
   MotionItem,
   MotionSection,
@@ -30,23 +31,23 @@ import { marketingImages } from "@/data/marketing-images";
 const howItWorks = [
   {
     step: "01",
-    title: "Download & complete setup",
-    text: "Create your Care Partner account, add your Loved One, and set their care circle in a few calm steps.",
+    title: "Create your account",
+    text: "Create your Care Partner account, add your Loved One, and invite their Care Circle in a few calm steps.",
   },
   {
     step: "02",
-    title: "Everyday WhatsApp care begins",
-    text: "Gentle notifications go out for medication, meals, and wellness — on the WhatsApp they already use.",
+    title: "Everyday check-ins begin",
+    text: "Gentle notifications go out for medication, meals, and wellbeing on the WhatsApp they already use.",
   },
   {
     step: "03",
-    title: "They reply. You stay close.",
+    title: "Your Loved One replies. You stay close.",
     text: "Simple answers update your Care Partner view, so distance no longer means guessing.",
   },
   {
     step: "04",
     title: "Reports show the bigger picture",
-    text: "See how medication, meals, and wellbeing are going across the week — clear enough to share with family.",
+    text: "See how medication, meals, and wellbeing are going across the week — ready to share with the rest of the family.",
   },
   {
     step: "05",
@@ -59,12 +60,12 @@ const benefits = [
   {
     icon: HeartHandshake,
     title: "Peace of mind, every day",
-    text: "Know that morning medicine, meals, and wellness check-ins are happening — without another worried call.",
+    text: "Know that morning medication, meals, and wellbeing check-ins are happening, without another worried call.",
   },
   {
     icon: MessageCircle,
     title: "Care through WhatsApp",
-    text: "Your Loved One stays in a familiar conversation. No new app for them to learn.",
+    text: "Your Loved One answers in a conversation they already know. No new app to learn.",
   },
   {
     icon: Users,
@@ -74,17 +75,26 @@ const benefits = [
   {
     icon: Shield,
     title: "Safety with warmth",
-    text: "SOS and reports keep the family aligned — calmly, clearly, and with care.",
+    text: "SOS alerts and reports keep the family aligned, calmly and clearly.",
   },
 ];
 
-const featureBlocks = [
+const featureBlocks: {
+  id: string;
+  icon: typeof Pill;
+  eyebrow: string;
+  title: string;
+  text: string;
+  cta: string;
+  image: { src: string; alt: string };
+}[] = [
   {
     id: "medication",
     icon: Pill,
     eyebrow: "Medication",
     title: "Reminders that feel personal, not clinical.",
-    text: "Schedule doses and see taken, missed, or delayed replies as they arrive — so daily care stays gentle and clear.",
+    text: "Schedule doses and see each one marked taken, missed, or delayed as replies arrive — so daily care stays gentle and clear.",
+    cta: "See medication tracking",
     image: marketingImages.medication,
   },
   {
@@ -93,38 +103,43 @@ const featureBlocks = [
     eyebrow: "Meals",
     title: "Gentle food check-ins through the day.",
     text: "Breakfast, lunch, dinner, or custom meals — with calm updates when something needs a follow-up.",
+    cta: "See meal check-ins",
     image: marketingImages.meals,
   },
   {
     id: "health",
     icon: HeartHandshake,
     eyebrow: "Wellness",
-    title: "Simple wellbeing questions, meaningful patterns.",
-    text: "Sleep, mood, and everyday wellness help you notice changes early — without medical jargon.",
+    title: "Simple questions that reveal meaningful patterns.",
+    text: "Tracking sleep and mood helps you notice changes early, without medical jargon.",
+    cta: "See wellbeing check-ins",
     image: marketingImages.wellness,
   },
   {
     id: "sos",
     icon: Siren,
     eyebrow: "SOS",
-    title: "A clear path when urgency appears.",
-    text: "Escalate to the Care Partner, Local Buddy, and Family Doctor. SilaCares supports coordination — always contact local emergency services in a crisis.",
+    title: "A clear path when something goes wrong.",
+    text: "SilaCares alerts the Care Partner, Local Buddy, and Family Doctor at once. In a real emergency, always call local emergency services first.",
+    cta: "See how SOS works",
     image: marketingImages.familyPhone,
   },
   {
     id: "voice",
     icon: BookOpen,
     eyebrow: "Voice Journal",
-    title: "Hear how their day felt.",
-    text: "Listen to reflections with thoughtful summaries and mood tags — never presented as a diagnosis.",
+    title: "Hear how their day went.",
+    text: "Listen to their reflections, with short summaries and mood tags. These are for reflection, never a diagnosis.",
+    cta: "See Voice Journal",
     image: marketingImages.careCircle,
   },
   {
     id: "reports",
     icon: FileBarChart,
     eyebrow: "Reports",
-    title: "Shareable clarity for the people who care.",
-    text: "Medication, meal, wellness, and combined wellbeing reports — ready to download, print, or share with family.",
+    title: "Clear reports you can share with the family.",
+    text: "Medication, meal, and combined wellbeing reports — ready to download, print, or share with family.",
+    cta: "See reports",
     image: marketingImages.connection,
   },
 ];
@@ -290,7 +305,7 @@ export default function HomePage() {
                 <SectionHeading>{block.title}</SectionHeading>
                 <SectionLead>{block.text}</SectionLead>
                 <Button asChild variant="soft" className="mt-6 w-fit">
-                  <Link href="/features">Explore features</Link>
+                  <Link href="/features">{block.cta}</Link>
                 </Button>
               </MotionItem>
               <MotionItem className={reverse ? "lg:order-1" : undefined}>
@@ -430,6 +445,8 @@ export default function HomePage() {
           <FaqAccordion items={[...marketingFaq]} />
         </MotionItem>
       </MotionSection>
+
+      <WaitlistSection />
 
       <FinalCta
         eyebrow="Begin with calm confidence"

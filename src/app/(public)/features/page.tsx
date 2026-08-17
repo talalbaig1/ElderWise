@@ -30,11 +30,11 @@ const features = [
   {
     icon: Utensils,
     title: "Meal check-ins",
-    text: "Breakfast through dinner — or custom snacks — with escalation when there’s no response.",
+    text: "Breakfast through dinner, or custom snacks, with escalation when there’s no response.",
   },
   {
     icon: HeartHandshake,
-    title: "Health & wellness updates",
+    title: "Health & Wellness updates",
     text: "Sleep, mood, blood pressure, water, exercise, and custom questions that fit their day.",
   },
   {
@@ -45,7 +45,7 @@ const features = [
   {
     icon: BookOpen,
     title: "Voice Journal",
-    text: "Capture how their day felt with summaries and mood tags — never framed as a diagnosis.",
+    text: "Capture how their day went with summaries and mood tags — never framed as a diagnosis.",
   },
   {
     icon: FileBarChart,
@@ -60,7 +60,7 @@ const features = [
   {
     icon: MessageCircle,
     title: "WhatsApp communication",
-    text: "Your Loved One replies with Yes, No, or Remind me later — no new app required.",
+    text: "Your Loved One replies with Yes, all, Some of them, or Not yet — no new app required.",
   },
 ];
 
@@ -77,10 +77,10 @@ export default function FeaturesPage() {
           </SectionLead>
           <div className="mt-8 flex flex-wrap gap-3">
             <Button asChild size="lg">
-              <Link href="/sign-up">Get Started</Link>
+              <Link href="/sign-up">Get started</Link>
             </Button>
             <Button asChild size="lg" variant="outline">
-              <Link href="/how-it-works">How it works</Link>
+              <Link href="/how-it-works">See how it works</Link>
             </Button>
           </div>
         </MotionItem>

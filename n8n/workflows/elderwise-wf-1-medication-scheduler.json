@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "e60838ab-9967-4743-98c0-41d7fbf848c8",
+  "activeVersionId": "3a147809-60cf-4e54-a6b9-4b2a0d20cfba",
   "connections": {
     "Any Due?": {
       "main": [
@@ -104,10 +104,9 @@
       "parameters": {
         "operation": "executeQuery",
         "options": {
-          "connectionTimeout": 10
+          "connectionTimeout": 30
         },
-        "query": "WITH ins AS (INSERT INTO checkins (elder_id, domain, scheduled_for, status) SELECT DISTINCT e.id, 'medication'::care_domain, sf.scheduled_for, 'scheduled'::checkin_status FROM elders e JOIN medications m ON m.elder_id = e.id AND m.enabled AND m.active CROSS JOIN LATERAL (SELECT (((now() AT TIME ZONE e.timezone)::date + t::time) AT TIME ZONE e.timezone) AS scheduled_for FROM unnest(m.times) AS t) sf WHERE e.active AND e.consent_confirmed_at IS NOT NULL AND m.start_date <= (now() AT TIME ZONE e.timezone)::date AND (m.end_date IS NULL OR m.end_date >= (now() AT TIME ZONE e.timezone)::date) AND (cardinality(m.days_of_week) = 0 OR (ARRAY['sunday','monday','tuesday','wednesday','thursday','friday','saturday'])[extract(dow from (now() AT TIME ZONE e.timezone)::date)::int + 1] = ANY(m.days_of_week)) AND NOT EXISTS (SELECT 1 FROM checkins c WHERE c.elder_id = e.id AND c.domain = 'medication' AND c.scheduled_for = sf.scheduled_for) RETURNING 1) SELECT count(*)::int AS materialised FROM ins",
-        "resource": "database"
+        "query": "WITH ins AS (INSERT INTO checkins (elder_id, domain, scheduled_for, status) SELECT DISTINCT e.id, 'medication'::care_domain, sf.scheduled_for, 'scheduled'::checkin_status FROM elders e JOIN medications m ON m.elder_id = e.id AND m.enabled AND m.active CROSS JOIN LATERAL (SELECT (((now() AT TIME ZONE e.timezone)::date + t::time) AT TIME ZONE e.timezone) AS scheduled_for FROM unnest(m.times) AS t) sf WHERE e.active AND e.consent_confirmed_at IS NOT NULL AND m.start_date <= (now() AT TIME ZONE e.timezone)::date AND (m.end_date IS NULL OR m.end_date >= (now() AT TIME ZONE e.timezone)::date) AND (cardinality(m.days_of_week) = 0 OR (ARRAY['sunday','monday','tuesday','wednesday','thursday','friday','saturday'])[extract(dow from (now() AT TIME ZONE e.timezone)::date)::int + 1] = ANY(m.days_of_week)) AND NOT EXISTS (SELECT 1 FROM checkins c WHERE c.elder_id = e.id AND c.domain = 'medication' AND c.scheduled_for = sf.scheduled_for) RETURNING 1) SELECT count(*)::int AS materialised FROM ins"
       },
       "position": [
         224,
@@ -130,8 +129,7 @@
         "options": {
           "connectionTimeout": 10
         },
-        "query": "SELECT c.id AS checkin_id, e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp, to_char(c.scheduled_for AT TIME ZONE e.timezone, 'FMHH12:MI AM') AS scheduled_label, string_agg(m.name, ', ' ORDER BY m.name) AS medicine_list FROM checkins c JOIN elders e ON e.id = c.elder_id JOIN medications m ON m.elder_id = e.id AND m.enabled AND m.active AND to_char(c.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) AND (cardinality(m.days_of_week) = 0 OR (ARRAY['sunday','monday','tuesday','wednesday','thursday','friday','saturday'])[extract(dow from (c.scheduled_for AT TIME ZONE e.timezone)::date)::int + 1] = ANY(m.days_of_week)) WHERE c.status = 'scheduled' AND c.domain = 'medication' AND e.active AND e.consent_confirmed_at IS NOT NULL AND c.scheduled_for <= now() GROUP BY c.id, e.first_name, e.whatsapp_number, c.scheduled_for, e.timezone HAVING now() <= c.scheduled_for + make_interval(mins => MIN(m.escalation_minutes)) ORDER BY c.scheduled_for LIMIT 10",
-        "resource": "database"
+        "query": "SELECT c.id AS checkin_id, e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp, to_char(c.scheduled_for AT TIME ZONE e.timezone, 'FMHH12:MI AM') AS scheduled_label, string_agg(m.name, ', ' ORDER BY m.name) AS medicine_list FROM checkins c JOIN elders e ON e.id = c.elder_id JOIN medications m ON m.elder_id = e.id AND m.enabled AND m.active AND to_char(c.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) AND (cardinality(m.days_of_week) = 0 OR (ARRAY['sunday','monday','tuesday','wednesday','thursday','friday','saturday'])[extract(dow from (c.scheduled_for AT TIME ZONE e.timezone)::date)::int + 1] = ANY(m.days_of_week)) WHERE c.status = 'scheduled' AND c.domain = 'medication' AND e.active AND e.consent_confirmed_at IS NOT NULL AND c.scheduled_for <= now() GROUP BY c.id, e.first_name, e.whatsapp_number, c.scheduled_for, e.timezone HAVING now() <= c.scheduled_for + make_interval(mins => MIN(m.escalation_minutes)) ORDER BY c.scheduled_for LIMIT 10"
       },
       "position": [
         448,
@@ -159,9 +157,12 @@
           ],
           "options": {
             "caseSensitive": true,
-            "typeValidation": "loose"
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
           }
-        }
+        },
+        "options": {}
       },
       "position": [
         672,
@@ -186,27 +187,21 @@
               "bodyParameters": {
                 "parameter": [
                   {
-                    "text": "={{ $json.elder_first_name }}",
-                    "type": "text"
+                    "text": "={{ $json.elder_first_name }}"
                   },
                   {
-                    "text": "={{ $json.scheduled_label }}",
-                    "type": "text"
+                    "text": "={{ $json.scheduled_label }}"
                   },
                   {
-                    "text": "={{ $json.medicine_list }}",
-                    "type": "text"
+                    "text": "={{ $json.medicine_list }}"
                   }
                 ]
-              },
-              "type": "body"
+              }
             }
           ]
         },
-        "operation": "sendTemplate",
         "phoneNumberId": "1084405194760141",
         "recipientPhoneNumber": "={{ $json.elder_whatsapp }}",
-        "resource": "message",
         "template": "elderwise_ep_medication_checkin|en"
       },
       "position": [
@@ -233,8 +228,7 @@
           "connectionTimeout": 10,
           "queryReplacement": "={{ $('Find Due Check-ins').item.json.checkin_id }},{{ $json.messages[0].id }}"
         },
-        "query": "UPDATE checkins SET status = 'sent', sent_at = now(), wa_message_id = $2::text WHERE id = $1::uuid AND status = 'scheduled' RETURNING id AS checkin_id, status, sent_at, wa_message_id",
-        "resource": "database"
+        "query": "UPDATE checkins SET status = 'sent', sent_at = now(), wa_message_id = $2::text WHERE id = $1::uuid AND status = 'scheduled' RETURNING id AS checkin_id, status, sent_at, wa_message_id"
       },
       "position": [
         1120,

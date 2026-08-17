@@ -1,0 +1,759 @@
+{
+  "activeVersionId": "13622815-6d8f-48d0-91fb-66e91fba5dac",
+  "connections": {
+    "Already Journalled?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "New Delivery?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Called With Journal Voice": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Valid media_id?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Classify Journal": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Normalise Classification",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Download Audio": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Transcribe Journal",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Upload To Voice Notes Bucket",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Elder Found?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Already Journalled?",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Unknown Or Unconsented Sender - Ignored",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Emergency?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Call WF-4 SOS Orchestrator",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Send Journal Acknowledgement",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get Media URL": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Download Audio",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Journal Stored?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Emergency?",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Journal Not Stored - Race Or Conflict",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "New Delivery?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Get Media URL",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Duplicate Delivery - Ignored",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Normalise Classification": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Record Voice Journal",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Prepare Classification Prompt": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Classify Journal",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Record Voice Journal": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Journal Stored?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Resolve Elder": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Elder Found?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Transcribe Journal": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Prepare Classification Prompt",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Valid media_id?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Resolve Elder",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "No media_id - Nothing To Journal",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "description": "WF-9 ingests unprompted elder voice notes as journal entries: stores audio, transcribes with Whisper, classifies mood/themes/urgency, and escalates to WF-4 on emergency.",
+  "id": "2KWtzSH22fTNxed9",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "name": "ElderWise WF-9 - Voice Journal Ingest",
+  "nodes": [
+    {
+      "id": "a3c2485b-8051-4d45-9498-cc71335fa292",
+      "name": "Called With Journal Voice",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        576
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "c2c760c8-9d3a-452b-84bf-5e12c05260b7",
+      "name": "Valid media_id?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.media_id }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        224,
+        576
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "2cdd27fc-a9ff-4206-a8c3-8335d2fb609d",
+      "name": "Resolve Elder",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 30,
+          "queryReplacement": "={{ [ $json.sender_e164 ] }}"
+        },
+        "query": "SELECT e.id AS elder_id, e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp, COALESCE(cp.first_name, 'your care partner') AS care_partner_first_name FROM elders e LEFT JOIN care_partners cp ON cp.id = e.care_partner_id WHERE e.whatsapp_number = $1::text AND e.active AND e.consent_confirmed_at IS NOT NULL AND e.consent_declined_at IS NULL LIMIT 1"
+      },
+      "position": [
+        448,
+        480
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "6d807f42-ca14-4fa4-b5e2-c8a934627fd3",
+      "name": "Elder Found?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.elder_id }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        672,
+        480
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "2381c08b-b8c2-40d3-91f4-8faf65c8f188",
+      "name": "Already Journalled?",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 30,
+          "queryReplacement": "={{ [ $('Called With Journal Voice').first().json.media_id ] }}"
+        },
+        "query": "SELECT count(*)::int AS existing FROM voice_journals WHERE media_id = $1::text"
+      },
+      "position": [
+        896,
+        384
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "65ea752e-9c0c-4193-abb7-30351412c949",
+      "name": "New Delivery?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.existing === 0 }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        1120,
+        384
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Khl54gAdR4rvZaUO",
+          "name": "WhatsApp 966503330619"
+        }
+      },
+      "id": "d548d9e3-d645-424a-852b-077478fbde4d",
+      "name": "Get Media URL",
+      "parameters": {
+        "mediaGetId": "={{ $('Called With Journal Voice').first().json.media_id }}",
+        "operation": "mediaUrlGet",
+        "resource": "media"
+      },
+      "position": [
+        1344,
+        288
+      ],
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "webhookId": "71ebf5c3-b05e-4b7a-bdf5-4622088b5141"
+    },
+    {
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Khl54gAdR4rvZaUO",
+          "name": "WhatsApp 966503330619"
+        }
+      },
+      "id": "c54344bf-f011-4157-a128-fb4b779ba04a",
+      "name": "Download Audio",
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 20000
+        },
+        "url": "={{ $json.url }}"
+      },
+      "position": [
+        1568,
+        288
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "ouWVjrmc8Ia4SRD2",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "fc3c18af-8ecc-491b-8771-4fe312f1094e",
+      "name": "Transcribe Journal",
+      "parameters": {
+        "operation": "transcribe",
+        "options": {
+          "language": "en",
+          "temperature": 0
+        },
+        "resource": "audio"
+      },
+      "position": [
+        1792,
+        192
+      ],
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3
+    },
+    {
+      "id": "0cbeb1fa-3a7c-4b00-8087-21b2e1afcafc",
+      "name": "Prepare Classification Prompt",
+      "parameters": {
+        "jsCode": "const t = $input.first().json.text || '';\nlet p = '';\np += 'Analyse a voice diary entry from an elderly person, transcribed from a WhatsApp voice note.\\n';\np += 'Return ONLY a raw JSON object. No markdown fences, no commentary.\\n';\np += 'Keys: mood, themes, summary, urgency.\\n';\np += 'mood must be exactly one of: positive, calm, tired, lonely, concerned, neutral.\\n';\np += 'themes must be an array of 1 to 4 short lowercase topic words.\\n';\np += 'summary must be one sentence under 25 words, written in the third person.\\n';\np += 'urgency must be exactly one of: emergency, attention, none.\\n';\np += 'Set urgency to emergency when the speaker describes a NEW physical problem happening now that a person should come and help with. This includes: a fall or injury that has just happened, a suspected broken bone, severe or sudden pain, bleeding, chest pain, breathing difficulty, being unable to walk or stand or get up, or any direct request for help.\\n';\np += 'It does NOT need to be life-threatening. A new injury with real pain is an emergency even if the person is conscious and talking.\\n';\np += 'Past-tense narrative is NOT an emergency. A fall that happened last week is not an emergency.\\n';\np += 'A long-standing or chronic complaint is NOT an emergency. Knees that have ached for years is not an emergency.\\n';\np += 'Set urgency to attention for low mood, loneliness, confusion, tiredness, or mild discomfort that is not new and not acute.\\n';\np += 'Set urgency to none for ordinary diary content.\\n';\np += 'If a NEW injury or sudden severe pain is described as happening now, choose emergency rather than attention.\\n';\np += 'Transcript:\\n';\np += t;\nreturn [{ json: { prompt: p, transcript: t } }];"
+      },
+      "position": [
+        2016,
+        192
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "ouWVjrmc8Ia4SRD2",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "9c686397-5821-4601-b31a-974a96676313",
+      "name": "Classify Journal",
+      "parameters": {
+        "builtInTools": {},
+        "modelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "gpt-4o-mini"
+        },
+        "options": {
+          "maxTokens": 300,
+          "temperature": 0,
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "={{ $('Prepare Classification Prompt').first().json.prompt }}"
+            }
+          ]
+        }
+      },
+      "position": [
+        2240,
+        192
+      ],
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3
+    },
+    {
+      "id": "6f56d948-7fd1-4a84-a4c0-a9f377287a2d",
+      "name": "Normalise Classification",
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\n\n// Responses API nests the payload at output[0].content[0].text.\n// With json_object format n8n may hand back an object, not a string.\nconst nested = raw.output && raw.output[0] && raw.output[0].content && raw.output[0].content[0]\n  ? raw.output[0].content[0].text\n  : undefined;\n\nconst candidates = [nested, raw.message && raw.message.content, raw.content, raw.text, raw.output];\n\nlet payload = null;\nfor (const c of candidates) {\n  if (payload !== null) { break; }\n  if (c && typeof c === 'object' && !Array.isArray(c)) {\n    payload = c;\n  } else if (typeof c === 'string' && c.length > 0) {\n    const cleaned = c.replace(/```json/g, '').replace(/```/g, '').trim();\n    try {\n      const p = JSON.parse(cleaned);\n      if (p && typeof p === 'object' && !Array.isArray(p)) { payload = p; }\n    } catch (e) { }\n  }\n}\n\nconst MOODS = ['positive','calm','tired','lonely','concerned','neutral'];\nconst URG = ['emergency','attention','none'];\n\nconst moodOk = payload !== null && MOODS.indexOf(payload.mood) !== -1;\nconst urgOk = payload !== null && URG.indexOf(payload.urgency) !== -1;\n\nconst mood = moodOk ? payload.mood : 'neutral';\nconst urgency = urgOk ? payload.urgency : 'none';\nconst summary = payload && typeof payload.summary === 'string' ? payload.summary.slice(0, 300) : '';\n\nconst themes = [];\nif (payload && Array.isArray(payload.themes)) {\n  for (const th of payload.themes) {\n    if (typeof th === 'string' && th.length > 0 && themes.length < 4) {\n      themes.push(th.toLowerCase().slice(0, 40));\n    }\n  }\n}\n\n// A classification we could not read is not a quiet 'none' - flag it for a human.\nconst classifyOk = moodOk && urgOk;\nconst attentionFlag = urgency !== 'none' || !classifyOk;\n\nreturn [{ json: { mood: mood, urgency: urgency, summary: summary, themes_csv: String(themes), attention_flag: attentionFlag, classify_ok: classifyOk, raw_text: JSON.stringify(raw).slice(0, 500) } }];"
+      },
+      "position": [
+        2592,
+        192
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "b2c4d954-983f-4f63-9194-2e62823102b9",
+      "name": "Record Voice Journal",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 30,
+          "queryReplacement": "={{ [ $('Resolve Elder').first().json.elder_id, $('Called With Journal Voice').first().json.media_id, $('Resolve Elder').first().json.elder_id + '/journal/' + $('Called With Journal Voice').first().json.media_id + '.ogg', $('Transcribe Journal').first().json.text, $json.summary, $json.mood, $json.themes_csv, $json.attention_flag, $json.urgency ] }}"
+        },
+        "query": "INSERT INTO voice_journals (elder_id, media_id, audio_path, transcript, ai_summary, mood, themes, attention_flag, urgency, provider, recorded_at) VALUES ($1::uuid, $2::text, $3::text, $4::text, $5::text, $6::text, COALESCE(string_to_array(NULLIF($7::text, ''), ','), '{}'::text[]), $8::boolean, $9::text, 'openai_whisper', now()) ON CONFLICT (media_id) DO NOTHING RETURNING id AS voice_journal_id, elder_id, mood, urgency, attention_flag"
+      },
+      "position": [
+        2816,
+        192
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "b331e1d7-1419-4220-9798-647e5266eac0",
+      "name": "Journal Stored?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.voice_journal_id }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        3040,
+        192
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "id": "d4c515e4-3727-4388-8ebe-e38b8a9abb85",
+      "name": "Emergency?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $('Normalise Classification').first().json.urgency }}",
+              "operator": {
+                "operation": "equals",
+                "type": "string"
+              },
+              "rightValue": "emergency"
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        3264,
+        96
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "id": "aa596e03-6c2c-4121-8fa5-ac165284c136",
+      "name": "Call WF-4 SOS Orchestrator",
+      "parameters": {
+        "options": {
+          "waitForSubWorkflow": false
+        },
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "HSEp1YhQFHjga9qa"
+        }
+      },
+      "position": [
+        3488,
+        0
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Khl54gAdR4rvZaUO",
+          "name": "WhatsApp 966503330619"
+        }
+      },
+      "id": "e34cb664-a8e7-490c-8628-1b8505cab6c9",
+      "name": "Send Journal Acknowledgement",
+      "parameters": {
+        "additionalFields": {},
+        "operation": "send",
+        "phoneNumberId": "1084405194760141",
+        "recipientPhoneNumber": "={{ $('Resolve Elder').first().json.elder_whatsapp }}",
+        "textBody": "={{ 'Thank you for sharing that with me, ' + $('Resolve Elder').first().json.elder_first_name + \". I've saved it for \" + $('Resolve Elder').first().json.care_partner_first_name + '.' }}"
+      },
+      "position": [
+        3488,
+        192
+      ],
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "webhookId": "b7eb52a5-cf08-4f99-a066-857c13499e90"
+    },
+    {
+      "id": "f75e4812-fa18-4734-aa3b-aee4f36c23bc",
+      "name": "Journal Not Stored - Race Or Conflict",
+      "parameters": {},
+      "position": [
+        3264,
+        288
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
+      "id": "b473dae4-489d-4dca-8741-6caddc62389c",
+      "name": "Duplicate Delivery - Ignored",
+      "parameters": {},
+      "position": [
+        1344,
+        480
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
+      "id": "df7b3c87-3451-4436-810a-b8531697cc42",
+      "name": "Unknown Or Unconsented Sender - Ignored",
+      "parameters": {},
+      "position": [
+        896,
+        576
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
+      "id": "52d7d9d8-d636-4b10-bf59-28c9a95a4773",
+      "name": "No media_id - Nothing To Journal",
+      "parameters": {},
+      "position": [
+        448,
+        672
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "zCSNxbk4gbu3H4of",
+          "name": "Supabase Voice Bucket"
+        }
+      },
+      "id": "ede92122-290f-4f71-8f60-9be53824fe21",
+      "name": "Upload To Voice Notes Bucket",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "contentType": "binaryData",
+        "genericAuthType": "httpHeaderAuth",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "audio/ogg"
+            },
+            {
+              "name": "x-upsert",
+              "value": "true"
+            }
+          ]
+        },
+        "inputDataFieldName": "data",
+        "method": "POST",
+        "options": {
+          "timeout": 20000
+        },
+        "sendBody": true,
+        "sendHeaders": true,
+        "url": "={{ 'https://vkrjupjqwdeghvpjsvai.supabase.co/storage/v1/object/voice-notes/' + $('Resolve Elder').first().json.elder_id + '/journal/' + $('Called With Journal Voice').first().json.media_id + '.ogg' }}"
+      },
+      "position": [
+        1792,
+        384
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4
+    },
+    {
+      "id": "57fc5761-07fe-403e-ae17-15b0cfaf5591",
+      "name": "Sticky Note bb2d6f3d",
+      "parameters": {
+        "color": 3,
+        "content": "## WF-9 Voice Journal Ingest\n\nCalled by WF-5 when an inbound voice note has NO open check-in.\n\nUnprompted voice = journal entry. Audio stored, transcribed, classified.\n\nurgency=emergency calls WF-4 (idempotent, reuses an open sos_event) and WF-4 sends the elder acknowledgement.\nurgency=attention or none sends the journal acknowledgement from here.\n\nNOT reliable emergency detection. SOS by keyword remains the reliable path.",
+        "height": 200,
+        "width": 500
+      },
+      "position": [
+        1680,
+        736
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    }
+  ],
+  "settings": {
+    "binaryMode": "separate",
+    "executionOrder": "v1"
+  },
+  "staticData": null
+}

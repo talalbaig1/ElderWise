@@ -4,12 +4,12 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · Team Lead: Talal Baig |
-| **Document** | Templates.md — v1.13 |
-| **Date** | 11 August 2026 |
+| **Document** | Templates.md — v1.15 |
+| **Date** | 17 August 2026 |
 | **Purpose** | Every message ElderWise sends. **Reconciled against the live Meta WABA — this document now records what Meta actually approved, not what was drafted.** |
 | **WABA** | `1495493002256968` · display number **966503330619** |
 | **Owner** | Talal (submission) · Sama + Reema (copy & tone) |
-| **Status** | 🟢 **ALL 16 APPROVED** — full message set cleared by Meta, including the health v2 pair |
+| **Status** | 16 UTILITY templates **APPROVED** in the WABA · **1 MARKETING pending** (`elderwise_wl_confirmation`) |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Phases.md` |
 
 > **⚠️ Authority note.** §4–6 below are **transcribed verbatim from the Meta Graph API**
@@ -109,7 +109,7 @@ review, and the SOS set must not be disturbed.
 
 ## 3. Template registry — live status
 
-Retrieved from Meta **7 August 2026** via the read-only audit workflow `PADE2m75e6xVGS2e` (execution `40237`). All 16 APPROVED.
+Retrieved from Meta **7 August 2026** via the read-only audit workflow `PADE2m75e6xVGS2e` (execution `40237`). Those 16 remain APPROVED. `elderwise_wl_confirmation` (below) is pending and was not in that snapshot.
 
 | # | Template name | Audience | Status | Vars | Buttons | Meta template ID |
 |---|---|---|---|---|---|---|
@@ -129,9 +129,18 @@ Retrieved from Meta **7 August 2026** via the read-only audit workflow `PADE2m75
 | 14 | `elderwise_sos_resolved` | CT / LCT / DR | ✅ APPROVED | 3 | 0 | `1380761780602851` |
 | 15 | `elderwise_ep_health_checkin_v2` | Elder | ✅ APPROVED | 2 | 2 | `1736094100935290` |
 | 16 | `elderwise_ep_health_reminder_v2` | Elder | ✅ APPROVED | 2 | 2 | `1057601289992008` |
+| — | `elderwise_wl_confirmation` | Waitlist registrant (`wl`) | ⏳ PENDING | — | — | — |
 
 **Also present in the account:** `hello_world` (Meta's sample, `en_US`). Not ours, not used,
 harmless. Do not delete it — it is Meta's connectivity test message.
+
+### 3.0a Waitlist confirmation — ⏳ PENDING (submitted 17 August 2026)
+
+**`elderwise_wl_confirmation`.** Submitted to Meta 17 August 2026. **Reclassified by Meta as MARKETING.** Status **pending approval**. Purpose: waitlist signup confirmation.
+
+The recipient is a waitlist registrant — neither an elder (`ep`) nor a care partner (`ct`). This introduces a **fourth audience prefix** `wl`. Existing prefixes in this document: `ep`, `ct`, `sos`.
+
+WF-8 currently sends **email only**. The WhatsApp branch is not built until this template is APPROVED.
 
 ### 3.0 Health v2 pair — ✅ APPROVED 7 August 2026
 
@@ -574,7 +583,7 @@ failure (W3).
 
 ## 7. Free-form messages — no Meta approval required
 
-Sent inside the 24-hour window. Not templates. Not submitted. Not on the critical path.
+Sent inside the 24-hour customer-service window opened by the elder's own inbound message. Not Meta templates. Not submitted. Distinct from the 16 approved WABA templates. **These can never be used to initiate contact** — they depend on the elder having messaged first.
 
 ### 7.1 Medication list picker *(interactive list)* — **NOT BUILT (MVP)**
 **Scope reduction, ruled by Talal 3 August 2026.** Spec retained for a future path. Live behaviour: *Some of them* → `response_value = 'some_of_them'`, `status = responded`, CT notified; which medicines were taken is not captured (`Architecture.md` A-12). Reason: native WhatsApp node has no interactive-list type; raw Graph HTTP ruled out.
@@ -630,28 +639,38 @@ variants must stay parallel.
 
 **Never** an error code. **Never** silence.
 
-### 7.5 Voice note with no open check-in *(A-26 — closed 8 August 2026)*
-Sent when an elder records a voice note and there is **no** check-in at `sent` or `reminded`
-waiting for a reply. **Free-form, not a template** — the elder's own voice note opens the
-24-hour customer service window, so no Meta submission is required.
+### 7.5 Voice note with no open check-in *(A-26 — closed 8 August 2026)* — **RETIRED 17 August 2026**
+
+**Unreachable.** WF-5's no-open-check-in path now calls WF-9. The nodes `Find Elder For Re-prompt` and `Send No Check-in Reply` still sit on the canvas; **nothing connects into them**. The elder no longer receives this text. Historical copy retained so the retirement is auditable:
 
 > Thank you for your message, {{first_name}}. I don't have anything to check with you right
 > now — I'll be in touch at your next check-in time.
 
-**Approved by Sama, 8 August 2026.** She ruled explicitly that the message must **not** name a
-specific next check-in time and must **not** carry any additional guidance — no SOS mention, no
-instructions. The closing clause is generic reassurance, not a scheduled time.
+**Approved by Sama, 8 August 2026** (must not name a next check-in time; must not carry extra guidance). **Superseded 17 August 2026** by the journal acknowledgement (§7.6).
 
-**Why this exists.** WF-5's `No Open Check-in For This Voice Note` node was a `noOp`, so the
-elder received **nothing at all** — confirmed on a live handset by Talal, 7 August 2026
-(test Case 75). Architecture §8 WF-2a has always required *"a gentle, plain-language re-prompt.
-Never a silent drop."* This closes that gap.
+### 7.6 Journal acknowledgement *(WF-9)*
 
-**Send conditions — silence is correct in these cases.** The message is sent only after a
-lookup confirms the sender is an **active, consented, non-declined elder**. A voice note from
-an unknown number, or from an elder who is pending or declined consent, produces **no reply**.
-A zero-row `SELECT` halts the chain, which is the intended behaviour here — we do not message
-people who are not consented elders.
+Sent when an unprompted voice note is stored as a journal entry and `urgency` is `attention` or `none`. **Not sent** when `urgency = emergency` — WF-4 sends the SOS acknowledgement itself.
+
+> Thank you for sharing that with me, {first_name}. I've saved it for {care_partner_first_name}.
+
+**Why no Meta approval:** the elder's inbound voice note opens the 24-hour customer-service window, so free-form text is permitted. Cannot initiate contact.
+
+### 7.7 Cancel acknowledgement *(WF-10)*
+
+Sent after a consented elder's whole-message `cancel` resolves an open SOS (Option A).
+
+> Thank you, {first_name}. I've let your care circle know it was a false alarm.
+
+**Why no Meta approval:** the elder's inbound `cancel` opens the 24-hour window. Cannot initiate contact.
+
+### 7.8 Nothing to cancel *(WF-10)*
+
+Sent when a consented elder sends `cancel` and there is no open SOS.
+
+> Thank you, {first_name}. There is no active alert to cancel right now.
+
+**Why no Meta approval:** same 24-hour window as §7.7. Cannot initiate contact.
 
 ---
 
@@ -679,7 +698,8 @@ people who are not consented elders.
 | **27 July** | **All 14 submitted.** Several reformatted during upload to clear Meta validation errors. | ✅ Done |
 | **28 July** | **13 approved.** `elderwise_sos_alert_doctor` still in review. Live state reconciled into this document. | ✅ Done |
 | **2 August** | **All 14 approved.** `elderwise_sos_alert_doctor` cleared review unchanged. Verified via Graph API. | ✅ Done |
-| **7 August** | **Health v2 pair approved.** `elderwise_ep_health_checkin_v2` and `elderwise_ep_health_reminder_v2` cleared review as `UTILITY` / `en`. 16 approved. Verified via Graph API. | ▶️ Current |
+| **7 August** | **Health v2 pair approved.** `elderwise_ep_health_checkin_v2` and `elderwise_ep_health_reminder_v2` cleared review as `UTILITY` / `en`. 16 approved. Verified via Graph API. | ✅ Done |
+| **17 August** | **`elderwise_wl_confirmation` submitted.** Meta reclassified as MARKETING. Pending approval. 16 approved remain in service; WhatsApp waitlist confirmation not live. | ▶️ Current |
 | **🚦 9 August** | **Channel go/no-go.** Full set approved → **WhatsApp as planned.** | ✅ Cleared early |
 | ~~By 16 August~~ | ~~Template 12 approved, or SOS demo runs on the CT + LCT path alone~~ | ✅ Closed 2 Aug |
 
@@ -698,6 +718,8 @@ placeholder count not matching the samples · buttons over 20 characters.
 
 | Date | Version | Change |
 |---|---|---|
+| 17 Aug 2026 | **1.15** | **Journal + cancel free-form replies.** §7.6 / §7.7 / §7.8 (WF-9 journal ack; WF-10 cancel ack and nothing-to-cancel). All three are 24-hour-window replies, not Meta templates — distinct from the 16 approved templates; cannot initiate contact. §7.5 retired — WF-5 no-check-in node orphaned. **No change to any WABA template body, variables, or buttons.** |
+| 17 Aug 2026 | **1.14** | **`elderwise_wl_confirmation` submitted** (Meta MARKETING, pending). Fourth audience prefix `wl`. Header status no longer “all approved”. 16 WABA-approved templates unchanged. |
 | 11 Aug 2026 | **1.13** | **"Not on Record" supersedes `NA` for absent Buddy/Doctor (§3.3).** Send-time substitution only; DB still untouched; no placeholder rows. Share-link mint failure (`{{3}}` of template 12) still fails open to `NA` (§3.4). Accepted demo defect on templates 10/12 prose recorded; real fix → PD-12. WF-4 Load Care Circle live with four `COALESCE(..., 'Not on Record')` defaults. |
 | 11 Aug 2026 | **1.12** | **Medication check-in copy corrected; A-11 / OT-9 wording signed off.** §1.1 example and §4 template 2 body now match the live Meta-approved text (`Hi *{{1}}* — it's *{{2}}*, time for your medicines: *{{3}} *Did you take them?`). Stray `*{{3}} *` asterisk recorded as a known approved cosmetic defect (Rules W8 — fix needs `_v2`). Period labels: wording signed off by Sama, 10 Aug 2026 — `< 12:00` Morning · `< 17:00` Afternoon · `< 21:00` Evening · else Night are the expected result. |
 | 4 Aug 2026 | **OT-10 opened (no version bump).** Template 8 `{{2}}` domain asymmetry — medication uses derived period label; food/health name the routine/meal. Parked with Sama alongside OT-9 wording sign-off. **No §4–6 body edits.** |

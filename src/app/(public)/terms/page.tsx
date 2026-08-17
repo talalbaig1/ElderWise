@@ -129,7 +129,7 @@ export default function TermsPage() {
         <section className="space-y-2">
           <h2 className="font-display text-xl">Contact</h2>
           <p>
-            <strong>silacare0@gmail.com</strong>
+            <strong>elderwise0@gmail.com</strong>
           </p>
         </section>
 

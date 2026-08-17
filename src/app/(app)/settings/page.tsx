@@ -14,6 +14,7 @@ import {
   Moon,
   RotateCcw,
   Sun,
+  Trash2,
   UserRound,
   Watch,
 } from "lucide-react";
@@ -92,6 +93,10 @@ export default function SettingsPage() {
   const [section, setSection] = useState<SettingsSection>("profile");
   const [resetOpen, setResetOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [deleteAccountEmail, setDeleteAccountEmail] = useState("");
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const [profile, setProfile] = useState({
     firstName: "",
@@ -211,6 +216,39 @@ export default function SettingsPage() {
     setLogoutOpen(false);
     toast.success("Signed out");
     router.replace("/sign-in");
+  };
+
+  const sessionEmail = (profile.email || carePartner?.email || "").trim();
+  const deleteEmailMatches =
+    sessionEmail.length > 0 &&
+    deleteAccountEmail.trim().toLowerCase() === sessionEmail.toLowerCase();
+
+  const onDeleteAccount = async () => {
+    if (!deleteEmailMatches || deletingAccount) return;
+    setDeletingAccount(true);
+    setDeleteAccountError(null);
+    try {
+      const response = await fetch("/api/account", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: deleteAccountEmail }),
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setDeleteAccountError(
+          body?.error === "Email does not match"
+            ? "That email does not match this account."
+            : "Could not delete account.",
+        );
+        return;
+      }
+      await signOut();
+      router.replace("/");
+    } catch {
+      setDeleteAccountError("Could not delete account.");
+    } finally {
+      setDeletingAccount(false);
+    }
   };
 
   const activeMeta = useMemo(
@@ -739,6 +777,30 @@ export default function SettingsPage() {
                   </Button>
                 </CardContent>
               </Card>
+
+              <Card className="mt-8 border-destructive/60 bg-destructive/5">
+                <CardHeader>
+                  <CardTitle>Delete account</CardTitle>
+                  <CardDescription>
+                    Permanently deletes your account, every Loved One, and all of their history.
+                    This cannot be undone.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    variant="destructive"
+                    className="gap-2"
+                    onClick={() => {
+                      setDeleteAccountEmail("");
+                      setDeleteAccountError(null);
+                      setDeleteAccountOpen(true);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete account
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
           ) : null}
         </div>
@@ -778,6 +840,65 @@ export default function SettingsPage() {
             </Button>
             <Button variant="destructive" onClick={onLogout}>
               Log out
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteAccountOpen}
+        onOpenChange={(open) => {
+          setDeleteAccountOpen(open);
+          if (!open) {
+            setDeleteAccountEmail("");
+            setDeleteAccountError(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete account?</DialogTitle>
+            <DialogDescription>This permanently closes your Care Partner account.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 rounded-lg border border-destructive bg-destructive/10 p-4 text-sm text-destructive">
+            <p className="font-medium">This cannot be undone.</p>
+            <p>
+              Deleting your account permanently removes every Loved One, their routines and care
+              circle, all check-in history, and every voice note and journal recording. None of it
+              can be recovered.
+            </p>
+            <p>
+              You can sign up again later with the same email and the same WhatsApp numbers, but
+              nothing from this account will come back.
+            </p>
+            <p>To confirm, type your email address below.</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="delete-account-email">Email</Label>
+            <Input
+              id="delete-account-email"
+              type="email"
+              autoComplete="off"
+              value={deleteAccountEmail}
+              onChange={(e) => {
+                setDeleteAccountEmail(e.target.value);
+                setDeleteAccountError(null);
+              }}
+            />
+            {deleteAccountError ? (
+              <p className="text-sm text-destructive">{deleteAccountError}</p>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteAccountOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void onDeleteAccount()}
+              disabled={!deleteEmailMatches || deletingAccount}
+            >
+              Delete account
             </Button>
           </DialogFooter>
         </DialogContent>

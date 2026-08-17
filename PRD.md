@@ -5,8 +5,8 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | PRD.md — v1.13 |
-| **Date** | 11 August 2026 |
+| **Document** | PRD.md — v1.15 |
+| **Date** | 17 August 2026 |
 | **Format** | AIGF Framework 9 (F9) PRD structure + technical build sections |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Demo Day** | 29 August 2026 |
@@ -88,6 +88,16 @@ This split is the central design constraint: **the person who uses the product i
 - **Zero adoption cost for the elderly person.** No app, no device, no login, no learning. The product lives inside a chat thread they already open every day.
 - **The care circle is a graph, not a person.** Care Partner → Local Caregiver (optional) → Doctor (optional), each with a defined trigger. An SOS reaches everyone who can physically help within seconds — **CT always**; LCT and Doctor only if onboarded.
 - **A record, not a rumour.** Weeks of check-ins become a downloadable, doctor-ready report — with no diagnosis and no interpretation, just facts.
+
+### 4.3 Public waitlist
+
+Families can join a waitlist from `/waitlist` and from the landing page (above the final CTA). The form collects name, email, phone, WhatsApp, optional caring-for / location, and consent to be contacted. Signups receive a **confirmation email**. WhatsApp confirmation is **pending Meta approval** of `elderwise_wl_confirmation` and is not live. Detail: `Architecture.md` §6.1 / WF-8.
+
+### 4.4 Voice Journal
+
+The elder can speak unprompted on WhatsApp. ElderWise transcribes the note, summarises it, and stores mood, themes and an attention flag for the Care Partner. A message that describes an emergency **happening now** escalates to the SOS cascade.
+
+**This is not a reliable emergency detector** and does **not** replace emergency services. It is an LLM reading a transcript. Keyword SOS (`sos`, `help`) remains the reliable path. Detail: `Architecture.md` §8 WF-9. The dashboard Voice Journal screen remains a placeholder (FR-DB-6 / C2).
 
 ---
 
@@ -395,7 +405,7 @@ No non-WhatsApp phone numbers on the SOS record.
 
 | # | Screen | Contents |
 |---|---|---|
-| 1 | **Landing** | Product details · Signup · Signin |
+| 1 | **Landing** | Product details · Waitlist · Signup · Signin |
 | 1a | **Get Started** (`/sign-up`) | Step 1 of 4 — account creation (pre-auth progress chrome only) |
 | 1b | **Onboarding wizard** | Steps 2–4: Care Circle · Wellness Details · Review (+ completion, not counted) |
 | 2 | **Dashboard** | Medication history (% + history) · Health · Food · SOS summary · filters (Days/Months/Years/Timeline) · Get Report |
@@ -534,6 +544,8 @@ Demo Day ships the **MVP**. Should- and Could-have items are not permitted to en
 
 | Date | Version | Change |
 |---|---|---|
+| 17 Aug 2026 | 1.15 | **Voice Journal as a product surface (§4.4).** Unprompted speech is transcribed and summarised; CT sees mood / themes / attention flag; a "happening now" emergency escalates to SOS. Stated limitation: not a reliable emergency detector and does not replace emergency services. Dashboard screen remains FR-DB-6 placeholder. |
+| 17 Aug 2026 | 1.14 | **Public waitlist.** §4.3: name / email / phone / WhatsApp + consent; confirmation email live; WhatsApp confirmation pending Meta. Detail in `Architecture.md`. |
 | 11 Aug 2026 | 1.13 | **OQ-7 closed — superseded.** Branch-per-member was never adopted; `main` is the sole branch. Closes with `Architecture.md` A-6 (10 Aug 2026). |
 | 10 Aug 2026 | 1.12 | **STT locked to OpenAI Whisper; OQ-5b closed; member count 11 → 10.** §11 Speech-to-text and OQ-5b brought in line with `Architecture.md` §3 / A-1 (locked 2 August 2026; stale since then). Confidence threshold is unset by design — re-ask gated on answer-derivation `unclear`, not ASR score. Header team size and OQ-7 corrected to **10 members** following Patrick Correya's departure. |
 | 27 Jul 2026 | 1.11 | **§7.1 Not Required warning copy — three card-specific variants** (medication / food / health). Medication row 3 uses Timing + Notify dropdowns + Missed-dose escalation (minutes); escalation disabled (not hidden) when `not_required`. Food/Health are one row of three with Notify dropdowns. |

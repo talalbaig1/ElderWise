@@ -1,0 +1,332 @@
+{
+  "activeVersionId": "29011719-9d8d-41fb-bb13-f55b23956bda",
+  "connections": {
+    "Already Notified?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Ack 200 - Already Notified",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Send Confirmation Email",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Load Waitlist Row": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Waitlist Row Found?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Send Confirmation Email": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Stamp Notified At",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Stamp Notified At": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Ack 200 - Confirmation Sent",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Waitlist Row Found?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Already Notified?",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Not Found 404",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Waitlist Signup Webhook": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Load Waitlist Row",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "description": "WF-8 receives a waitlist_id from the Next.js route after the row commits, loads the row, emails the registrant a confirmation, and stamps notified_at. Replay-safe.",
+  "id": "V9VTNaLGJkFGUTFN",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "name": "ElderWise WF-8 - Waitlist Confirmation Dispatch",
+  "nodes": [
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "0FCUcPohOViREq2n",
+          "name": "ElderWise Waitlist Webhook Secret"
+        }
+      },
+      "id": "43269027-8822-48c9-8810-e96830e4a8a7",
+      "name": "Waitlist Signup Webhook",
+      "parameters": {
+        "authentication": "headerAuth",
+        "httpMethod": "POST",
+        "options": {},
+        "path": "elderwise-waitlist",
+        "responseMode": "responseNode"
+      },
+      "position": [
+        0,
+        192
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "webhookId": "afec406d-389a-4238-b2b9-5cbe0a32c0f1"
+    },
+    {
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "c479eafc-fc5f-439f-9b42-68cf8d49120e",
+      "name": "Load Waitlist Row",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 30,
+          "queryReplacement": "={{ [ $json.body.waitlist_id ] }}"
+        },
+        "query": "SELECT id, full_name, email, phone, whatsapp, caring_for, location, notified_at, created_at FROM waitlist WHERE id = $1::uuid"
+      },
+      "position": [
+        224,
+        192
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "7208d729-a560-4829-a774-ddfeb99509b8",
+      "name": "Waitlist Row Found?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.id }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        448,
+        192
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "id": "70b26458-d361-45bb-9dcb-0d5fcfbad68c",
+      "name": "Already Notified?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.notified_at }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        672,
+        96
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "id": "1a7e7704-e392-48ad-84b1-e86005c6fac5",
+      "name": "Ack 200 - Already Notified",
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        },
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, waitlist_id: $('Load Waitlist Row').item.json.id, email_sent: false, already_notified: true }) }}"
+      },
+      "position": [
+        896,
+        0
+      ],
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5
+    },
+    {
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "trL46GcpmkGxJNnm",
+          "name": "Gmail talalbaig@gmail.com"
+        }
+      },
+      "id": "187b6c30-49b6-4029-89c7-f029bf872837",
+      "name": "Send Confirmation Email",
+      "parameters": {
+        "emailType": "text",
+        "message": "=Hello {{ $json.full_name }},\n\nThank you for joining the ElderWise waitlist. We have saved your details and we will be in touch as soon as early access opens.\n\nElderWise helps families stay close to an elderly parent or relative through WhatsApp - gentle check-ins for medication, meals and wellbeing, with alerts if something needs attention.\n\nIf you did not sign up for this, you can ignore this message and we will not contact you again.\n\nWarm regards,\nThe ElderWise team",
+        "options": {
+          "appendAttribution": false,
+          "senderName": "ElderWise"
+        },
+        "sendTo": "={{ $json.email }}",
+        "subject": "You're on the ElderWise waitlist"
+      },
+      "position": [
+        896,
+        192
+      ],
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "webhookId": "185245e3-ee9c-423b-b580-bb0c2419fe16"
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "2d3dd353-134a-4264-a2cb-916ce58f8775",
+      "name": "Stamp Notified At",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 30,
+          "queryReplacement": "={{ [ $('Load Waitlist Row').item.json.id ] }}"
+        },
+        "query": "UPDATE waitlist SET notified_at = now() WHERE id = $1::uuid AND notified_at IS NULL RETURNING id AS waitlist_id, notified_at"
+      },
+      "position": [
+        1120,
+        192
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "afbc6c4f-5234-41fc-9959-917899235e8e",
+      "name": "Ack 200 - Confirmation Sent",
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        },
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, waitlist_id: $('Load Waitlist Row').item.json.id, email_sent: true, notified_stamped: !!$json.waitlist_id }) }}"
+      },
+      "position": [
+        1344,
+        192
+      ],
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5
+    },
+    {
+      "id": "2fe81559-91cb-40e3-959b-6780eb96101e",
+      "name": "Not Found 404",
+      "parameters": {
+        "options": {
+          "responseCode": 404
+        },
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, error: \"waitlist_row_not_found\" }) }}"
+      },
+      "position": [
+        672,
+        288
+      ],
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5
+    },
+    {
+      "id": "5ccbf974-f20f-450e-8714-b54f5d6d70e2",
+      "name": "Sticky Note 986b9d90",
+      "parameters": {
+        "color": 4,
+        "content": "## WF-8 Waitlist Confirmation\n\nCalled by POST /api/waitlist in Next.js AFTER the row commits.\n\nHeader auth: X-ElderWise-Signature.\n\nReplay-safe: notified_at IS NULL guards the UPDATE, and Already Notified? short-circuits a resend.\n\nWhatsApp branch pending Meta approval of elderwise_wl_confirmation (MARKETING).",
+        "height": 200,
+        "width": 520
+      },
+      "position": [
+        800,
+        400
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    }
+  ],
+  "settings": {
+    "binaryMode": "separate",
+    "executionOrder": "v1"
+  },
+  "staticData": null
+}

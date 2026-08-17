@@ -321,6 +321,7 @@ export function buildDashboardModel(
         item.response != null ? String(item.response) : undefined,
       ),
       kind: item.routineKind,
+      description: item.voiceTranscript,
     }));
 
   // Upcoming invents no event for a paused routine (enabled=false).

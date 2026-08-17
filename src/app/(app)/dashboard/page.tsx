@@ -465,6 +465,7 @@ export default function DashboardPage() {
               time: item.time,
               status: item.status,
               responseLabel: item.responseLabel,
+              description: item.description,
               icon:
                 item.kind === "medication"
                   ? Pill

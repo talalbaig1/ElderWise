@@ -5,8 +5,8 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.46 |
-| **Date** | 14 August 2026 |
+| **Document** | Architecture.md — v1.52 |
+| **Date** | 17 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
 
@@ -20,7 +20,7 @@ Five rules govern every decision below. They are not negotiable without a decisi
 
 | # | Principle |
 |---|---|
-| **P1** | **The message path and the dashboard are two separate systems that meet only at the database.** n8n owns everything that touches WhatsApp. Next.js owns everything a human clicks. **One documented exception:** Next.js fires an authenticated server-side webhook to n8n when an SOS is resolved from the dashboard (§8, WF-4) — because on the SOS path, latency is the harm. The database remains the source of truth even there. n8n **never** calls Next.js. |
+| **P1** | **The message path and the dashboard are two separate systems that meet only at the database.** n8n owns everything that touches WhatsApp. Next.js owns everything a human clicks. **Two documented exceptions**, both authenticated **server-side** webhooks after a write has committed: (1) SOS resolution from the dashboard → WF-4a (§8); (2) waitlist signup → WF-8 (§8). The database remains the source of truth. A webhook failure must not fail the user's request. n8n **never** calls Next.js. |
 | **P2** | **The SOS path is sacred.** It is the highest-reliability path in the system. It never queues behind routine reminder traffic, and a failure in it is the most severe class of defect in this codebase. |
 | **P3** | **Never guess on behalf of an elderly person.** If the system cannot determine an answer with confidence, it asks again in plain language. It does not infer, assume, or default. |
 | **P4** | **Data isolation is enforced at the database, not in application code.** Row-Level Security is the boundary. Application bugs must not be able to leak one family's data to another. |
@@ -152,8 +152,11 @@ care_partners ──┐
     │           ├── 1:many ── message_templates
     │           ├── 1:many ── checkins ──┬── 1:many ── checkin_medication_items
     │           │                        └── 0..1  ── voice_replies
+    │           ├── 1:many ── voice_journals
     │           ├── 1:many ── sos_events ── 1:many ── sos_notifications
     │           └── 1:many ── ct_notifications
+
+waitlist   (no FKs, no path to auth.users — public signups; see §5.2 / §6.1)
 ```
 
 ### 5.2 Tables
@@ -196,7 +199,7 @@ care_partners ──┐
 | `consent_data_sharing_at` | timestamptz | nullable — conditional if Doctor or Local Buddy added. |
 | `consent_terms_at` | timestamptz | nullable — Terms & Privacy re-confirm at Review. |
 | `consent_terms_version` | text | nullable — **dated** policy version consented to (e.g. `2026-07-v1`). Must match the Privacy/Terms text shown at Review; bump when approved page text changes. |
-| `active` | boolean | **Onboarding draft flag:** `false` while the wizard is in progress, `true` on finish. **All product reads filter `active = true`**, so a draft never appears in the dashboard, list, or selector. **At most one draft per care partner.** Discarding a draft is a **hard DELETE**, not a soft delete: `elders.whatsapp_number` is globally UNIQUE, so a soft-deleted draft would permanently lock that number against every care partner — including a sibling caring for the same parent. Safe because a draft has no history (`consent_confirmed_at` is null, nothing was scheduled, children cascade). **Contrast:** routine deletion is soft precisely because history must survive. |
+| `active` | boolean | **Onboarding draft flag:** `false` while the wizard is in progress, `true` on finish. **All product reads filter `active = true`**, so a draft never appears in the dashboard, list, or selector. **At most one draft per care partner.** Discarding a draft is a **hard DELETE**, not a soft delete: `elders.whatsapp_number` is globally UNIQUE, so a soft-deleted draft would permanently lock that number against every care partner — including a sibling caring for the same parent. Safe because a draft has no history (`consent_confirmed_at` is null, nothing was scheduled, children cascade). **Product Loved One removal is also a hard DELETE** (Talal, 17 August 2026) — see §5.8. **Contrast:** routine deletion is soft precisely because a routine's history must survive when the elder remains. |
 | `created_at` | timestamptz | |
 
 **Consent lifecycle (welcome message) — four states.** Columns: (`consent_requested_at`, `consent_confirmed_at`, `consent_declined_at`).
@@ -255,7 +258,7 @@ care_partners ──┐
 | `elder_id` | uuid FK | |
 | `domain` | enum(`medication`,`health`,`food`) | UNIQUE with `elder_id` |
 | `enabled` | boolean | **Derived** — mirrors whether any schedulable routine exists in that domain |
-| `frequency` | jsonb | **Derived field** — the sorted union of times from routines that are `active = true` AND `enabled = true` (all three domains), refreshed on create / edit / soft-delete. **Not resynced on pause/resume** (`setRoutineEnabled`) — the cache may lag `enabled`. That is deliberate: no SQL node in any of the 21 committed workflows queries `domain_configs`, and WF-6 derives `notify_mode` from the routine tables (`COALESCE(MIN(m/f/h.notify_care_partner))`, A-9). Do not "fix" the staleness and do not start reading `domain_configs`. Direct edits are overwritten on the next full routine save. Shape e.g. `{"times": ["08:00","20:00"]}` (local times in the elder's tz). No fixed 3×/day (FR-ON-4). |
+| `frequency` | jsonb | **Derived field** — the sorted union of times from routines that are `active = true` AND `enabled = true` (all three domains), refreshed on create / edit / soft-delete. **Not resynced on pause/resume** (`setRoutineEnabled`) — the cache may lag `enabled`. That is deliberate: no SQL node in any of the 24 committed workflows queries `domain_configs`, and WF-6 derives `notify_mode` from the routine tables (`COALESCE(MIN(m/f/h.notify_care_partner))`, A-9). Do not "fix" the staleness and do not start reading `domain_configs`. Direct edits are overwritten on the next full routine save. Shape e.g. `{"times": ["08:00","20:00"]}` (local times in the elder's tz). No fixed 3×/day (FR-ON-4). |
 | `ct_notification` | enum(`every_interaction`,`only_missed`,`not_required`) | **Derived / deprecated (A4).** Not authoritative for Track B. May still be mirrored from routine rows for backward compatibility; **WF-6 does not read it** (built 3 Aug on per-routine `notify_care_partner` — A-9 closed). |
 | `escalate_to` | enum(`care_partner`) | Only the CT escalates. LCT/Doctor are SOS-only. Enum kept for v2 headroom. |
 
@@ -295,7 +298,7 @@ care_partners ──┐
 |---|---|
 | `id` uuid PK · `elder_id` uuid FK · `enabled` bool (**pause**) · `active` bool (**tombstone**, default true) · `name` text · `type` enum(**unused** — §5.6) · `frequency` enum(**unused** by schedulers — app writes `daily`) · `time` time (local) · `start_date` date NOT NULL (today in elder tz) · `end_date` date null (open-ended) · `days_of_week` text[] (empty = every day; honoured by WF-1c) · `question` text (**unused**) · `answer_type` enum(**unused**) · `notify_care_partner` enum(`every_time`,`only_missed`,`not_required`) · `escalation_minutes` int (default 60) · `typical_bedtime` time null (**unused**) · `typical_wake_time` time null (**unused**) |
 
-> **Escalation defaults differ by domain in the front end** (medication 5 min, food 45, health 60). These are **defaults**, editable per routine. The old blanket "30 across the board" is superseded. **New routines default to `notify_care_partner = every_time` in all three domains**, and their time defaults to **now in the elder's timezone** (`ROUTINE_DEFAULT_TIME_OFFSET_MINUTES`, currently 0).
+> **Escalation defaults differ by domain in the front end** (medication 5 min, food 45, health 60). These are **defaults**, editable per routine. The old blanket "30 across the board" is superseded. **New routines default to `notify_care_partner = every_time` in all three domains**, and their time defaults to **now in the elder's timezone plus two minutes** (`ROUTINE_DEFAULT_TIME_OFFSET_MINUTES` = 2). Two minutes of lead time stops a live-demo create from materialising into a slot that has already passed and being swept to missed without dispatch; it is short enough not to feel like a delay.
 
 > **Two-column model — all three domains (Talal, 12 August 2026).** `enabled` = the Care Partner's pause switch. Dispatch stops; the routine **stays visible** in the routine list with the switch off and an **Inactive** marker. `active` = the tombstone. Soft-delete sets `active = false` AND `enabled = false`; the routine leaves the active list; history is preserved. **An inactive (paused) routine in any domain must be shown, marked inactive — never hidden.** **Never reuse a user-facing field as a tombstone.** PR #19 had reused `enabled` as the food/health tombstone; a paused routine then vanished from the list while remaining alive (`active = true`). That conflation is closed. **Expected side effect:** food/health rows already at `enabled = false` (backfilled `active = true`) reappear in testers' lists marked Inactive — that is intended, not a regression.
 
@@ -382,7 +385,7 @@ Index: `(elder_id, domain, scheduled_for)` and `(status, scheduled_for)` — the
 | `triggered_at` | timestamptz | |
 | `status` | enum(`open`,`resolved`) | **Exhausting all three nudges (after the initial alert) does not resolve it** — it stays `open` (FR-SOS-3c). |
 | `nudges_sent` | integer | **0–3** — counts **nudge rounds only**, not the initial alert |
-| `resolved_by_role` | enum(`care_partner`,`local_caregiver`,`doctor`) | nullable |
+| `resolved_by_role` | enum(`care_partner`,`local_caregiver`,`doctor`) | nullable. **No `elder` value.** An elder `cancel` (WF-10) leaves this NULL (`PostDemoEnhancements.md` PD-23). |
 | `resolved_by_id` | uuid | nullable |
 | `resolved_channel` | enum(`whatsapp`,`dashboard`) | **Both paths must work** (M14b) |
 | `resolved_at` | timestamptz | |
@@ -431,7 +434,63 @@ Index: `(elder_id, domain, scheduled_for)` and `(status, scheduled_for)` — the
 | `meta_template_name` text | | The Meta-approved template it maps to |
 | `body` text | | |
 
-**`voice_journal_entries`** — **not created in the MVP.** The Voice Journal screen is a hard-coded demo placeholder (FR-DB-6) that renders an **empty state**. There is no `public.voice_journal_entries` table in migrations; `load-app-data.ts` always returns an empty `voiceJournals` array. Do not invent this table or assume it exists in wipe/seed scripts.
+**`voice_journals`** — unprompted voice notes (not check-in replies). Created 17 August 2026. Distinct from `voice_replies`, which are always attached to a check-in.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `elder_id` | uuid FK → `elders.id` | |
+| `media_id` | text UNIQUE | **Idempotency key** against Meta redelivery — same pattern as `voice_replies.media_id`. |
+| `audio_path` | text | Object in private bucket `voice-notes`: `{elder_id}/journal/{media_id}.ogg`. Distinct prefix from check-in replies (`{elder_id}/{checkin_id}/{media_id}.ogg`). |
+| `duration_seconds` | numeric | **Always NULL.** Meta's inbound audio payload carries `id`, `mime_type` and `sha256` — no duration. Known limitation, not a defect (`PostDemoEnhancements.md` PD-20). |
+| `transcript` | text | Whisper. |
+| `ai_summary` | text | From the WF-9 classifier. |
+| `mood` | text | Constrained to `positive`, `calm`, `tired`, `lonely`, `concerned`, `neutral`. |
+| `themes` | text | |
+| `attention_flag` | boolean | Raised when classification cannot be read (C21). |
+| `provider` | text | |
+| `recorded_at` | timestamptz | |
+| `created_at` | timestamptz | |
+| `urgency` | text | Constrained to `emergency`, `attention`, `none`. |
+
+**RLS:** enabled. Three policies for `authenticated` — select, update, delete — each `EXISTS (SELECT 1 FROM elders e WHERE e.id = voice_journals.elder_id AND e.care_partner_id = auth.uid())`. **No insert policy.** n8n writes over the Postgres credential (bypasses RLS).
+
+**`storage.objects` has zero RLS policies.** The `voice-notes` bucket is unreadable by `anon` and `authenticated`. Any playback must be signed server-side.
+
+**`voice_journal_entries`** — **never created.** Do not invent this name. Live table is `voice_journals`. The Voice Journal **dashboard screen** remains a placeholder (FR-DB-6); ingest is live.
+
+**`waitlist`** — public marketing signups. **No foreign keys and no dependents.** n8n reads and stamps it over the Postgres credential (bypasses RLS).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | Generated in `POST /api/waitlist` via `crypto.randomUUID()` and inserted explicitly. Not `gen_random_uuid()` at the database, and **not** read back via `RETURNING` (§6.1). |
+| `full_name` | text NOT NULL | |
+| `email` | text NOT NULL | **No unique constraint.** Duplicate emails are permitted at the database. Whether to add one is an **open decision** (`PostDemoEnhancements.md` PD-19) — do not treat uniqueness as settled. |
+| `phone` | text NOT NULL | |
+| `whatsapp` | text NOT NULL | |
+| `caring_for` | text | nullable; `parent` \| `spouse` \| `other` |
+| `location` | text | nullable |
+| `consent` | boolean NOT NULL | Must be `true`. The insert policy `WITH CHECK`s this. |
+| `source` | text NOT NULL | default `web` |
+| `created_at` | timestamptz NOT NULL | default `now()` |
+| `notified_at` | timestamptz | nullable. Set by WF-8 after the confirmation email sends. NULL = not yet notified (replayable). |
+
+**`deletion_events`** — append-only record of hard deletes (Loved One removal, Care Partner account delete, leftover `voice-notes` objects swept by WF-11). **Deliberately carries no foreign keys:** none to `elders`, because the referenced row is what was destroyed; none to `auth.users`, because that chain is `ON DELETE CASCADE` and would erase the audit along with the account. Live on 17 August 2026. RLS enabled with **zero policies**; `anon` and `authenticated` revoked. Session-client inserts fail. Writes use the service-role client (Next.js `createAdminClient()` after ownership is proven, or n8n's Postgres credential).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | default `gen_random_uuid()` |
+| `source` | text NOT NULL | `app` (Loved One hard delete) · `account` (Care Partner account delete) · `wf11` (scheduled sweep). CHECK. |
+| `elder_id` | uuid | nullable. Copied, not referenced. |
+| `elder_first_name` | text | nullable. From the ownership select, before the row is gone. |
+| `care_partner_id` | uuid | nullable. Copied from the session `user.id`. Not an FK. |
+| `rows_deleted` | jsonb | default `{}`. Table → count, counted **server-side before** the DELETE. Never from the request body. |
+| `storage_keys` | text[] | default `{}`. Keys the Storage API actually removed. |
+| `storage_remaining` | int | default 0. From the post-removal prefix re-list. **`0` = re-listed and verified empty. `-1` = the storage sweep threw; the count is unknown.** Do not write `0` when the sweep failed. |
+| `note` | text | nullable |
+| `created_at` | timestamptz | default `now()` |
+
+`DELETE /api/loved-ones/[id]` inserts `source = 'app'` **after** the verification re-list. `DELETE /api/account` inserts `source = 'account'` — one row per elder plus a summary row (`elder_id` NULL, note names the elder count). If that insert fails, the request still returns success — the rows are already gone. WF-11 is the backstop: 15-minute cron, own row with `source = 'wf11'`.
 
 ---
 
@@ -455,7 +514,7 @@ The front-end type model defines several fields ahead of scope. They are allowed
 | Front-end concept | Status | Note |
 |---|---|---|
 | `NotificationMethod` = `sms` / `email` / `push` | **Could-have (C8)** | MVP is **WhatsApp only**. The enum may exist; only `whatsapp` is wired. |
-| `VoiceJournalEntry.transcript` / `aiSummary` / `mood` / `themes` | **Could-have (C2)** | Voice **journaling** is a hard-coded demo screen. (Note: voice **reply** transcription for check-ins **is** Must-have — M4a — a different feature.) |
+| `VoiceJournalEntry.transcript` / `aiSummary` / `mood` / `themes` | **Ingest live (17 Aug 2026)** | Unprompted voice is stored in `voice_journals` (WF-9). The dashboard Voice Journal screen remains a placeholder (FR-DB-6). Voice **reply** transcription for check-ins is M4a / WF-5 → `voice_replies`. |
 | `UserSettings` WhatsApp quiet hours / daily digest | **Out of scope** | Not in the PRD. Render if present, but no backend. |
 | `HealthRoutine.answerType` = `number` / `mood` / `short_text` | **Should/Could** | MVP health check-ins are **Yes/No** (`yes_no`). Richer answer types are later. |
 | `SOSEvent.averageResponseMinutes`, `callsMade` | Demo/analytics | Not core MVP logic. |
@@ -533,9 +592,45 @@ Care Circle is **one screen** that writes `care_partners`, draft `elders` (`acti
 
 Draft discard remains **hard DELETE** (D11). Product activation (`active = true`) and Review consents remain later in the wizard. New columns inherit existing table RLS; re-verify policies after migration (`Phases.md` GATE A4).
 
+### 5.8 Product Loved One hard delete (Talal, 17 August 2026)
+
+Soft-deleting a product elder was proposed and **rejected**. `DELETE /api/loved-ones/[id]` removes the elder row; every child row follows via FK `ON DELETE CASCADE`. No migration was required — cascade and RLS were already correct.
+
+`storage.objects` has **zero RLS policies**, so the database cascade cannot remove objects in `voice-notes`. The route therefore:
+
+1. Proves ownership with the **session** client (`elders` select under RLS). Another family's id → **404**, not 403. Unauthenticated → **401**.
+2. Collects `audio_path` from `voice_journals` and from `voice_replies` joined through `checkins` **while the rows still exist**.
+3. Counts every child table **server-side** (scalar `count(*)` subselects / inner-join counts). Dialog numbers are not read.
+4. Deletes the elder under RLS (`DELETE … RETURNING id`; `if (!data)` per C19).
+5. **Only then** constructs `createAdminClient()` and calls the Storage API (`voice-notes.remove`), never `DELETE FROM storage.objects`.
+6. Prefix-sweeps `{elder_id}/` (including `journal/` and each `{checkin_id}/` folder) for objects the database did not know about.
+7. Re-lists the prefix. Leftovers are logged; the request still succeeds.
+8. Inserts `deletion_events` (`source = 'app'`) with the server counts, the keys actually removed, and `storage_remaining`. Insert failure is logged; the HTTP response is still success. **WF-11** (Track B, 15-minute cron) is the leftover-object backstop and writes its own row with `source = 'wf11'`.
+
+**Accepted race:** a Loved One deleted in the seconds between a scheduler send node firing and the row disappearing can receive one final WhatsApp check-in. WF-1 / WF-1b / WF-1c do not crash; the terminal `UPDATE` matches zero rows and stops. Documented, not fixed.
+
+The only UI entry point is the Loved Ones list dialog. A delete control on `/loved-ones/[id]` is deferred (`PostDemoEnhancements.md` PD-24).
+
+### 5.9 Care Partner account delete (Talal, 17 August 2026)
+
+Purpose: **re-onboarding**. After deletion the same person must be able to sign up again with the **same email** and onboard elders on the **same WhatsApp numbers**. `elders.whatsapp_number` is a plain UNIQUE with no tombstone — only a hard delete frees the number.
+
+`care_partners.id` is the **only** public FK to `auth.users`, `ON DELETE CASCADE`. That chain reaches elders and every descendant. Therefore **one** `auth.admin.deleteUser()` removes the account and every child row. Do not write per-table deletes. `deletion_events.care_partner_id` has no FK, so audit rows survive.
+
+`DELETE /api/account`:
+
+1. Session `getUser()`. No user → **401**.
+2. Request body email must match the session email (case-insensitive, trimmed). Mismatch → **400**. Nothing is deleted.
+3. **Admin client.** Collect every elder id for this Care Partner (including `active = false`), per-elder cascade counts (admin — `watchdog_alerts` has no authenticated SELECT), and every `audio_path` from `voice_journals` and `voice_replies`. Once the auth user is gone these are unrecoverable (`Rules.md` SEC12).
+4. `auth.admin.deleteUser(user.id)`.
+5. Storage API remove of collected keys, then `{elder_id}/` prefix sweep per elder. Leftovers logged; request still succeeds — **WF-11** is the backstop.
+6. `deletion_events` `source = 'account'`: one row per elder, plus a summary row (`elder_id` NULL). Insert failure is logged, not returned.
+
+UI: Settings → Account, last card after Sign out. Confirm button disabled until the typed email matches.
+
 ## 6. Data isolation (RLS) — P4
 
-Every table above carries a path to `care_partners.id`. RLS is enabled on **all** of them, with policies of the form:
+Every **family-data** table above carries a path to `care_partners.id`. RLS is enabled on **all** of them, with policies of the form:
 
 ```sql
 -- Example: elders
@@ -561,6 +656,21 @@ create policy "CT reads own checkins" on checkins
 - RLS is enabled on every table. No exceptions. A table without RLS is a data breach with a delay fuse.
 - **n8n uses the service-role key** and therefore bypasses RLS. This is deliberate — n8n is trusted infrastructure, not a user session. The service-role key **must never leave the n8n server or the Next.js server runtime**. It is never sent to a browser.
 - **The Doctor share link does not use RLS.** A token is not a session and `auth.uid()` is null. Instead: a Next.js **server-side** route validates the token hash, checks `revoked_at` and `expires_at`, resolves it to exactly one `elder_id`, and queries with the service-role key **scoped to that elder only**. The token never reaches the database and the browser never gets a Supabase key. (See §7.3.)
+- **`waitlist` and `deletion_events` are the exceptions to “path to `care_partners.id`”.** Waitlist: §6.1. Deletion events: no FKs by design (§5.2) so the audit survives the elder and the account.
+
+### 6.1 Public unauthenticated writes (`waitlist`)
+
+This is the first table in ElderWise that accepts writes from visitors who are not signed in.
+
+**Policy (one only):** `waitlist_public_insert` — `FOR INSERT TO anon, authenticated WITH CHECK (consent = true)`. No SELECT, UPDATE, or DELETE policy exists for `anon` or `authenticated`. A client-role `SELECT` returns 0 rows even when rows are present — verified 17 August 2026. The signup list is not readable from the browser.
+
+**Why the policy names both `anon` and `authenticated`:** a signed-in Care Partner posting the public form carries the `authenticated` role, not `anon`. An `anon`-only policy silently rejects them (`Rules.md` SEC9). Verified: insert as `anon` succeeds; insert as `authenticated` succeeds.
+
+**Request path:** browser → `POST /api/waitlist` → rate limit (`elderwise:rl:waitlist`, 8 per 10 minutes per IP, **fail-open**) → Zod validation → route-generated `crypto.randomUUID()` → anon insert **with no `RETURNING`** → fire-and-forget WF-8 webhook → `{ ok: true, id }`. Public UI: `/waitlist` and `WaitlistSection` on the landing page (above `FinalCta`).
+
+**Why there is no `RETURNING`:** under an insert-only policy, `INSERT … RETURNING` raises **Postgres error 42501**. Verified by probe on 17 August 2026. Adding a SELECT policy to make `RETURNING` work would make the signup list readable and reintroduce email enumeration. The id is therefore generated in the route and passed in the insert payload. Do not "fix" this by adding a SELECT policy (`Rules.md` D14).
+
+**n8n after commit:** Next.js POSTs to `N8N_WAITLIST_WEBHOOK_URL` with `X-ElderWise-Signature` and body `{ "waitlist_id": "<uuid>" }` **after** the insert commits. A webhook failure is logged to Sentry and **must not fail the user's request** — the row is already saved and WF-8 can be replayed (rows with `notified_at IS NULL`).
 
 ---
 
@@ -600,7 +710,7 @@ Supabase Auth — **email + password only**. Session in an httpOnly cookie via t
 
 ## 8. The message path (n8n)
 
-The n8n instance carried **21 workflows** as of 11 August 2026: 18 operational (including WF-7 Dispatch Watchdog), the shared Error Workflow, and two read-only utilities (Template Audit, Credential Check). Verified by full enumeration. (Prior working map said twenty as of 9 August 2026; sixteen as of 4 August 2026 — gaps were incomplete documentation, not missing builds.)
+The n8n instance carried **24 workflows** as of 17 August 2026: 21 operational (including WF-7 Dispatch Watchdog, WF-8 Waitlist Confirmation Dispatch, WF-9 Voice Journal Ingest and WF-10 SOS Cancel Handler), the shared Error Workflow, and two read-only utilities (Template Audit, Credential Check). Verified by full enumeration. **WF-11** (voice-notes sweep) was added the same day as Loved One hard delete; it is on this map and writes `deletion_events`. (22 as of earlier 17 August 2026 after WF-8; 21 as of 11 August 2026; prior working map said twenty as of 9 August 2026; sixteen as of 4 August 2026 — gaps were incomplete documentation, not missing builds.)
 
 | Workflow | n8n ID | Trigger | Role |
 |---|---|---|---|
@@ -622,11 +732,15 @@ The n8n instance carried **21 workflows** as of 11 August 2026: 18 operational (
 | **WF-4d** SOS Nudge Sweep | `EY36qDhdv5FqfL0W` | **cron 1 min** | Nudge rounds 1–3, template 13 |
 | **WF-6** Care Partner Notifications (All Domains) | `6I6OC7qJ5YhhUQxU` | sub-workflow | Templates 8 and 9 |
 | **WF-7** Dispatch Watchdog | `8G8s8dNSVySDbPpm` | cron 5 min | Alerts when a check-in was never sent (A-30); once per check-in via `watchdog_alerts` |
+| **WF-8** Waitlist Confirmation Dispatch | `V9VTNaLGJkFGUTFN` | webhook | Email confirmation after a public waitlist insert (`POST /webhook/elderwise-waitlist`) |
+| **WF-9** Voice Journal Ingest | `2KWtzSH22fTNxed9` | sub-workflow | Unprompted voice → `voice_journals`; `urgency = emergency` calls WF-4 |
+| **WF-10** SOS Cancel Handler | `CPDmCJh8e1WO8Sod` | sub-workflow | Elder whole-message `cancel` resolves an open SOS (Option A) |
+| **WF-11** Voice-notes sweep | — | cron 15 min | Orphan objects in `voice-notes`; writes `deletion_events` with `source='wf11'`. n8n ID lands with the next export cron. |
 | **Error Workflow** | `uvBstI6J42nNhIYz` | error trigger | Shared Track B failure path → Telegram + Gmail (§11.1) |
 | **Template Audit** (read-only) | `PADE2m75e6xVGS2e` | Manual, inactive | Utility — not on the message path |
 | **Credential Check** (read-only) | `5nVL2BdvqeX2i0AU` | Manual, inactive | Verifies both Supabase credentials (Postgres query + Storage bucket listing) |
 
-**Track B message-path workflows: built** (4 August 2026). **WF-7 Dispatch Watchdog built** (10–11 August 2026). **Remaining:** open items A-31, A-34, A-35; accepted MVP items A-5 / A-14 / A-17–A-19 / A-22 / A-24; `some_of_them` fourth gate output accepted as A-12.
+**Track B message-path workflows: built** (4 August 2026). **WF-7 Dispatch Watchdog built** (10–11 August 2026). **WF-8 Waitlist Confirmation Dispatch built** (17 August 2026) — email only; WhatsApp confirmation pending Meta approval of `elderwise_wl_confirmation`. **WF-9 Voice Journal Ingest and WF-10 SOS Cancel Handler built** (17 August 2026). **WF-11** Voice-notes sweep (Track B, Claude) — 15-minute cron; leftover objects after Loved One hard delete (§5.8); writes `deletion_events`. **Remaining:** open items A-31, A-34, A-35; accepted MVP items A-5 / A-14 / A-17–A-19 / A-22 / A-24; `some_of_them` fourth gate output accepted as A-12.
 > **Three defects fixed this evening (3 Aug 2026) — record as defects, not design intent:**
 >
 > 1. **`days_of_week` was ignored (medication).** WF-1's materialise query never referenced the column, so a Monday/Wednesday/Friday medication fired **every day**. Fixed in all three scheduler queries (WF-1, WF-1b, WF-1c). Empty array means every day; the day name is derived locale-independently from `extract(dow …)` and an explicit array, not `to_char`.
@@ -677,8 +791,9 @@ The n8n instance carried **21 workflows** as of 11 August 2026: 18 operational (
   - **Button reply** (medication *Yes, All* / *Some of them* / *Not Yet*) → **WF-3a**.
   - **Button reply** (food / health *Yes* / *No*) → **`food_health_response`** route → **WF-3d**.
   - **Medication = "Some of them"** — **scope reduction, ruled by Talal 3 August 2026:** the free-form interactive medicine list (`Templates.md` §7.1) is **not built**. The reply is recorded as `response_value = 'some_of_them'`, `status = responded`, and the Care Partner is notified (via WF-6 — see below). **Known gap:** we do **not** capture which medicines were taken — `checkin_medication_items` is populated only on *Yes, All*. Reason: the native WhatsApp node has no interactive-list message type; delivering one requires raw HTTP to the Graph API, which the team has ruled against. See open item **A-12**.
-  - **Voice note** → **`voice_note`** route when `message_type === 'audio'` **and** a `media_id` is present, inside the **consented** block alongside `med_response` and `food_health_response`. **Parse Inbound Message** emits `media_id` from `msg.audio?.id`. Calls **WF-5** with **`waitForSubWorkflow: false`** — WF-5 takes ~6–7 s; holding Meta's callback that long invites a retry (same reasoning as WF-4). **Built and proven end to end 4 August 2026.**
+  - **Voice note** → **`voice_note`** route when `message_type === 'audio'` **and** a `media_id` is present, inside the **consented** block alongside `med_response` and `food_health_response`. **Parse Inbound Message** emits `media_id` from `msg.audio?.id`. Calls **WF-5** with **`waitForSubWorkflow: false`** — WF-5 takes ~6–7 s; holding Meta's callback that long invites a retry (same reasoning as WF-4). **Built and proven end to end 4 August 2026.** WF-5 decides whether the audio is a check-in reply or a journal entry (§8 WF-5 / WF-9).
   - **SOS trigger** → **WF-4** — **checked first and short-circuits everything else** (P2). The elder's message must normalise to exactly `sos` or `help` — **whole-message exact match**, case-insensitive, **not** a contains-match. A contains-match would fire a three-person emergency on *"can you help me with my tablets?"*. **Ruled by Talal, 3 August 2026.** **SOS fires regardless of consent state**, including an elder who has declined — deliberate carve-out from N5: she is the sender, and the alerts go to her care circle, not to her. **Ruled by Talal, 3 August 2026.**
+  - **SOS cancel** → **`sos_cancel`** route → **WF-10**. Checked **after** `sos_trigger` and **before** `sos_resolution`. Gated on `db.found === true` and whole-message exact match on `text_norm` === `cancel` (same normalisation as SOS / help — `Rules.md` C22). Nodes: `SOS Cancel?` and `Call WF-10`. **Built 17 August 2026.**
   - **SOS resolution reply** → **WF-4b** (WhatsApp path). Matched on **four** button labels, not two (table below). Dashboard path → **WF-4a**.
   - **Delivery-status callbacks** (`statuses`, no `messages`) — normal inbound traffic; handle, do not treat as errors (`Rules.md` §6a)
   - **Unrecognised** → a gentle, plain-language re-prompt. Never a silent drop; never an error message an elderly person has to interpret.
@@ -747,7 +862,7 @@ The n8n instance carried **21 workflows** as of 11 August 2026: 18 operational (
 >
 > **Source of truth:** `sos_events.status` is `open | resolved`. Front-end SOS states are a **display mapping** over that (and demo cascade metadata), not a second workflow.
 
-- **Trigger:** SOS from WF-2a. Runs **immediately**; must never wait behind routine traffic.
+- **Trigger:** SOS from WF-2a (whole-message `sos` / `help`) **and** from **WF-9** when a journal classifier returns `urgency = emergency`. Runs **immediately**; must never wait behind routine traffic. **Idempotent** — reuses an open `sos_events` row rather than minting a second event.
 - Create or reuse an open `sos_events` row (`status = open`), load the elder's care circle via a **relational lookup** of CT + optional LCT + optional Doctor (§3.1 — not RAG).
 - **Elder acknowledgement (free-form).** On trigger, send the `Templates.md` §7.3 message to the elder. It is **free-form, not a template** — her own SOS message opens the 24-hour customer service window. **`NA` must never appear in it** (four variants; T3).
 - Dispatch templates **10 / 11 / 12** at **`nudge_index 0`** (the **initial alert** — **not a nudge**). Recipients: **CT always**; **LCT only if a `local_caregivers` row exists**; **Doctor only if a `doctors` row exists and `whatsapp_number` is non-null**. Writes `sos_notifications` rows for every attempted send **and** every intentional skip.
@@ -777,12 +892,13 @@ The n8n instance carried **21 workflows** as of 11 August 2026: 18 operational (
   - `sos_events.nudges_sent` counts **nudge rounds only, 0–3**.
   - Reason: `sos_notifications.nudge_index` carries `CHECK (nudge_index >= 0 AND nudge_index <= 3)`. A fifth round would have been rejected by the constraint mid-SOS.
 - **Dispatch timing — requirement vs observed.** The requirement remains "notify CT + optional LCT + optional Doctor immediately." **Observed on the live run of 3 August:** CT `09:15:17.97`, Buddy `09:15:19.15`, Doctor `09:15:22.05` — n8n executes branches **sequentially**, about **4 seconds** end to end. Recorded as observed behaviour; do not change the requirement.
-- **Resolution — two paths, both must work (M14b):**
-  1. **WhatsApp** — any recipient replies/taps to resolve → WF-2a → **WF-4b** → **WF-4c**.
+- **Resolution — three paths:**
+  1. **WhatsApp (care circle)** — any recipient replies/taps to resolve → WF-2a → **WF-4b** → **WF-4c**.
   2. **Dashboard** — the CT (or Doctor via share link) resolves in the UI → a Next.js **route handler** writes `sos_events.status = 'resolved'` **and then fires an authenticated webhook to n8n (WF-4a)** so the nudge loop stops immediately, with no polling delay. This is the one documented exception to P1 (§1), taken because on the SOS path latency is the harm.
      - The webhook carries a **shared-secret header**; n8n rejects any call without it.
      - It is fired **server-side only**, from a route handler — never from the browser, or anyone could resolve anyone's SOS.
      - **The webhook is an optimisation, not the mechanism.** See the safety net below.
+  3. **Elder cancel (Option A, ruled 17 August 2026)** — consented elder sends whole-message `cancel` → WF-2a `sos_cancel` → **WF-10**. `sos_status` has only `open` and `resolved` — there is no `cancelled`. WF-10 therefore sets `status = 'resolved'`, `resolved_channel = 'whatsapp'`, and leaves `resolved_by_role` NULL, then calls **WF-4c**. Accepted cost vs a new enum value and a new Meta template.
 - **Safety net — the database remains the source of truth.** Before sending **every** nudge, WF-4d re-reads `sos_events.status` and aborts if it is `resolved`. If the webhook is dropped, delayed, or n8n restarts mid-sequence, the loop still stops on its own. A missed webhook must never mean a resolved SOS keeps pinging the doctor.
 - On resolution: stop all nudges, record `resolved_by_role`, `resolved_by_id`, `resolved_channel`, `resolved_at`.
 - **If all three nudges are exhausted with no resolution:** the nudge sequence ends and the SOS **remains `open`** on the dashboard until a human resolves it. It does not auto-close. It does not disappear.
@@ -798,8 +914,10 @@ The n8n instance carried **21 workflows** as of 11 August 2026: 18 operational (
 - Attribute by `context.id` → `sos_notifications.wa_message_id` (see WF-2a). Write resolution fields on `sos_events`. Call **WF-4c**.
 
 ### WF-4c · SOS Resolution Broadcast (`Baydb7saYNyAayMC`) — **built 3 August 2026**
-- **Trigger:** sub-workflow (from WF-4b on WhatsApp resolution; also after dashboard resolution so both channels get the broadcast).
+- **Trigger:** sub-workflow (from WF-4b on WhatsApp resolution; from WF-10 on elder cancel; also after dashboard resolution so both channels get the broadcast).
 - Sends **template 14** (`elderwise_sos_resolved`) to every recipient that received a **`sent`** alert, on **both** channels. Previously nobody sent it: WF-4a verifies only, and Next.js cannot send WhatsApp (B3).
+- Resolver lookup **LEFT JOINs** `resolved_by_role`. An elder cancel leaves that column NULL, so the template's actor falls back to **`Someone`** — *"Someone stood the alert down."* Accepted cost of Option A (17 August 2026); adding an `elder` enum value would also need an elder branch here (PD-23).
+- **Does not deduplicate by phone number.** One person holding several care-circle roles receives one message per role (PD-21). Deliberately not changed before Demo Day — this workflow is on the live SOS path.
 - **Guard:** a CTE SELECT returning zero rows emits `{success:true}`, so an **explicit gate sits before the send** (`Rules.md` §6a).
 - **Known gap (A-18):** template 14 sends cannot be logged under current schema constraints — see §15.
 
@@ -812,9 +930,10 @@ The n8n instance carried **21 workflows** as of 11 August 2026: 18 operational (
 ### WF-5 · Voice Reply → STT (`IC6oR4fuQd2VMkfQ`) — **built 4 August 2026**
 
 - **Trigger:** sub-workflow (from WF-2a `voice_note` route). **`waitForSubWorkflow: false`** on the WF-2a call.
-- **Ordering constraint (load-bearing):** **Resolve Check-in runs before any media fetch.** An elder with no open check-in never has audio downloaded or stored. That ordering — not the WF-2a consent gate alone — is the real safeguard. Reordering would remove the protection silently (`Rules.md` §6a).
-- **Idempotency (A-25, closed 8 August 2026).** `media_id` is the dedup key, checked at three layers. **(1) Early exit:** `Already Processed?` (`SELECT EXISTS`, `alwaysOutputData: true`) → `New Delivery?` sits between `Open Check-in Found?` and `Get Media URL`; a redelivery terminates at the `Duplicate Delivery - Ignored` NoOp before any Meta media fetch, storage write, or Whisper call. **(2) Insert dedup:** `Record Voice Reply` carries `ON CONFLICT (media_id) WHERE media_id IS NOT NULL DO NOTHING`; a conflict returns zero rows and the existing `Voice Reply Stored?` guard halts the chain, so no duplicate CT notification. **(3) Deterministic object key:** the upload path ends in `{media_id}.ogg` with an `x-upsert: true` header, so a concurrent race overwrites rather than 409s or orphans.
-- **Chain:** WhatsApp `mediaUrlGet` → authenticated HTTP download → upload to private Supabase bucket **`voice-notes`** (25 MB max, MIME-restricted to audio types) → **OpenAI Whisper** → LLM gate returning `yes` | `no` | `unclear`.
+- **WF-5 owns the split.** A voice note *with* an open check-in is a check-in reply → `voice_replies`. A voice note *without* one is a journal entry → **WF-9** / `voice_journals`. Only WF-5 knows whether a check-in is open.
+- **Ordering:** **Resolve Check-in still runs before any media fetch** on the check-in-reply branch. That used to mean *"an elder with no open check-in never has audio stored."* **Superseded 17 August 2026 (Talal):** unprompted voice **is** downloaded, transcribed, classified by an LLM and stored indefinitely. The false branch of `Open Check-in Found?` now goes **`→ Build Journal Payload → Call WF-9`**. The old nodes `Find Elder For Re-prompt` and `Send No Check-in Reply` still sit on the canvas but **nothing connects into them** — dead; the elder no longer receives *"I don't have anything to check with you right now."*
+- **Idempotency (A-25, closed 8 August 2026) — check-in-reply path only.** `media_id` is the dedup key, checked at three layers. **(1) Early exit:** `Already Processed?` (`SELECT EXISTS`, `alwaysOutputData: true`) → `New Delivery?` sits between `Open Check-in Found?` **(true)** and `Get Media URL`; a redelivery terminates at the `Duplicate Delivery - Ignored` NoOp before any Meta media fetch, storage write, or Whisper call. **(2) Insert dedup:** `Record Voice Reply` carries `ON CONFLICT (media_id) WHERE media_id IS NOT NULL DO NOTHING`; a conflict returns zero rows and the existing `Voice Reply Stored?` guard halts the chain, so no duplicate CT notification. **(3) Deterministic object key:** the upload path ends in `{media_id}.ogg` with an `x-upsert: true` header, so a concurrent race overwrites rather than 409s or orphans. Journal redelivery is deduped in WF-9 via `voice_journals.media_id` UNIQUE — the A-25 early exit is **not** on the false branch.
+- **Chain (open check-in):** WhatsApp `mediaUrlGet` → authenticated HTTP download → upload to private Supabase bucket **`voice-notes`** (25 MB max, MIME-restricted to audio types) → **OpenAI Whisper** → LLM gate returning `yes` | `no` | `unclear`.
 - **On `yes` / `no`:** update `checkins` with `response_channel = 'voice'`, write `voice_replies`, call **WF-6** when notify rules require it.
 - **On `unclear`:** send **one** free-form re-ask and increment `voice_replies.reask_count`. A **second** unclear does **not** re-ask — the check-in follows the missed path. **Re-ask cap proven 4 August 2026** (see `Phases.md` B3.1 correction).
 - **UI-maintained:** WF-5's two **HTTP Request** nodes lose their credentials on every SDK update — treat WF-5 as **effectively UI-maintained** for credential binding. Confirmed again on both SDK writes of 8 August 2026 — `Download Audio` and `Upload To Voice Notes Bucket` were reported skipped by credential auto-assignment on each write and re-bound by hand.
@@ -841,8 +960,9 @@ The LLM gate emits three values; medication has three **different** stored value
 | Property | Value |
 |---|---|
 | **Bucket** | `voice-notes` — private, 25 MB, MIME-restricted to audio types |
-| **Object path** | `{elder_id}/{checkin_id}/{media_id}.ogg` |
-| **`voice_replies.audio_path`** | Bucket-prefixed key — **never a URL**; signed URLs on demand |
+| **Object path (check-in reply)** | `{elder_id}/{checkin_id}/{media_id}.ogg` |
+| **Object path (journal)** | `{elder_id}/journal/{media_id}.ogg` |
+| **`voice_replies.audio_path` / `voice_journals.audio_path`** | Object key inside `voice-notes` — **never a URL**; signed URLs on demand. `storage.objects` has **zero RLS policies** — unreadable and undeletable by `anon` and `authenticated`. Playback: `GET /api/voice-journal/[id]/audio`. Elder delete: `DELETE /api/loved-ones/[id]` (collect paths, then Storage API + prefix sweep; §5.8). Orphans: **WF-11**. |
 
 ### WF-6 · Care Partner Notifications (All Domains) (`6I6OC7qJ5YhhUQxU`)
 - **Trigger:** sub-workflow (from WF-3a / WF-3c / WF-3d / **WF-5**).
@@ -870,6 +990,38 @@ Design points, all deliberate:
 Verified: manual execution `76386` returned `[]` and halted at the query (quiet path) after the rework; the same predicate without the anti-join returns 35 rows across 8 elders, which is what the seed exists to suppress.
 
 **Known gap:** WF-7 detects check-ins **created but never sent**. It cannot detect **materialisation failure**, where no row is created at all — the 10 August time-zone outage (**A-35**) produced no rows to be overdue and WF-7 was correctly silent. That failure mode is a node error and is covered by the error workflow instead.
+
+### WF-8 · Waitlist Confirmation Dispatch (`V9VTNaLGJkFGUTFN`) — **built 17 August 2026, active**
+
+- **Trigger:** webhook from Next.js `POST /api/waitlist` after the insert commits. Path: `POST /webhook/elderwise-waitlist`. Header: `X-ElderWise-Signature`. Body: `{ "waitlist_id": "<uuid>" }`. Production URL: `https://vmi3189816.contaboserver.net/webhook/elderwise-waitlist`.
+- **Webhook-bearing** — edit in the n8n UI only (`Rules.md` §6a / W7). Do not re-import the JSON export.
+- **Chain:** Webhook → Load Waitlist Row → Row Found? → Already Notified? → Send Confirmation Email (Gmail) → Stamp `notified_at` → 200. Unknown id → 404. Already notified (`notified_at` set) → 200 with no resend.
+- **Email only.** The WhatsApp branch is **not built** — blocked on Meta approval of `elderwise_wl_confirmation` (`Templates.md`). Do not document WhatsApp confirmation as delivered.
+- n8n reads and writes `public.waitlist` over the Postgres credential (bypasses RLS). Next.js never sends the email.
+
+### WF-9 · Voice Journal Ingest (`2KWtzSH22fTNxed9`) — **built 17 August 2026, active**
+
+- **Trigger:** sub-workflow. **No webhook.** Called by **WF-5** when an inbound voice note has **no open check-in**. WF-5 owns that decision.
+- **Unprompted voice is a journal entry.** A voice note *with* an open check-in is a check-in reply (WF-5 → `voice_replies`). A voice note *without* one is a journal entry (this workflow → `voice_journals`). Ruled by Talal, 17 August 2026 — the earlier safeguard that *"an elder with no open check-in never has audio stored"* is **superseded**. Unprompted voice **is** downloaded, transcribed, classified by an LLM and stored indefinitely.
+- **Chain:** `Valid media_id?` → Resolve Elder → `Already Journalled?` (early exit on `media_id`) → Get Media URL → Download Audio → Upload to `voice-notes` at `{elder_id}/journal/{media_id}.ogg` → Whisper (`Transcribe Journal`) → one `gpt-4o-mini` call (`Classify Journal`, `json_object`) → `Normalise Classification` → `Record Voice Journal` → `Emergency?`.
+- **Classification.** One Responses API call returning `mood`, `themes`, `summary`, `urgency`. **Shape trap (cost a full test round on 17 August):** the payload sits at `output[0].content[0].text`. With `json_object` format n8n hands that field back as an **object, not a string**. Reading `raw.content` or `raw.output` silently yields defaults. The normaliser must accept object or string and **reject arrays** (`Rules.md` C20 / C21).
+- **Escalation.** `urgency = emergency` calls **WF-4**, which is idempotent (reuses an open `sos_event`) and sends the elder acknowledgement itself, so WF-9 **deliberately sends no acknowledgement on that branch**. `attention` and `none` get the journal acknowledgement from WF-9 (`Templates.md` §7.6).
+- **This is not reliable emergency detection.** It is an LLM reading a transcript. SOS by keyword (`sos`, `help`) remains the reliable path. This framing must survive into the demo narrative.
+- **Idempotency:** `voice_journals.media_id` UNIQUE. Duplicate Meta redelivery terminates at `Duplicate Delivery - Ignored`.
+- **`duration_seconds` is always NULL** — Meta's inbound audio payload has `id`, `mime_type` and `sha256`, not duration (PD-20). Known limitation, not a defect.
+
+### WF-10 · SOS Cancel Handler (`CPDmCJh8e1WO8Sod`) — **built 17 August 2026, active**
+
+- **Trigger:** sub-workflow. Called by **WF-2a** when a consented elder sends the whole message `cancel` (`sos_cancel` route — after `sos_trigger`, before `sos_resolution`; `db.found === true`; exact match on `text_norm`).
+- **Option A (ruled 17 August 2026).** `sos_status` is `open | resolved` only — there is no `cancelled`. An elder's `cancel` therefore sets `status = 'resolved'`, `resolved_channel = 'whatsapp'`, and leaves `resolved_by_role` NULL. WF-4c's resolver lookup LEFT JOINs that column and falls back to `'Someone'`, so the care circle is told *"Someone"* stood the alert down. Accepted cost; the alternative required a new enum value and a new Meta template (PD-23).
+- **Chain:** Resolve Open SOS → `Open SOS Found?` → Mark SOS Resolved → `Resolution Written?` (zero-row UPDATE emits `{success:true}` — gate before broadcast) → Call WF-4c → Send Cancel Acknowledgement. No open event → Find Elder For Nothing-To-Cancel → Send Nothing To Cancel. Both elder replies are free-form inside the 24-hour window (`Templates.md` §7.7 / §7.8).
+- **Verified end to end on 17 August 2026 (live handset):** journal classification correct across five transcripts; past-tense guard held (`"I fell last week"` → `attention`, no SOS); emergency fired with three care-circle notifications all `sent`; cancel resolved in 18 seconds; medication button and voice-reply-to-check-in paths both unaffected.
+
+### WF-11 · Voice-notes sweep — **Track B, 15-minute cron**
+
+- **Trigger:** cron, every **15 minutes**. n8n ID is not in the 17 August export; it will land with the hourly export cron. Do not invent one.
+- **Role:** remove orphan objects in `voice-notes` that the dashboard hard-delete left behind (or that never had a database row). Writes `deletion_events` with `source = 'wf11'`.
+- **Not Track A.** Do not reimplement this sweep in Next.js.
 
 ### Credential Check — read-only utility (`5nVL2BdvqeX2i0AU`)
 - **Trigger:** Manual. **Inactive** — not on the message path.
@@ -1043,12 +1195,13 @@ Supabase free tier allows **2 active projects** — exactly Dev + Prod. **A sing
 | Supabase anon key | Vercel public env | (safe by design — RLS protects it) |
 | Meta WhatsApp token | n8n credentials | anywhere else |
 | **n8n SOS-resolution webhook secret** | Vercel server env + n8n | Never `NEXT_PUBLIC_*`; never client-side |
+| **n8n waitlist webhook URL + secret** | Vercel server env + n8n (`N8N_WAITLIST_WEBHOOK_URL` / `_SECRET`) | Never `NEXT_PUBLIC_*`; never client-side |
 | OpenAI / STT keys | n8n credentials | client-side |
 | Doctor share tokens | Hashed in the DB; raw token exists only in the URL | Stored raw. Ever. |
 
 ### 12.5 Security posture (as built)
 
-- **The service-role key appears in exactly one Next.js module:** `src/lib/supabase/admin.ts`, imported only by the doctor share-link server paths. Every other app data path uses the anon key with the user's session so RLS applies. (n8n still holds the service-role key as trusted infrastructure — unchanged from §6.)
+- **The service-role key appears in exactly one Next.js module:** `src/lib/supabase/admin.ts`. Importers: doctor share-link server paths, `GET /api/voice-journal/[id]/audio` (sign after session RLS), `DELETE /api/loved-ones/[id]` (storage remove and `deletion_events` insert after session RLS), `DELETE /api/account` (collect, `deleteUser`, storage, audit after session `getUser`). Every other app data path uses the anon key with the user's session so RLS applies. (n8n still holds the service-role key as trusted infrastructure — unchanged from §6.) The admin client is constructed **only after** ownership is proven with the session client (`Rules.md` SEC11).
 - **Rate limiting is fail-open by design.** If the limiter is unreachable, misconfigured, or unset, the request proceeds and a warning is logged. The share token and the user session are the real access controls; a limiter outage must not stop a doctor reading a share or a CT downloading a PDF. Do not harden to fail-closed.
 - **The PDF route verifies elder ownership before generating.** A report is health data leaving the system. Cap: **5 requests per minute per user id**.
 - **Supabase Auth “IP address forwarding” is Off** (recorded, not changed). Auth's per-IP quotas may not key on the end-user IP behind Vercel.
@@ -1122,14 +1275,14 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 | A-23 | ~~**Audio retention undecided.**~~ — **CLOSED here 10 Aug 2026 — tracked as PD-8.** Retention deferred, not decided. Proposed 30 days; nothing currently deletes objects in `voice-notes`. | Closed |
 | A-24 | **`consent_confirmed_at` covers daily check-ins, not storing recordings of the elder's voice.** Separate consent may be needed for voice retention — undecided. **Accepted, 10 Aug 2026**, on the basis that **every elder record is a team-operated test persona, not a member of the public. This acceptance does not survive a real user.** The clean long-term remedy is transcribe-and-delete rather than retain, which would also dissolve A-23 and part of A-22. | Talal |
 | A-25 | ~~**WF-5 is NOT idempotent.**~~ — **CLOSED 8 August 2026.** `voice_replies.media_id` + partial unique index (applied by Talal); WF-5 gained a three-layer dedup — early exit before any media fetch, `ON CONFLICT` on insert, and a deterministic `{media_id}.ogg` object key with `x-upsert`. Published as `activeVersionId 83a6a60e` and verified against the live workflow. | Closed |
-| A-26 | ~~**Voice note with no open check-in is silent to the elder.**~~ — **CLOSED 8 August 2026** (Claude / Track B, F-7): WF-5 sends a reply on the no-open-check-in path. | Closed |
+| A-26 | ~~**Voice note with no open check-in is silent to the elder.**~~ — **CLOSED 8 August 2026** (Claude / Track B, F-7): WF-5 sent a reply on the no-open-check-in path. **Retired 17 August 2026:** that reply is unreachable; the false branch now calls WF-9. The two old nodes remain on the canvas with nothing connecting into them. | Closed |
 | A-27 | ~~**The ≤60 s window.**~~ — **CLOSED 10 Aug 2026 — accepted deviation** (ruled 4 Aug). WF-3a, WF-3d and WF-5 resolve check-ins by elder + status and do **not** filter on routine `enabled`. Between a routine being disabled and WF-3c cancelling the orphan, a reply is still accepted. Closing it would require a slot-match join in three resolvers for a one-minute window. | Closed |
 | A-28 | ~~**`checkins_medication_slot_uniq` slot occupancy.**~~ — **CLOSED 10 Aug 2026 — accepted.** `UNIQUE (elder_id, scheduled_for) WHERE domain = 'medication'`. A **`cancelled` row still occupies its slot**, so disabling and re-enabling a routine the same day will **not** restore that day's check-in. Recorded so it is not rediscovered as a bug. | Closed |
 | A-29 | ~~**Frontend `statusBreakdown` divergence + raw labels.**~~ — **RESCOPED / FIXED 11 Aug 2026.** Original note mixed two defects. **(1) Vocabulary, not casing:** the share page applied CSS `capitalize`, so DB `cancelled` already rendered as "Cancelled"; the real harm was never running `checkInStatusToUi`, so doctors saw DB words (`Responded` / `Reminded` / `Sent` / `Scheduled`) instead of UI labels (`Taken` / `Delayed` / `Pending` / `Upcoming`). **"Reminded" was the priority** — opaque to a clinician. PDF had no capitalize and showed truly lowercase raw DB values. **(2) Dual `statusBreakdown`:** dashboard dropped `cancelled`; reports counted it but omitted it from the pie. Fixed: map at `load-share-data` source; single `formatCheckInStatus` for share / PDF / CSV / print; one shared breakdown that counts `cancelled` and never discards an unrecognised status silently. **`adherence()` unchanged** — `cancelled` stays out of numerator and denominator. **Cancelled pie-slice ruled out 11 Aug 2026:** the chart is adherence composition (Taken / Delayed / Missed only), not all-activity; a Cancelled slice would mix "never expected" with scored outcomes and drift from the adherence % beside it. Silent exclusion fixed by labelling + caption (cancelled count always; pending if non-zero) — Architecture v1.40. | Closed |
 | **A-30** | ~~**The ±5-minute dispatch P1 is reported by nothing.**~~ — **CLOSED 10 Aug 2026 — detector built.** See §8 WF-7 and §11. | Closed |
 | **A-31** | **n8n → Sentry deferred (4 Aug 2026).** One HTTP Request node on `uvBstI6J42nNhIYz` would put every Track B failure into Sentry with severity from the failing workflow's name. Deferred as unnecessary at current volume. If revisited: the DSN lives in an n8n **header-auth credential**, never in a node URL — the hourly export strips credentials, not URLs, and a DSN in a URL reaches the public repo within the hour. Payload must be a hand-built envelope (workflow name, node name, execution ID, timestamp, error class) — **never** `execution.error.message`, which is A-19. **Remains deferred.** The Telegram + Gmail error channel was **confirmed working by the Team Lead on 10 August 2026**, twice within twelve hours (the medication template outage and the time-zone outage) — this was the condition attached to deferring. | Talal |
 | A-32 | ~~**`middleware.ts` has never run in production.**~~ — **CLOSED 8 August 2026 by Talal Baig.** Moved to `src/middleware.ts`. **Both verification checks passed**, including check 2 — the 70-minute tab-close test confirming a session survives access-token expiry. (Originally: root placement under a `src/` project left `.next/server/middleware-manifest.json` empty, so `supabase.auth.getUser()` session refresh never ran; newly runs on `/share/[token]` as well.) | Closed |
-| **A-33** | ~~**Redelivery after check-in closure produces a spurious elder message.**~~ — **CLOSED here 10 Aug 2026 — tracked as PD-6.** P3. The A-25 early exit sits *after* `Resolve Check-in`. If a redelivery arrives once the original check-in has already closed, `Resolve Check-in` returns zero rows, `Open Check-in Found?` goes false, and the elder receives the no-open-check-in reply (A-26) instead of silent suppression — the dedup is never consulted on that path. | Closed |
+| **A-33** | ~~**Redelivery after check-in closure produces a spurious elder message.**~~ — **CLOSED here 10 Aug 2026 — tracked as PD-6.** P3. The A-25 early exit sits *after* `Resolve Check-in`. **17 August 2026:** the A-26 reply is retired; the false branch now calls WF-9. A redelivery after closure may ingest as a journal entry (`voice_journals.media_id` UNIQUE) rather than the old reply. The early-exit ordering issue remains on PD-6. | Closed |
 | **A-34** | **The tracked migration history no longer describes the live database.** `supabase/migrations/` is tracked on `main`. Applied live and still absent from the tree: `voice_replies.media_id` plus its partial unique index (A-25, 8 Aug — the index is what makes WF-5 idempotent), and `DROP TABLE public.message_templates` (A-20, 10 Aug). The initial-schema migration still creates `message_templates`. A rebuild from the repo today would produce a schema containing a table that no longer exists and lacking the index WF-5 depends on. `watchdog_alerts` (11 Aug) is captured — see `20260811060000_watchdog_alerts.sql`. Needs either catch-up migration files for the two outstanding changes, or a recorded acceptance that migrations are not the schema source of truth. | Talal |
 | **A-35** | **An invalid IANA time zone on a single elder halts every scheduler.** WF-1 / WF-1b / WF-1c apply `AT TIME ZONE e.timezone` across all elders in one query, so one bad value throws for the whole batch and nothing materialises for any family. Occurred 10 August 2026: `Asia/India` was typed into a free-text field at 16:17 UTC and Track B stopped for 33 minutes until the row was corrected by hand; all three workflows recovered on the next tick with no workflow change. Four of that elder's check-ins were permanently lost and later swept to `missed`. Guardrails added in the front end and server actions the same day. **Second occurrence, 11 August 2026.** A different Care Partner set a different elder's zone to `Arabian Standard Time (AST)` — a Windows display name, not an IANA identifier — and WF-3c (Missed Sweep) began failing every minute with the same class of error. Corrected to `Asia/Riyadh`; all schedulers recovered on the next tick. **Two independent users in under 24 hours, each entering something entirely reasonable-looking** (a plausible-but-nonexistent IANA name, then a clock label copied from an operating system). This is a field-design failure, not user carelessness, and it raises the weight of the residual risk: the front-end and server-action guardrails shipped in PR #11 close the entry paths that caused both incidents, but **validation remains application-side only**. A database-level trigger on `elders.timezone` and `care_partners.timezone` is the only thing that would make the schedulers safe against a direct SQL write, a seed script, or a future import path. Ruling pending. **11 August 2026 — dropdown narrowed.** The time-zone select now offers only the 65 curated offset-labelled zones plus any stored value not among them. The full 418-entry IANA fallback was removed as unusable without search. **Validation is unchanged and remains a runtime `Intl` check, not list membership** — the curated list is a convenience surface only. A searchable combobox over the full list is a post-demo improvement. | Talal |
 | **A-36** | **Doctor share links were invisible in the dashboard, so issued tokens could not be revoked.** `load-app-data.ts` selected `created_at` from `doctor_share_links`, which has `created_by` — the query errored on every load, `shareRes.error` was never checked, and `(shareRes.data ?? [])` turned the failure into an empty list. The list had been empty for every elder since the feature shipped; `tsc` could not see it (loosely-typed row, Rules C12 / C14). Observed 11 Aug 2026: 13 active unrevoked links across three elders, nine minted by WF-4 during SOS testing — WF-4 mints a fresh link on every SOS and nothing revokes them before their 30-day expiry. Fixed 11 Aug: column corrected, errors logged, full list rendered with origin labels and revoke controls, `sos_event_id` added so dashboard-issued and SOS-minted links are distinguishable, and a partial unique index caps live dashboard-issued links at one per elder. Pre-existing links revoked in bulk before the index was created. **Not addressed:** SOS-minted links still live 30 days and are uncapped by design; revoking them on `sos_events.resolved_at` was considered and deferred rather than touch the SOS path before Demo Day. Cross-ref **PD-14** (was A-38). | Talal |
@@ -1144,6 +1297,12 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 
 | Date | Version | Change |
 |---|---|---|
+| 17 Aug 2026 | 1.52 | **Routine default time +2 min.** `ROUTINE_DEFAULT_TIME_OFFSET_MINUTES` = 2 so a live-demo create is not swept to missed before dispatch. **`deletion_events.storage_remaining`:** `0` = verified empty; `-1` = sweep failed, count unknown. |
+| 17 Aug 2026 | 1.51 | **Care Partner account delete.** `DELETE /api/account`: collect elders / counts / audio paths with the admin client, then one `auth.admin.deleteUser()` (the cascade root). `deletion_events` `source='account'` — one row per elder plus a summary. Re-onboarding with the same email and WhatsApp numbers is the purpose. |
+| 17 Aug 2026 | 1.50 | **`deletion_events` + WF-11 on the map.** Append-only audit of hard deletes; no FKs to `elders` or `auth.users` (CASCADE would erase the audit). App insert is service-role after the storage re-list; failure does not fail the request. WF-11 (15-minute cron, `source='wf11'`) is the leftover-object backstop. |
+| 17 Aug 2026 | 1.49 | **Product Loved One hard delete.** `DELETE /api/loved-ones/[id]`: session RLS then Storage API + `{elder_id}/` prefix sweep (`storage.objects` has no RLS, so cascade cannot clear `voice-notes`). Soft delete rejected (Talal). Accepted scheduler race documented. WF-11 is the leftover-object backstop. Profile-page delete control → PD-24. |
+| 17 Aug 2026 | 1.48 | **Voice journal + SOS cancel.** Workflow map 22 → **24**: WF-9 (`2KWtzSH22fTNxed9`) ingest to `voice_journals`; WF-10 (`CPDmCJh8e1WO8Sod`) elder `cancel` (Option A: `resolved`, `resolved_by_role` NULL → WF-4c *"Someone"*). WF-5 false branch → WF-9; unprompted voice **is** stored (Talal, 17 Aug — prior "never has audio stored" safeguard superseded). Classifier is not reliable emergency detection. E2E on live handset 17 Aug. |
+| 17 Aug 2026 | 1.47 | **Waitlist + WF-8.** `public.waitlist` (no FKs; insert-only RLS; route-generated id; no `RETURNING` — 42501). `POST /api/waitlist` → WF-8 (`V9VTNaLGJkFGUTFN`, email only). Workflow map 21 → **22**. Public unauthenticated writes recorded as §6.1. P1: second Next.js→n8n webhook exception. Email uniqueness still open (PD-19). |
 | 14 Aug 2026 | 1.46 | **Routine create defaults for qualifier run.** New dashboard/onboarding routines: time = now in elder TZ (`ROUTINE_DEFAULT_TIME_OFFSET_MINUTES` = 0), `notify_care_partner = every_time`, medication escalation 5 min (food 45 / health 60 unchanged). `startDate` uses `todayInTimeZone`, not UTC `toISOString`. Postgres `escalation_minutes` column default remains 30. |
 | 13 Aug 2026 | 1.45 | **Routine list order + pause does not resync `domain_configs`.** Lists sort active-first, then alert time, then name. `setRoutineEnabled` skips `syncDomainConfig` on purpose — no workflow SQL reads that table; WF-6 uses routine `notify_care_partner` (A-9). Do not "fix" the lag. |
 | 13 Aug 2026 | 1.44 | **Pause vs soft-delete (two-column, all domains).** `enabled` = pause (stays visible, Inactive); `active` = tombstone. Ruling: Talal, 12 August 2026. Food/health gain `active` (mirroring medications). Closed the PR #19 conflation that hid paused routines. No n8n changes. |

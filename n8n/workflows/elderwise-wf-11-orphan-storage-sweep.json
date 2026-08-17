@@ -1,0 +1,291 @@
+{
+  "activeVersionId": "53824587-565a-49ca-aa27-9bbb2ed151c6",
+  "connections": {
+    "Alert Telegram": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Alert Email",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Any Orphans?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Delete Orphan Objects",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Nothing To Sweep",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Delete Orphan Objects": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Record Sweep",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Find Orphan Objects",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Find Orphan Objects": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Any Orphans?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Record Sweep": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Alert Telegram",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "description": "WF-11 sweeps voice-notes objects whose elder_id prefix has no live elder. Deletes via the Storage API (never by deleting storage.objects rows), records the sweep in deletion_events, and alerts Telegram and Gmail. Silent when nothing is found.",
+  "id": "tOuGU92Qf7dMqMIq",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "name": "ElderWise WF-11 - Orphan Storage Sweep",
+  "nodes": [
+    {
+      "id": "4d889d1f-764d-4dfd-9977-29133244ad44",
+      "name": "Every 15 Minutes",
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        96
+      ],
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "385ff046-2fbf-4281-853e-146c4f9d52e5",
+      "name": "Find Orphan Objects",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 30
+        },
+        "query": "WITH orphans AS (SELECT o.name, o.created_at FROM storage.objects o WHERE o.bucket_id = 'voice-notes' AND o.created_at < now() - interval '5 minutes' AND NOT EXISTS (SELECT 1 FROM elders e WHERE e.id::text = split_part(o.name, '/', 1)) ORDER BY o.created_at LIMIT 100) SELECT count(*)::int AS orphan_count, coalesce(json_agg(orphans.name), '[]'::json) AS prefixes, coalesce(string_agg(DISTINCT split_part(orphans.name, '/', 1), ', '), '') AS elder_prefixes, coalesce(to_char(min(orphans.created_at) AT TIME ZONE 'Asia/Riyadh', 'YYYY-MM-DD HH24:MI'), 'n/a') AS oldest_riyadh FROM orphans"
+      },
+      "position": [
+        224,
+        96
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "113b37fa-1e5b-4972-a5d4-5ed6b681140f",
+      "name": "Any Orphans?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.orphan_count > 0 }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        448,
+        96
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "zCSNxbk4gbu3H4of",
+          "name": "Supabase Voice Bucket"
+        }
+      },
+      "id": "2fdb4d2b-4ebb-4f68-b6f9-577f7655c7d4",
+      "name": "Delete Orphan Objects",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "contentType": "json",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ JSON.stringify({ prefixes: $('Find Orphan Objects').first().json.prefixes }) }}",
+        "method": "DELETE",
+        "options": {
+          "timeout": 20000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "https://vkrjupjqwdeghvpjsvai.supabase.co/storage/v1/object/voice-notes"
+      },
+      "position": [
+        672,
+        0
+      ],
+      "retryOnFail": true,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "WH9oLDfKfOX6KW5F",
+          "name": "ElderWise Supabase (Postgres)"
+        }
+      },
+      "id": "e2eb0c0e-cfea-4914-8568-6842c15de724",
+      "name": "Record Sweep",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ [ JSON.stringify($('Find Orphan Objects').first().json.prefixes), 'WF-11 swept ' + $('Find Orphan Objects').first().json.orphan_count + ' orphan object(s). Elder prefixes: ' + $('Find Orphan Objects').first().json.elder_prefixes ] }}"
+        },
+        "query": "INSERT INTO deletion_events (source, storage_keys, storage_remaining, note) SELECT 'wf11', ARRAY(SELECT json_array_elements_text($1::json)), 0, $2::text RETURNING id, created_at"
+      },
+      "position": [
+        896,
+        0
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "credentials": {
+        "telegramApi": {
+          "id": "kKnHoYC1CAK381fa",
+          "name": "Laila_neversleeps_bot"
+        }
+      },
+      "id": "3d63288f-fba6-421a-8343-4619a9433c92",
+      "name": "Alert Telegram",
+      "parameters": {
+        "additionalFields": {
+          "appendAttribution": false
+        },
+        "chatId": "776765063",
+        "operation": "sendMessage",
+        "resource": "message",
+        "text": "=🧹 ElderWise orphan storage sweep\n\n{{ $('Find Orphan Objects').first().json.orphan_count }} object(s) deleted from voice-notes.\n\nElder prefixes: {{ $('Find Orphan Objects').first().json.elder_prefixes }}\nOldest object: {{ $('Find Orphan Objects').first().json.oldest_riyadh }} (Riyadh)\n\nThese had no matching elder row. Recorded in deletion_events.\n\nArchitecture — WF-11. Silent when nothing is found."
+      },
+      "position": [
+        1120,
+        0
+      ],
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "webhookId": "2ff8357d-edbd-46af-8773-30cf5bcbba38"
+    },
+    {
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "trL46GcpmkGxJNnm",
+          "name": "Gmail talalbaig@gmail.com"
+        }
+      },
+      "id": "5132e7f4-3802-45ac-9949-c24a168a805e",
+      "name": "Alert Email",
+      "parameters": {
+        "emailType": "text",
+        "message": "=🧹 ElderWise orphan storage sweep\n\n{{ $('Find Orphan Objects').first().json.orphan_count }} object(s) deleted from voice-notes.\n\nElder prefixes: {{ $('Find Orphan Objects').first().json.elder_prefixes }}\nOldest object: {{ $('Find Orphan Objects').first().json.oldest_riyadh }} (Riyadh)\n\nThese had no matching elder row. Recorded in deletion_events.\n\nArchitecture — WF-11. Silent when nothing is found.",
+        "operation": "send",
+        "options": {
+          "appendAttribution": false
+        },
+        "resource": "message",
+        "sendTo": "talalbaig@gmail.com",
+        "subject": "=ElderWise WF-11 — {{ $('Find Orphan Objects').first().json.orphan_count }} orphan object(s) swept"
+      },
+      "position": [
+        1344,
+        0
+      ],
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "webhookId": "59c5bd6a-913e-4e6e-9074-baad2d50af20"
+    },
+    {
+      "id": "610c1473-2ef9-436e-8cae-0835101a29cd",
+      "name": "Nothing To Sweep",
+      "parameters": {},
+      "position": [
+        672,
+        192
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    }
+  ],
+  "settings": {
+    "binaryMode": "separate",
+    "executionOrder": "v1"
+  },
+  "staticData": {
+    "node:Every 15 Minutes": {
+      "recurrenceRules": []
+    }
+  }
+}

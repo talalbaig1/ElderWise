@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "de2a251e-428a-4b7a-8879-ff2b9b5e739d",
+  "activeVersionId": "bac28d46-1726-4691-a392-978c74e013e5",
   "connections": {
     "Already Processed?": {
       "main": [
@@ -25,6 +25,17 @@
           {
             "index": 0,
             "node": "Re-ask Allowed?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Build Journal Payload": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Call 'ElderWise WF-9 - Voice Journal Ingest'",
             "type": "main"
           }
         ]
@@ -131,7 +142,7 @@
         [
           {
             "index": 0,
-            "node": "Find Elder For Re-prompt",
+            "node": "Build Journal Payload",
             "type": "main"
           }
         ]
@@ -908,8 +919,8 @@
         "query": "SELECT e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp\nFROM elders e\nWHERE e.whatsapp_number = $1::text\n  AND e.active\n  AND e.consent_confirmed_at IS NOT NULL\n  AND e.consent_declined_at IS NULL\nLIMIT 1"
       },
       "position": [
-        896,
-        768
+        1712,
+        1168
       ],
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6
@@ -931,8 +942,8 @@
         "textBody": "={{ \"Thank you for your message, \" + $json.elder_first_name + \". I don't have anything to check with you right now — I'll be in touch at your next check-in time.\" }}"
       },
       "position": [
-        1120,
-        768
+        1936,
+        1168
       ],
       "retryOnFail": true,
       "type": "n8n-nodes-base.whatsApp",
@@ -991,6 +1002,49 @@
       "retryOnFail": true,
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4
+    },
+    {
+      "id": "69541478-4af5-4aac-b8e6-5f98f98f2d46",
+      "name": "Build Journal Payload",
+      "parameters": {
+        "jsCode": "const src = $('Called With Voice Message').first().json;\n   return [{ json: { media_id: src.media_id, sender_e164: src.sender_e164 } }];"
+      },
+      "position": [
+        880,
+        928
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "7d19cc06-467b-4bff-bfa0-87116bdecc28",
+      "name": "Call 'ElderWise WF-9 - Voice Journal Ingest'",
+      "parameters": {
+        "options": {
+          "waitForSubWorkflow": false
+        },
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ElderWise WF-9 - Voice Journal Ingest",
+          "cachedResultUrl": "/workflow/2KWtzSH22fTNxed9",
+          "mode": "list",
+          "value": "2KWtzSH22fTNxed9"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [],
+          "value": {}
+        }
+      },
+      "position": [
+        1088,
+        928
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3
     }
   ],
   "settings": {

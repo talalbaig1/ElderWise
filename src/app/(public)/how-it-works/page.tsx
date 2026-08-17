@@ -14,23 +14,23 @@ import { Button } from "@/components/ui/button";
 const steps = [
   {
     step: "01",
-    title: "Download & complete setup",
-    text: "Create your Care Partner account, add your Loved One, and invite the people in their Care Circle.",
+    title: "Create your account",
+    text: "Create your Care Partner account, add your Loved One, and invite their Care Circle in a few calm steps.",
   },
   {
     step: "02",
-    title: "Everyday WhatsApp care begins",
-    text: "Medication, meal, and wellness notifications arrive on WhatsApp — familiar, gentle, and on time.",
+    title: "Everyday check-ins begin",
+    text: "Medication, meal, and wellbeing check-ins arrive on WhatsApp, on time and in plain language.",
   },
   {
     step: "03",
-    title: "They reply. You stay close.",
-    text: "Simple answers update your Care Partner view so you know how the day is going without guessing.",
+    title: "Your Loved One replies. You stay close.",
+    text: "Their answers update your Care Partner view, so you know how the day is going without guessing.",
   },
   {
     step: "04",
     title: "Reports show the bigger picture",
-    text: "Review medication, meals, and wellbeing over time — clear enough to share with family.",
+    text: "Review medications, meals, and wellbeing over time, in a format you can share with the family.",
   },
   {
     step: "05",
@@ -47,8 +47,8 @@ export default function HowItWorksPage() {
           <SectionEyebrow>How it works</SectionEyebrow>
           <SectionHeading>From setup to everyday peace of mind.</SectionHeading>
           <SectionLead>
-            SilaCares is remote caregiving for elders through WhatsApp — a guided journey from
-            first setup to daily reassurance, reports, and SOS support.
+            SilaCares is remote caregiving for elders through WhatsApp. It helps you support a
+            parent or relative, from first setup to daily check-ins, reports, and SOS alerts.
           </SectionLead>
         </MotionItem>
       </MotionSection>

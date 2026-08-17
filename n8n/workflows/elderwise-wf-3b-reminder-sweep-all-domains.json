@@ -1,5 +1,5 @@
 {
-  "activeVersionId": "a6ec172b-f7c9-4aae-ac0a-4206650bd039",
+  "activeVersionId": "b8eb378a-ae4f-4602-a987-45dc7b690c16",
   "connections": {
     "Any Reminder Due?": {
       "main": [
@@ -151,7 +151,7 @@
       "parameters": {
         "operation": "executeQuery",
         "options": {
-          "connectionTimeout": 10
+          "connectionTimeout": 40
         },
         "query": "SELECT c.id AS checkin_id, c.domain::text AS domain, e.first_name AS elder_first_name, e.whatsapp_number AS elder_whatsapp, string_agg(m.name, ', ' ORDER BY m.name) AS medicine_list, COALESCE(MIN(f.meal_name), MIN(h.name)) AS routine_name, CASE WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 12 THEN 'Morning' WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 17 THEN 'Afternoon' WHEN EXTRACT(hour FROM (c.scheduled_for AT TIME ZONE e.timezone)) < 21 THEN 'Evening' ELSE 'Night' END AS period_label FROM checkins c JOIN elders e ON e.id = c.elder_id LEFT JOIN medications m ON c.domain = 'medication' AND m.elder_id = e.id AND m.enabled AND m.active AND to_char(c.scheduled_for AT TIME ZONE e.timezone, 'HH24:MI') = ANY(m.times) LEFT JOIN food_routines f ON f.id = c.food_routine_id LEFT JOIN health_routines h ON h.id = c.health_routine_id WHERE c.status = 'sent' AND e.active AND e.consent_confirmed_at IS NOT NULL AND c.sent_at IS NOT NULL GROUP BY c.id, c.domain, c.sent_at, c.scheduled_for, e.first_name, e.whatsapp_number, e.timezone HAVING now() > c.sent_at + make_interval(mins => COALESCE(MIN(m.escalation_minutes), MIN(f.escalation_minutes), MIN(h.escalation_minutes), 30)) ORDER BY c.scheduled_for LIMIT 10"
       },
