@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.23 |
+| **Document** | Phases.md — v1.24 |
 | **Date** | 17 August 2026 |
 | **Demo Day** | **Saturday 29 August 2026** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Templates.md` |
@@ -342,6 +342,7 @@ Work deferred until after Demo Day (29 August 2026) is tracked in **`PostDemoEnh
 
 | Date | Version | Change |
 |---|---|---|
+| 17 Aug 2026 | 1.24 | **Routine default time +2 min.** `ROUTINE_DEFAULT_TIME_OFFSET_MINUTES` = 2 (live-demo create must not be swept to missed before dispatch). Account-delete audit: `storage_remaining` `-1` on sweep failure. |
 | 17 Aug 2026 | 1.23 | **Care Partner account delete delivered.** A2.12: `DELETE /api/account` (collect elders / storage keys, then `auth.admin.deleteUser`). |
 | 17 Aug 2026 | 1.22 | **Loved One hard delete delivered.** A2.11: `DELETE /api/loved-ones/[id]` (session RLS, then `voice-notes` Storage API + prefix sweep). Soft delete rejected. |
 | 17 Aug 2026 | 1.21 | **Voice journal + SOS cancel delivered.** WF-9 (`2KWtzSH22fTNxed9`), WF-10 (`CPDmCJh8e1WO8Sod`), `voice_journals` with RLS, WF-5 / WF-2a rewires. Full manual test pass on the live handset, 17 August 2026. Recorded as B3.6. |

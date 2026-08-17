@@ -122,11 +122,12 @@ export function todayInTimeZone(timeZone: string): string {
 
 /**
  * Default lead time, in minutes, added to "now" when a new routine is created.
- * 0 = exactly now. Raise this if the create form takes longer to fill than the
- * routine's escalation window, or the check-in materialises already stale and
- * is marked missed without ever dispatching.
+ * 2 = two minutes ahead. At 0 a routine created in a live demo can land in a
+ * slot that has already passed by submit, then be swept to missed without
+ * ever dispatching. Two minutes of lead time removes that and is short enough
+ * not to feel like a delay.
  */
-export const ROUTINE_DEFAULT_TIME_OFFSET_MINUTES = 0;
+export const ROUTINE_DEFAULT_TIME_OFFSET_MINUTES = 2;
 
 /** Current wall-clock time in `timeZone` as "HH:mm", plus the default lead time. */
 export function nowTimeInTimeZone(timeZone: string): string {

@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.51 |
+| **Document** | Architecture.md — v1.52 |
 | **Date** | 17 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
@@ -298,7 +298,7 @@ waitlist   (no FKs, no path to auth.users — public signups; see §5.2 / §6.1)
 |---|---|
 | `id` uuid PK · `elder_id` uuid FK · `enabled` bool (**pause**) · `active` bool (**tombstone**, default true) · `name` text · `type` enum(**unused** — §5.6) · `frequency` enum(**unused** by schedulers — app writes `daily`) · `time` time (local) · `start_date` date NOT NULL (today in elder tz) · `end_date` date null (open-ended) · `days_of_week` text[] (empty = every day; honoured by WF-1c) · `question` text (**unused**) · `answer_type` enum(**unused**) · `notify_care_partner` enum(`every_time`,`only_missed`,`not_required`) · `escalation_minutes` int (default 60) · `typical_bedtime` time null (**unused**) · `typical_wake_time` time null (**unused**) |
 
-> **Escalation defaults differ by domain in the front end** (medication 5 min, food 45, health 60). These are **defaults**, editable per routine. The old blanket "30 across the board" is superseded. **New routines default to `notify_care_partner = every_time` in all three domains**, and their time defaults to **now in the elder's timezone** (`ROUTINE_DEFAULT_TIME_OFFSET_MINUTES`, currently 0).
+> **Escalation defaults differ by domain in the front end** (medication 5 min, food 45, health 60). These are **defaults**, editable per routine. The old blanket "30 across the board" is superseded. **New routines default to `notify_care_partner = every_time` in all three domains**, and their time defaults to **now in the elder's timezone plus two minutes** (`ROUTINE_DEFAULT_TIME_OFFSET_MINUTES` = 2). Two minutes of lead time stops a live-demo create from materialising into a slot that has already passed and being swept to missed without dispatch; it is short enough not to feel like a delay.
 
 > **Two-column model — all three domains (Talal, 12 August 2026).** `enabled` = the Care Partner's pause switch. Dispatch stops; the routine **stays visible** in the routine list with the switch off and an **Inactive** marker. `active` = the tombstone. Soft-delete sets `active = false` AND `enabled = false`; the routine leaves the active list; history is preserved. **An inactive (paused) routine in any domain must be shown, marked inactive — never hidden.** **Never reuse a user-facing field as a tombstone.** PR #19 had reused `enabled` as the food/health tombstone; a paused routine then vanished from the list while remaining alive (`active = true`). That conflation is closed. **Expected side effect:** food/health rows already at `enabled = false` (backfilled `active = true`) reappear in testers' lists marked Inactive — that is intended, not a regression.
 
@@ -486,7 +486,7 @@ Index: `(elder_id, domain, scheduled_for)` and `(status, scheduled_for)` — the
 | `care_partner_id` | uuid | nullable. Copied from the session `user.id`. Not an FK. |
 | `rows_deleted` | jsonb | default `{}`. Table → count, counted **server-side before** the DELETE. Never from the request body. |
 | `storage_keys` | text[] | default `{}`. Keys the Storage API actually removed. |
-| `storage_remaining` | int | default 0. From the post-removal prefix re-list. |
+| `storage_remaining` | int | default 0. From the post-removal prefix re-list. **`0` = re-listed and verified empty. `-1` = the storage sweep threw; the count is unknown.** Do not write `0` when the sweep failed. |
 | `note` | text | nullable |
 | `created_at` | timestamptz | default `now()` |
 
@@ -1297,6 +1297,7 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 
 | Date | Version | Change |
 |---|---|---|
+| 17 Aug 2026 | 1.52 | **Routine default time +2 min.** `ROUTINE_DEFAULT_TIME_OFFSET_MINUTES` = 2 so a live-demo create is not swept to missed before dispatch. **`deletion_events.storage_remaining`:** `0` = verified empty; `-1` = sweep failed, count unknown. |
 | 17 Aug 2026 | 1.51 | **Care Partner account delete.** `DELETE /api/account`: collect elders / counts / audio paths with the admin client, then one `auth.admin.deleteUser()` (the cascade root). `deletion_events` `source='account'` — one row per elder plus a summary. Re-onboarding with the same email and WhatsApp numbers is the purpose. |
 | 17 Aug 2026 | 1.50 | **`deletion_events` + WF-11 on the map.** Append-only audit of hard deletes; no FKs to `elders` or `auth.users` (CASCADE would erase the audit). App insert is service-role after the storage re-list; failure does not fail the request. WF-11 (15-minute cron, `source='wf11'`) is the leftover-object backstop. |
 | 17 Aug 2026 | 1.49 | **Product Loved One hard delete.** `DELETE /api/loved-ones/[id]`: session RLS then Storage API + `{elder_id}/` prefix sweep (`storage.objects` has no RLS, so cascade cannot clear `voice-notes`). Soft delete rejected (Talal). Accepted scheduler race documented. WF-11 is the leftover-object backstop. Profile-page delete control → PD-24. |

@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.32 |
+| **Document** | Rules.md — v1.33 |
 | **Date** | 17 August 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
@@ -166,6 +166,7 @@ From `Architecture.md` §1 (P1). These are the walls that let ten people work in
 | **SEC10** | **Storage objects are removed through the Supabase Storage API only.** Never `DELETE FROM storage.objects`. That table is a metadata index — deleting a row leaves the file behind, unreachable and still billed. The `voice-notes` bucket has zero RLS policies on `storage.objects`; a SQL delete of the catalog row is not how objects are removed and is not an access path this app uses. |
 | **SEC11** | **Prove ownership with the session client before constructing the admin client.** Lookup and the elder `DELETE` run under RLS. `createAdminClient()` is for signing or removing a path already shown to belong to this Care Partner — never to bypass the lookup. |
 | **SEC12** | **Collect every elder's storage keys before deleting the auth user.** `auth.admin.deleteUser()` cascades `care_partners` → `elders` → children. The elder rows are the only index of `voice-notes` object keys. Once they are gone the paths are unrecoverable. Account delete collects ids, counts, and `audio_path` values with the admin client, then deletes the user, then calls the Storage API. |
+| **SEC13** | **`deletion_events.storage_remaining` of `-1` means the storage sweep failed and the count is unknown.** `0` means the prefix was re-listed and verified empty. Never write `0` when the sweep threw — that would report a person's audio as gone when it was not checked. |
 
 ---
 
@@ -341,6 +342,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 17 Aug 2026 | 1.33 | **SEC13 — `storage_remaining` `-1` vs `0`.** `-1` = sweep failed, count unknown. `0` = re-listed and verified empty. Do not record a failed sweep as empty. |
 | 17 Aug 2026 | 1.32 | **SEC12 — collect storage keys before `deleteUser`.** Elder rows are the only index of `voice-notes` objects. Account delete collects, then removes the auth user, then sweeps storage. |
 | 17 Aug 2026 | 1.31 | **SEC10 amend.** `storage.objects` is a metadata index; deleting a row leaves the file behind, unreachable and still billed. Remove objects through the Storage API only. |
 | 17 Aug 2026 | 1.30 | **SEC10 / SEC11 — Loved One hard delete.** Remove storage objects via the Storage API only, never `storage.objects`. Session-client ownership before `createAdminClient()`. **D11 amend:** product elder is hard-deleted; routines stay soft-deleted. |

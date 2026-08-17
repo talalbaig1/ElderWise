@@ -127,6 +127,7 @@ export async function DELETE(request: Request) {
     for (const snap of snapshots) {
       let keys: string[] = [];
       let remaining = 0;
+      let note: string | null = null;
       try {
         const swept = await sweepElderPrefix(admin, snap.id, snap.catalogKeys);
         keys = swept.keys;
@@ -134,11 +135,10 @@ export async function DELETE(request: Request) {
         storageRemoved += keys.length;
         storageRemaining += remaining;
       } catch (error) {
-        console.error(
-          "[account/delete] storage sweep failed:",
-          snap.id,
-          error instanceof Error ? error.message : error,
-        );
+        const reason = error instanceof Error ? error.message : "storage sweep failed";
+        console.error("[account/delete] storage sweep failed:", snap.id, reason);
+        remaining = -1;
+        note = reason;
       }
       auditRows.push({
         source: "account",
@@ -148,7 +148,7 @@ export async function DELETE(request: Request) {
         rows_deleted: snap.rowsDeleted,
         storage_keys: keys,
         storage_remaining: remaining,
-        note: null,
+        note,
       });
     }
   } catch (error) {
