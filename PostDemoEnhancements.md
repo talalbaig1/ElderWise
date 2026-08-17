@@ -1,6 +1,6 @@
 | Field | Value |
 | --- | --- |
-| **Document** | PostDemoEnhancements.md — v1.8 |
+| **Document** | PostDemoEnhancements.md — v1.9 |
 | **Project** | ElderWise · AIGF Cohort 7 · Group 7 |
 | **Date** | 17 August 2026 |
 | **Status** | Deferred by ruling — scheduled to begin after Demo Day, 29 August 2026 |
@@ -283,6 +283,18 @@ The enum is `care_partner, local_caregiver, doctor`. An elder-initiated cancel (
 
 Hard delete of a Loved One shipped on the list page only (`/loved-ones` dialog → `DELETE /api/loved-ones/[id]`). A matching control on `/loved-ones/[id]` was deliberately out of scope so the list remains the single entry point.
 
+### PD-25 · Account delete has no export-before-delete
+
+**Layer:** product / data · **Owner:** Cursor · **Deferred 17 August 2026 (Talal)**
+
+`DELETE /api/account` permanently removes the Care Partner, every Loved One, and all history. There is no download, email, or archive step before confirm. Re-onboarding starts empty. A pre-delete export belongs after Demo Day.
+
+### PD-26 · "Log out" uses the destructive button variant
+
+**Layer:** frontend · **Owner:** Cursor · **Deferred 17 August 2026**
+
+Settings → Account "Log out" is `variant="destructive"` (red), same as "Delete account". Delete account is distinguished by the card chrome (destructive border and tint). After Demo Day, demote Log out to a non-destructive variant so red is reserved for irreversible actions.
+
 ## Explicitly NOT deferred
 
 Recorded here so nobody mistakes them for register items:
@@ -298,6 +310,7 @@ Recorded here so nobody mistakes them for register items:
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 17 Aug 2026 | 1.9 | **PD-25 / PD-26 added.** Account delete has no export-before-delete. Settings "Log out" uses the destructive variant — demote so red is reserved for irreversible actions. |
 | 17 Aug 2026 | 1.8 | **PD-24 added.** Delete control on `/loved-ones/[id]` — deliberately out of scope of the list-page hard delete (17 August 2026). |
 | 17 Aug 2026 | 1.7 | **PD-20–PD-23 added.** `duration_seconds` always NULL (Meta payload has no duration). WF-4c no phone-number dedupe (observed three identical stand-downs to one handset). Frontend `SOSStatus` vs DB `open\|resolved`. `resolved_by_role` has no `elder`. PD-6 updated: A-26 reply retired; redelivery after closure may ingest as a journal. |
 | 17 Aug 2026 | 1.6 | **PD-17 / PD-18 / PD-19 added.** Voice journal retention (indefinite, accepted for capstone). Waitlist email from personal Gmail (transactional provider post-demo). Waitlist email uniqueness — **open decision**, not resolved. |

@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.31 |
+| **Document** | Rules.md — v1.32 |
 | **Date** | 17 August 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
@@ -165,6 +165,7 @@ From `Architecture.md` §1 (P1). These are the walls that let ten people work in
 | **SEC9** | **A public form policy must cover `anon` and `authenticated`.** A signed-in user posting a public form carries the `authenticated` role, not `anon`. An `anon`-only insert policy silently rejects them. Verified on `public.waitlist`, 17 August 2026. |
 | **SEC10** | **Storage objects are removed through the Supabase Storage API only.** Never `DELETE FROM storage.objects`. That table is a metadata index — deleting a row leaves the file behind, unreachable and still billed. The `voice-notes` bucket has zero RLS policies on `storage.objects`; a SQL delete of the catalog row is not how objects are removed and is not an access path this app uses. |
 | **SEC11** | **Prove ownership with the session client before constructing the admin client.** Lookup and the elder `DELETE` run under RLS. `createAdminClient()` is for signing or removing a path already shown to belong to this Care Partner — never to bypass the lookup. |
+| **SEC12** | **Collect every elder's storage keys before deleting the auth user.** `auth.admin.deleteUser()` cascades `care_partners` → `elders` → children. The elder rows are the only index of `voice-notes` object keys. Once they are gone the paths are unrecoverable. Account delete collects ids, counts, and `audio_path` values with the admin client, then deletes the user, then calls the Storage API. |
 
 ---
 
@@ -340,6 +341,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 17 Aug 2026 | 1.32 | **SEC12 — collect storage keys before `deleteUser`.** Elder rows are the only index of `voice-notes` objects. Account delete collects, then removes the auth user, then sweeps storage. |
 | 17 Aug 2026 | 1.31 | **SEC10 amend.** `storage.objects` is a metadata index; deleting a row leaves the file behind, unreachable and still billed. Remove objects through the Storage API only. |
 | 17 Aug 2026 | 1.30 | **SEC10 / SEC11 — Loved One hard delete.** Remove storage objects via the Storage API only, never `storage.objects`. Session-client ownership before `createAdminClient()`. **D11 amend:** product elder is hard-deleted; routines stay soft-deleted. |
 | 17 Aug 2026 | 1.29 | **C20 / C21 / C22 — Responses API shape, classification validation, whole-message commands.** Read `output[0].content[0].text` as object or string; reject arrays. Unreadable LLM output must raise `attention_flag`, not look calm. `sos` / `help` / `cancel` are whole-message exact match only (extends 3 Aug). §6a: WF-5 no-open-check-in path now stores via WF-9 (Talal, 17 Aug). |
