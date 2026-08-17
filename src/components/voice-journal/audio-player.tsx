@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 interface VoiceAudioPlayerProps {
   entryId: string;
-  durationSeconds: number;
+  durationSeconds?: number;
   audioUrl?: string;
   className?: string;
 }
@@ -25,12 +25,12 @@ export function VoiceAudioPlayer({
   const [readyUrl, setReadyUrl] = useState<string | null>(audioUrl ?? null);
   const [playing, setPlaying] = useState(false);
   const [current, setCurrent] = useState(0);
-  const [duration, setDuration] = useState(durationSeconds);
+  const [duration, setDuration] = useState(durationSeconds ?? 0);
 
   useEffect(() => {
     setPlaying(false);
     setCurrent(0);
-    setDuration(durationSeconds);
+    setDuration(durationSeconds ?? 0);
 
     if (audioUrl) {
       setReadyUrl(audioUrl);
@@ -41,10 +41,15 @@ export function VoiceAudioPlayer({
       URL.revokeObjectURL(generatedUrl.current);
       generatedUrl.current = null;
     }
-    const seed = entryId.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
-    const url = createDemoWavUrl(Math.min(durationSeconds, 18), seed);
-    generatedUrl.current = url;
-    setReadyUrl(url);
+    // Demo fallback only when there is no real recording URL.
+    if (durationSeconds && durationSeconds > 0) {
+      const seed = entryId.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+      const url = createDemoWavUrl(Math.min(durationSeconds, 18), seed);
+      generatedUrl.current = url;
+      setReadyUrl(url);
+    } else {
+      setReadyUrl(null);
+    }
 
     return () => {
       if (generatedUrl.current) {
@@ -127,7 +132,8 @@ export function VoiceAudioPlayer({
               Voice recording
             </span>
             <span className="font-mono">
-              {formatDuration(current)} / {formatDuration(duration || durationSeconds)}
+              {formatDuration(current)}
+              {duration > 0 ? ` / ${formatDuration(duration)}` : ""}
             </span>
           </div>
           <input

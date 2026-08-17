@@ -92,16 +92,13 @@ export default function VoiceJournalPage() {
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-sm font-medium text-primary">Voice Journal</p>
-          {/* TODO(v2 / Could-have C2): live journaling is out of MVP — table exists; message path does not populate it yet (FR-DB-6). */}
-          <Badge variant="secondary" className="font-mono">
-            Preview
-          </Badge>
         </div>
         <h1 className="font-display text-3xl tracking-tight md:text-4xl">
           Recordings & summaries
         </h1>
         <p className="mt-1 max-w-2xl text-muted-foreground">
-          Listen to recordings, read AI summaries and transcripts when voice journals are available.
+          Listen to recordings, read AI summaries and transcripts when your Loved One
+          sends a voice note.
         </p>
       </div>
 
@@ -180,7 +177,7 @@ export default function VoiceJournalPage() {
         <EmptyState
           icon={Mic}
           title="No journal entries"
-          description="Voice journals will appear here when the message path records them. Nothing is seeded for demo."
+          description="When your Loved One sends a voice note on WhatsApp with no check-in waiting, it will appear here."
         />
       ) : (
         <div className="space-y-4">
@@ -197,9 +194,14 @@ export default function VoiceJournalPage() {
                           Needs attention
                         </Badge>
                       ) : null}
-                      <Badge variant="secondary" className="font-mono text-[10px]">
-                        {formatDuration(selected.durationSeconds)}
+                      <Badge variant="secondary" className="capitalize">
+                        {selected.mood}
                       </Badge>
+                      {typeof selected.durationSeconds === "number" ? (
+                        <Badge variant="secondary" className="font-mono text-[10px]">
+                          {formatDuration(selected.durationSeconds)}
+                        </Badge>
+                      ) : null}
                     </div>
                     <CardTitle className="mt-2 font-display text-2xl">
                       {lovedOneName(selected.lovedOneId)}
@@ -226,6 +228,16 @@ export default function VoiceJournalPage() {
                   durationSeconds={selected.durationSeconds}
                   audioUrl={selected.audioUrl}
                 />
+
+                {selected.themes.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selected.themes.map((theme) => (
+                      <Badge key={theme} variant="outline" className="capitalize">
+                        {theme}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
 
                 <section className="rounded-2xl border bg-card p-4">
                   <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
@@ -295,9 +307,11 @@ export default function VoiceJournalPage() {
                               {formatViewerDateTime(entry.recordedAt, viewerTimeZone)}
                             </p>
                           </div>
-                          <span className="font-mono text-[10px] text-muted-foreground">
-                            {formatDuration(entry.durationSeconds)}
-                          </span>
+                          {typeof entry.durationSeconds === "number" ? (
+                            <span className="font-mono text-[10px] text-muted-foreground">
+                              {formatDuration(entry.durationSeconds)}
+                            </span>
+                          ) : null}
                         </div>
                         <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
                           {entry.aiSummary}

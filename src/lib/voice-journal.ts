@@ -216,15 +216,23 @@ export function journalStats(entries: VoiceJournalEntry[]) {
   if (entries.length === 0) {
     return {
       count: 0,
-      avgDuration: 0,
+      avgDuration: null as number | null,
       attention: 0,
       topMood: null as MoodTag | null,
       avgScore: 0,
     };
   }
-  const avgDuration = Math.round(
-    entries.reduce((s, e) => s + e.durationSeconds, 0) / entries.length,
+  const withDuration = entries.filter(
+    (e): e is VoiceJournalEntry & { durationSeconds: number } =>
+      typeof e.durationSeconds === "number",
   );
+  const avgDuration =
+    withDuration.length > 0
+      ? Math.round(
+          withDuration.reduce((s, e) => s + e.durationSeconds, 0) /
+            withDuration.length,
+        )
+      : null;
   const attention = entries.filter((e) => e.attentionFlag).length;
   const dist = moodDistribution(entries);
   const topMood = dist.sort((a, b) => b.value - a.value)[0]?.mood ?? null;
