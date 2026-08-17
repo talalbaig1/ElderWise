@@ -1,6 +1,6 @@
 | Field | Value |
 | --- | --- |
-| **Document** | PostDemoEnhancements.md — v1.6 |
+| **Document** | PostDemoEnhancements.md — v1.7 |
 | **Project** | ElderWise · AIGF Cohort 7 · Group 7 |
 | **Date** | 17 August 2026 |
 | **Status** | Deferred by ruling — scheduled to begin after Demo Day, 29 August 2026 |
@@ -75,9 +75,11 @@ The three edit handlers in `src/components/loved-ones/routine-tabs.tsx` (~lines 
 
 **Layer:** n8n (WF-5) · **Owner:** Talal / Claude · **Priority:** P3
 
-The A-25 early exit sits after `Resolve Check-in`. A redelivery arriving once the check-in has closed resolves zero rows and falls to the no-open-check-in reply (A-26) instead of silent suppression — the dedup is never consulted on that path.
+The A-25 early exit sits after `Resolve Check-in`. A redelivery arriving once the check-in has closed resolves zero rows and falls to the no-open-check-in path instead of silent suppression — the dedup is never consulted on that path.
 
-Remedy: move `Already Processed?` ahead of `Resolve Check-in`, directly after `Valid media_id?`. It depends only on `media_id` from the trigger. Costs one SDK cycle plus an HTTP credential re-bind. A confusing message, not data corruption.
+**17 August 2026:** the A-26 reply is **retired**. The false branch now calls WF-9. A redelivery after closure may ingest as a journal entry (`voice_journals.media_id` UNIQUE) rather than send the old "nothing to check" text. The early-exit ordering issue remains.
+
+Remedy: move `Already Processed?` ahead of `Resolve Check-in`, directly after `Valid media_id?`. It depends only on `media_id` from the trigger. Costs one SDK cycle plus an HTTP credential re-bind.
 
 ### PD-7 · E2 — rotate WF-2's webhook when the repo goes private
 
@@ -247,6 +249,34 @@ A unique index would dedupe, but under an insert-only, no-select policy a unique
 
 Do not write uniqueness up as settled. Record any future ruling here.
 
+### PD-20 · `duration_seconds` unavailable
+
+**Layer:** Meta payload / WF-9 · **Owner:** Talal · **Deferred 17 August 2026 (Talal)**
+
+`voice_journals.duration_seconds` is always NULL. Meta's inbound audio payload carries `id`, `mime_type` and `sha256` — no duration. The UI cannot show a length. Known limitation, not a defect.
+
+**Options for later:** derive duration from the OGG container, or request `verbose_json` from Whisper.
+
+### PD-21 · WF-4c does not deduplicate by phone number
+
+**Layer:** n8n (WF-4c) · **Owner:** Talal · **Deferred 17 August 2026 (Talal)**
+
+One person holding several care-circle roles receives one stand-down message per role. Observed 17 August 2026: three identical messages to a single handset because Care Partner, Local Buddy and Doctor shared a number. Correct by design (S-6 attributes per role), but poor presentation.
+
+**Deliberately not changed before Demo Day** — WF-4c is on the live SOS path.
+
+### PD-22 · Frontend `SOSStatus` type mismatch
+
+**Layer:** frontend types vs `sos_status` enum · **Owner:** Cursor / Talal · **Deferred 17 August 2026**
+
+The frontend type is `active | acknowledged | resolved | cancelled`. The database enum is `open | resolved`. None of the four frontend values matches `open`. Pre-existing, unrelated to WF-9 / WF-10, worth resolving after Demo Day. Display mapping is already documented in `Architecture.md` §5.5.
+
+### PD-23 · `resolved_by_role` has no `elder` value
+
+**Layer:** schema + WF-4c · **Owner:** Talal · **Deferred 17 August 2026 (Talal)**
+
+The enum is `care_partner, local_caregiver, doctor`. An elder-initiated cancel (WF-10, Option A) cannot record who stood the alert down and leaves the column NULL, so WF-4c falls back to `"Someone"`. Adding `elder` also requires an elder branch in WF-4c's resolver lookup.
+
 ## Explicitly NOT deferred
 
 Recorded here so nobody mistakes them for register items:
@@ -262,6 +292,7 @@ Recorded here so nobody mistakes them for register items:
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 17 Aug 2026 | 1.7 | **PD-20–PD-23 added.** `duration_seconds` always NULL (Meta payload has no duration). WF-4c no phone-number dedupe (observed three identical stand-downs to one handset). Frontend `SOSStatus` vs DB `open\|resolved`. `resolved_by_role` has no `elder`. PD-6 updated: A-26 reply retired; redelivery after closure may ingest as a journal. |
 | 17 Aug 2026 | 1.6 | **PD-17 / PD-18 / PD-19 added.** Voice journal retention (indefinite, accepted for capstone). Waitlist email from personal Gmail (transactional provider post-demo). Waitlist email uniqueness — **open decision**, not resolved. |
 | 12 Aug 2026 | 1.5 | **PD-16 added.** Automated cleanup of abandoned signups — time-based discriminator (not “no active elder” alone), two-phase flag→delete (14 days), audit table before CASCADE, prefer `pg_cron`. Also corrects “Explicitly NOT deferred” test-case count from 110 unrun → 67 remaining (reconciled 12 August 2026). |
 | 12 Aug 2026 | 1.4 | **PD-15 added.** `countOwnActiveElders` `if (error) return 0` footgun — failed query looks like empty; all four gates send onboarded CTs to onboarding. Client guards cannot simply throw (AuthLoading forever). Deferred after shipping onboarding Sign out. |

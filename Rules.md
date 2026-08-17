@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.28 |
+| **Document** | Rules.md — v1.29 |
 | **Date** | 17 August 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
@@ -140,7 +140,7 @@ From `Architecture.md` §1 (P1). These are the walls that let ten people work in
 - [ ] **Verify enum values before using them.** `checkins.response_channel` is `button | voice` — **not** `whatsapp`. It does not mirror `sos_events.resolved_channel`. Reasoning by analogy between similarly-named enums produces a runtime failure.
 - [ ] **One writer per state transition.** A status change that triggers a notification must have exactly one workflow that performs it. Three workflows once marked check-ins `missed`; only one notified, and they raced.
 - [ ] **Sub-workflow calls must resolve by ID, never by name.** Verified 4 August across all exports: every `executeWorkflow` node uses `mode=id` except WF-2's call to WF-2a, which is `mode=list` but still carries the ID as its value (`cachedResultName` is a display label only). This is why the WF-3a / WF-3b / WF-6 renames were safe.
-- [ ] **A node's protection can live in its POSITION, not its guard.** WF-5 resolves the check-in **before** fetching any media, so an elder with no open check-in never has audio downloaded or stored. That ordering — not the WF-2a consent gate alone — is the real safeguard. Reordering it would remove the protection silently. **Ordering constraints must be documented as constraints.**
+- [ ] **A node's protection can live in its POSITION, not its guard.** WF-5 still resolves the check-in **before** fetching any media **on the check-in-reply branch**. That used to mean an elder with no open check-in never had audio stored. **Superseded 17 August 2026 (Talal):** the false branch of `Open Check-in Found?` now calls WF-9, which downloads, transcribes, classifies and stores unprompted voice indefinitely. Ordering still decides *which path* runs; it is no longer a "never store" safeguard. **Ordering constraints must be documented as constraints.**
 - [ ] **A plain single-statement SELECT returning zero rows halts the chain**, which can make a downstream "not found" branch **unreachable**. If that branch must run, either use the probe pattern (WF-3a's `FROM (SELECT 1) probe LEFT JOIN LATERAL …`) or `alwaysOutputData` paired with an IF that tests the empty case.
 - [ ] **`alwaysOutputData` is only safe when paired with such an IF.** Alone it pushes an empty `{}` downstream and causes undefined reads.
 - [ ] **Verify enum-vs-text before writing.** `response_value` is plain TEXT with no constraint; the database will not catch a wrong value. Only the human-facing template will, and only if someone reads it. (`checkins.response_channel` is `button | voice` — not `whatsapp`.)
@@ -191,6 +191,9 @@ Defaults, not dogma. Consistency across ten contributors matters more than any i
 | **C17** | **Document version numbers are chosen at merge time, not branch time.** Immediately before bumping `Architecture.md`, `Rules.md`, or any companion doc, read the document headers on `main` (or the branch you are merging into) and confirm the next version — do not assume from memory or from the number you expected when the branch opened. Date the header and the changelog row to the **merge date**. Five version collisions in one day came from bumping at branch time against a stale tip. |
 | **C18** | **Onboarding must offer a Sign out exit on every wizard step.** A CT with no product elder cannot reach Settings or `/sign-in` (guest gate bounces a live session back to `/onboarding`). Sign out clears the Supabase session and the local onboarding draft, then navigates to `/sign-in`. Warn when local progress exists; never block the exit. Do not invent a `?force=` guest bypass unless a verified race requires it. |
 | **C19** | **Match the write guard to whether the write returns rows.** The standing `if (!data)` guard is correct for writes that `RETURN` (RLS denial returns no error and no rows). On an insert with **no `RETURNING`**, success returns null data and `if (!data)` would reject every valid write — guard on `error` instead. Both forms are correct in their own context. Verified on `POST /api/waitlist`, 17 August 2026. |
+| **C20** | **Read the OpenAI Responses API at `output[0].content[0].text`, and treat it as possibly an object.** With `json_object` format n8n hands back a parsed object; with text format, a string. A normaliser must accept both and must **reject arrays** — an array will `JSON.parse` successfully and then silently yield every default. Verified on WF-9, 17 August 2026. |
+| **C21** | **A classification that cannot be read is not a quiet default.** Where an LLM result drives a safety-relevant branch, validate the specific fields (`mood`, `urgency`) rather than "did something parse", and raise the human-attention flag when validation fails. Never let an unreadable result look like a calm result. |
+| **C22** | **Whole-message exact match for every command trigger.** `sos`, `help` and `cancel` all match on the full normalised message (`text_norm`), never a substring. A contains-match on `help` would fire a three-person emergency on *"can you help me with my tablets?"*. Extends the 3 August 2026 ruling. |
 
 ---
 
@@ -335,6 +338,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 17 Aug 2026 | 1.29 | **C20 / C21 / C22 — Responses API shape, classification validation, whole-message commands.** Read `output[0].content[0].text` as object or string; reject arrays. Unreadable LLM output must raise `attention_flag`, not look calm. `sos` / `help` / `cancel` are whole-message exact match only (extends 3 Aug). §6a: WF-5 no-open-check-in path now stores via WF-9 (Talal, 17 Aug). |
 | 17 Aug 2026 | 1.28 | **D14 / SEC9 / C19 — waitlist insert-only RLS.** `RETURNING` is 42501 without a SELECT policy (do not add one). Public-form policies must name `anon` and `authenticated`. Guard writes that do not return rows on `error`, not `if (!data)`. C16 cross-ref updated. WF-8 added to §6a webhook UI-only list. |
 | 13 Aug 2026 | 1.27 | **D11 — two-column pause vs soft-delete.** `enabled` = pause (shown Inactive, never hidden); `active` = tombstone on all three domains. Never reuse a user-facing field as a tombstone. Ruling: Talal, 12 August 2026. |
 | 12 Aug 2026 | 1.26 | **C18 — onboarding Sign out on every wizard step.** Clears session + local draft; warn if progress, never block. No speculative guest-gate bypass. |
