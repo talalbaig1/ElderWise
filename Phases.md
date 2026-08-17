@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.20 |
+| **Document** | Phases.md — v1.21 |
 | **Date** | 17 August 2026 |
 | **Demo Day** | **Saturday 29 August 2026** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Templates.md` |
@@ -212,8 +212,9 @@ Runs **in parallel with Track A from day one.**
 | B3.3 | **WF-2a audio branch** + voice→medication mapping + workflow renames (WF-3a *Medication Response Handler*, WF-3b *Reminder Sweep (All Domains)*, WF-6 *Care Partner Notifications (All Domains)*; WF-2 unchanged) | Talal | **DONE 4 August 2026**, published via UI |
 | B3.4 | Three throwaway harness workflows archived | Talal | **DONE 4 August 2026** |
 | B3.5 | **`cancelled` check-in status** — two DB migrations (`checkin_status` + `cancelled_at`); frontend support (`25114ed`); WF-3c **Cancel Orphaned Check-ins** branch | Talal | **DONE 4 August 2026.** Migrations applied. Frontend: types, mappers, status pill, `report-analytics` `statusBreakdown`; `adherence()` untouched in both analytics files. WF-3c cancel branch proven live on check-in `4af31e90` (Panadol 10:00, routine disabled — cancelled within 60 s; three enabled check-ins untouched). |
+| B3.6 | **WF-9 Voice Journal Ingest** (`2KWtzSH22fTNxed9`) + **WF-10 SOS Cancel Handler** (`CPDmCJh8e1WO8Sod`) + `voice_journals` (RLS, no insert) + WF-5 / WF-2a rewires | Talal | **DONE 17 August 2026.** Full manual test pass on the **live handset**: journal classification correct across five transcripts; past-tense guard (`"I fell last week"` → `attention`, no SOS); emergency fired with three care-circle notifications all `sent`; cancel resolved in 18 seconds; medication button and voice-reply-to-check-in unaffected. B3.1 Test 1 (halt before media fetch on no open check-in) is **superseded** — that branch now calls WF-9. |
 
-**Remaining (Track B):** Sentry (`Architecture.md` §11 P0); A-25 idempotency; A-26 silent-drop ruling; A-27/A-28/A-29; WF-3a guard defect; `some_of_them` fourth gate output; Sama copy items (`Templates.md` OT-9 wording, OT-10).
+**Remaining (Track B):** Sentry (`Architecture.md` §11 P0). A-25 / A-26 / A-27 / A-28 / A-29 and the WF-3a guard are closed or accepted; `some_of_them` is A-12 accepted. OT-9 wording signed off; OT-10 parked with Sama.
 
 **🚪 GATE B.** An elder confirms consent and only then begins receiving check-ins. A real WhatsApp number receives a real check-in, a Yes/No button reply is recorded, a voice reply is transcribed and recorded, a missed check-in escalates to the CT, and an SOS reaches all three recipients and can be resolved from **both** channels.
 
@@ -317,7 +318,7 @@ Work deferred until after Demo Day (29 August 2026) is tracked in **`PostDemoEnh
 | QA / end-to-end testing | Needs owner — Talal to assign |
 | Demo-day deck + video | Needs owner — Talal to assign |
 
-> **Remaining Track B workflow: WF-5 only.** All three care domains DONE 3 Aug evening. WF-4 family DONE 3 Aug. Sentry deferred until workflows complete (Talal, 3 Aug). Close other ownership gaps at the next sync.
+> **Remaining Track B workflow: WF-5 only** — **historical (3 August 2026).** WF-9 and WF-10 shipped 17 August 2026 (B3.6). Sentry remains deferred.
 
 ---
 
@@ -339,6 +340,7 @@ Work deferred until after Demo Day (29 August 2026) is tracked in **`PostDemoEnh
 
 | Date | Version | Change |
 |---|---|---|
+| 17 Aug 2026 | 1.21 | **Voice journal + SOS cancel delivered.** WF-9 (`2KWtzSH22fTNxed9`), WF-10 (`CPDmCJh8e1WO8Sod`), `voice_journals` with RLS, WF-5 / WF-2a rewires. Full manual test pass on the live handset, 17 August 2026. Recorded as B3.6. |
 | 17 Aug 2026 | 1.20 | **Waitlist delivered.** Table + insert-only RLS, public form, `POST /api/waitlist`, WF-8 email dispatch (`V9VTNaLGJkFGUTFN`). WhatsApp confirmation pending Meta approval of `elderwise_wl_confirmation` — not delivered. Recorded as A2.10. |
 | 10 Aug 2026 | 1.19 | **D-8 — Google OAuth withdrawn from the MVP.** §1.1 step 3 and A3.1 corrected: auth is email + password only. A3.1 previously claimed Google OAuth was **DONE** when it was never built — false-completion claim struck; placeholders removed 10 Aug; work deferred as `PostDemoEnhancements.md` PD-9. Post-demo range updated to PD-1–PD-11 (adds PD-9 / PD-10 / PD-11). |
 | 9 Aug 2026 | 1.18 | **Post-Demo Day register.** Deferred work lives in `PostDemoEnhancements.md` and is **not** in scope for any current phase (ruling 9 Aug 2026). |
