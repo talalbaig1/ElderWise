@@ -134,7 +134,7 @@
         },
         "phoneNumberId": "1084405194760141",
         "recipientPhoneNumber": "={{ $json.elder_whatsapp }}",
-        "template": "elderwise_ep_welcome|en"
+        "template": "silacares_ep_welcome|en"
       },
       "position": [
         672,
