@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 /**
  * Service-role Supabase client — server-only.
- * Used for doctor share-link validation/reads (Architecture §7.3).
+ * Callers must prove ownership with the session client first (Rules SEC11).
  * Never import from client components.
  */
 export function createAdminClient() {

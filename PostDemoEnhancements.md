@@ -1,6 +1,6 @@
 | Field | Value |
 | --- | --- |
-| **Document** | PostDemoEnhancements.md — v1.7 |
+| **Document** | PostDemoEnhancements.md — v1.8 |
 | **Project** | ElderWise · AIGF Cohort 7 · Group 7 |
 | **Date** | 17 August 2026 |
 | **Status** | Deferred by ruling — scheduled to begin after Demo Day, 29 August 2026 |
@@ -277,6 +277,12 @@ The frontend type is `active | acknowledged | resolved | cancelled`. The databas
 
 The enum is `care_partner, local_caregiver, doctor`. An elder-initiated cancel (WF-10, Option A) cannot record who stood the alert down and leaves the column NULL, so WF-4c falls back to `"Someone"`. Adding `elder` also requires an elder branch in WF-4c's resolver lookup.
 
+### PD-24 · Delete control on the Loved One profile page
+
+**Layer:** frontend · **Owner:** Cursor · **Deferred 17 August 2026 (Talal)**
+
+Hard delete of a Loved One shipped on the list page only (`/loved-ones` dialog → `DELETE /api/loved-ones/[id]`). A matching control on `/loved-ones/[id]` was deliberately out of scope so the list remains the single entry point.
+
 ## Explicitly NOT deferred
 
 Recorded here so nobody mistakes them for register items:
@@ -292,6 +298,7 @@ Recorded here so nobody mistakes them for register items:
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 17 Aug 2026 | 1.8 | **PD-24 added.** Delete control on `/loved-ones/[id]` — deliberately out of scope of the list-page hard delete (17 August 2026). |
 | 17 Aug 2026 | 1.7 | **PD-20–PD-23 added.** `duration_seconds` always NULL (Meta payload has no duration). WF-4c no phone-number dedupe (observed three identical stand-downs to one handset). Frontend `SOSStatus` vs DB `open\|resolved`. `resolved_by_role` has no `elder`. PD-6 updated: A-26 reply retired; redelivery after closure may ingest as a journal. |
 | 17 Aug 2026 | 1.6 | **PD-17 / PD-18 / PD-19 added.** Voice journal retention (indefinite, accepted for capstone). Waitlist email from personal Gmail (transactional provider post-demo). Waitlist email uniqueness — **open decision**, not resolved. |
 | 12 Aug 2026 | 1.5 | **PD-16 added.** Automated cleanup of abandoned signups — time-based discriminator (not “no active elder” alone), two-phase flag→delete (14 days), audit table before CASCADE, prefer `pg_cron`. Also corrects “Explicitly NOT deferred” test-case count from 110 unrun → 67 remaining (reconciled 12 August 2026). |

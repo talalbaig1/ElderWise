@@ -2,18 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { objectKeyFromAudioPath } from "@/lib/supabase/voice-notes-path";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const SIGNED_URL_TTL_SECONDS = 60;
 const idSchema = z.string().uuid();
-
-function objectKeyFromAudioPath(audioPath: string): string | null {
-  const trimmed = audioPath.trim().replace(/^\/+/, "");
-  if (!trimmed) return null;
-  return trimmed.replace(/^voice-notes\//, "");
-}
 
 export async function GET(
   _request: Request,
