@@ -28,6 +28,7 @@ import {
 import {
   loadCarePartnerOnboardingDefaults,
   loadOnboardingResume,
+  ownElderRowExists,
 } from "@/lib/data/onboarding-actions";
 import { useElderWiseStore } from "@/lib/store";
 
@@ -63,8 +64,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     void (async () => {
-      // First-time: name/email from session only — CT still enters WhatsApp + TZ.
-      // Additional: WA + TZ from care_partners (onboarding has no AppDataProvider).
+      // Name/email from session. WhatsApp + TZ from care_partners when that row exists
+      // (re-onboard after last Loved One delete, and ?mode=additional). First-time
+      // sign-up has no row yet — those two fields stay empty for the CT to enter.
       let seed: {
         firstName?: string;
         lastName?: string;
@@ -77,18 +79,16 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         email: store.session.email ?? store.carePartner?.email,
       };
 
-      if (additionalMode) {
-        const cp = await loadCarePartnerOnboardingDefaults();
-        if (cancelled) return;
-        if (cp.ok) {
-          seed = {
-            firstName: cp.firstName || seed.firstName,
-            lastName: cp.lastName || seed.lastName,
-            email: cp.email || seed.email,
-            whatsappNumber: cp.whatsappNumber,
-            timeZone: cp.timeZone,
-          };
-        }
+      const cp = await loadCarePartnerOnboardingDefaults();
+      if (cancelled) return;
+      if (cp.ok) {
+        seed = {
+          firstName: cp.firstName || seed.firstName,
+          lastName: cp.lastName || seed.lastName,
+          email: cp.email || seed.email,
+          whatsappNumber: cp.whatsappNumber,
+          timeZone: cp.timeZone,
+        };
       }
 
       if (forceFresh) {
@@ -102,27 +102,25 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const existing = loadOnboardingDraft(accountId);
+      let existing = loadOnboardingDraft(accountId);
+      if (existing?.elderId) {
+        const held = await ownElderRowExists(existing.elderId);
+        if (cancelled) return;
+        if (held.ok && !held.exists) {
+          // Hard-deleted Loved One — keep typed fields, drop the dead id.
+          existing = {
+            ...existing,
+            elderId: null,
+            updatedAt: new Date().toISOString(),
+          };
+          saveOnboardingDraft(existing);
+        }
+      }
+
       if (existing?.elderId) {
         if (cancelled) return;
-        // Backfill CP WhatsApp/TZ if an older additional draft was saved empty.
-        let next = existing;
-        if (additionalMode && seed.whatsappNumber) {
-          const whatsappNumber =
-            existing.carePartner.whatsappNumber || seed.whatsappNumber || "";
-          const timeZone = seed.timeZone || existing.carePartner.timeZone;
-          if (
-            whatsappNumber !== existing.carePartner.whatsappNumber ||
-            timeZone !== existing.carePartner.timeZone
-          ) {
-            next = {
-              ...existing,
-              carePartner: { whatsappNumber, timeZone },
-              updatedAt: new Date().toISOString(),
-            };
-            saveOnboardingDraft(next);
-          }
-        }
+        const next = withSeededCarePartner(existing, seed);
+        if (next !== existing) saveOnboardingDraft(next);
         setDraft(next);
         setLastSavedAt(next.updatedAt);
         setHydrated(true);
@@ -160,21 +158,19 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
             next.currentStepId = existing.currentStepId;
           }
         }
-        // Additional mode: prefer DB CP WA/TZ when resume/local left them empty.
-        if (additionalMode && seed.whatsappNumber && !next.carePartner.whatsappNumber) {
-          next.carePartner = {
-            whatsappNumber: seed.whatsappNumber,
-            timeZone: seed.timeZone || next.carePartner.timeZone,
-          };
-        }
-        saveOnboardingDraft(next);
-        setDraft(next);
-        setLastSavedAt(next.updatedAt);
+        const seeded = withSeededCarePartner(next, seed);
+        saveOnboardingDraft(seeded);
+        setDraft(seeded);
+        setLastSavedAt(seeded.updatedAt);
         setHydrated(true);
         return;
       }
 
-      const next = existing ?? createDefaultDraft(accountId, seed);
+      const next = withSeededCarePartner(
+        existing ?? createDefaultDraft(accountId, seed),
+        seed,
+      );
+      if (existing && next !== existing) saveOnboardingDraft(next);
       setDraft(next);
       setLastSavedAt(next.updatedAt);
       setHydrated(true);
@@ -189,7 +185,6 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     store.carePartner,
     store.session.email,
     forceFresh,
-    additionalMode,
   ]);
 
   const persist = useCallback((next: OnboardingDraft) => {
@@ -272,6 +267,27 @@ export function useOnboarding() {
   const ctx = useContext(OnboardingContext);
   if (!ctx) throw new Error("useOnboarding must be used within OnboardingProvider");
   return ctx;
+}
+
+/** Draft value wins, then care_partners row, then empty. */
+function withSeededCarePartner(
+  draft: OnboardingDraft,
+  seed: { whatsappNumber?: string; timeZone?: string },
+): OnboardingDraft {
+  const whatsappNumber =
+    draft.carePartner.whatsappNumber.trim() || seed.whatsappNumber?.trim() || "";
+  const timeZone = draft.carePartner.timeZone.trim() || seed.timeZone?.trim() || "";
+  if (
+    whatsappNumber === draft.carePartner.whatsappNumber &&
+    timeZone === draft.carePartner.timeZone
+  ) {
+    return draft;
+  }
+  return {
+    ...draft,
+    carePartner: { whatsappNumber, timeZone },
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 /** True when `a` is further along the 3-step wizard (or completion) than `b`. */

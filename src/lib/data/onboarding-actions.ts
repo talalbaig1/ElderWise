@@ -646,8 +646,33 @@ export type OnboardingResumePayload = {
 };
 
 /**
- * Care Partner WhatsApp + timezone from care_partners (additional-Loved-One path).
- * /onboarding is outside AppDataProvider, so the client store has no domain CP row.
+ * True when this session still owns an elders row with this id (draft or product).
+ * Used to drop a local onboarding draft's elderId after a hard delete without
+ * wiping typed fields.
+ */
+export async function ownElderRowExists(elderId: string): Promise<
+  | { ok: true; exists: boolean }
+  | { ok: false; error: string }
+> {
+  const { supabase, user, error: authErr } = await requireUser();
+  if (authErr || !user) return { ok: false, error: authErr ?? "Not signed in" };
+
+  const { data, error } = await supabase
+    .from("elders")
+    .select("id")
+    .eq("id", elderId)
+    .eq("care_partner_id", user.id)
+    .maybeSingle();
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, exists: Boolean(data) };
+}
+
+/**
+ * Care Partner WhatsApp + timezone from care_partners.
+ * Called whenever onboarding hydrates — first-time, re-onboard after last Loved One
+ * delete, and ?mode=additional. /onboarding is outside AppDataProvider, so the
+ * client store has no domain CP row.
  */
 export async function loadCarePartnerOnboardingDefaults(): Promise<
   | {

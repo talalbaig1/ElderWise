@@ -49,9 +49,158 @@ function issuesToErrors(prefix: string, issues: { path: PropertyKey[]; message: 
   return next;
 }
 
+type BlockingField = { key: string; label: string; message: string };
+
+function careCircleBlockingFields(input: {
+  carePartner: { whatsappNumber: string; timeZone: string };
+  lovedOne: {
+    whatsappNumber: string;
+    firstName: string;
+    lastName: string;
+    timeZone: string;
+    relationshipToCarePartner: string;
+    address: string;
+    age: number;
+  };
+  buddyEngaged: boolean;
+  localBuddy: { firstName: string; lastName: string; whatsappNumber: string };
+  doctorEngaged: boolean;
+  doctor: { firstName: string; lastName: string; clinicName: string; whatsappNumber: string };
+}): BlockingField[] {
+  const blocking: BlockingField[] = [];
+  const { carePartner, lovedOne, buddyEngaged, localBuddy, doctorEngaged, doctor } = input;
+
+  const cpWa = validateRequiredWhatsAppNumber(carePartner.whatsappNumber);
+  if (!cpWa.ok) {
+    blocking.push({
+      key: "carePartner.whatsappNumber",
+      label: "your WhatsApp number",
+      message: cpWa.error,
+    });
+  }
+  if (!carePartner.timeZone.trim()) {
+    blocking.push({
+      key: "carePartner.timeZone",
+      label: "your time zone",
+      message: "Time zone is required",
+    });
+  }
+
+  const loWa = validateRequiredWhatsAppNumber(lovedOne.whatsappNumber);
+  if (!loWa.ok) {
+    blocking.push({
+      key: "lovedOne.whatsappNumber",
+      label: "Loved One WhatsApp number",
+      message: loWa.error,
+    });
+  }
+  if (!lovedOne.firstName.trim()) {
+    blocking.push({
+      key: "lovedOne.firstName",
+      label: "Loved One first name",
+      message: "First name is required",
+    });
+  }
+  if (!lovedOne.lastName.trim()) {
+    blocking.push({
+      key: "lovedOne.lastName",
+      label: "Loved One last name",
+      message: "Last name is required",
+    });
+  }
+  if (!lovedOne.timeZone.trim()) {
+    blocking.push({
+      key: "lovedOne.timeZone",
+      label: "Loved One time zone",
+      message: "Time zone is required",
+    });
+  }
+  if (!lovedOne.relationshipToCarePartner.trim()) {
+    blocking.push({
+      key: "lovedOne.relationshipToCarePartner",
+      label: "relationship to Care Partner",
+      message: "Relationship is required",
+    });
+  }
+  if (!lovedOne.address.trim()) {
+    blocking.push({
+      key: "lovedOne.address",
+      label: "Loved One address",
+      message: "Address is required — the Local Buddy needs it in an emergency",
+    });
+  }
+  if (!Number.isInteger(lovedOne.age) || lovedOne.age < 1 || lovedOne.age > 120) {
+    blocking.push({
+      key: "lovedOne.age",
+      label: "Loved One age",
+      message: "Age must be a whole number between 1 and 120",
+    });
+  }
+
+  if (buddyEngaged) {
+    if (!localBuddy.firstName.trim()) {
+      blocking.push({
+        key: "localBuddy.firstName",
+        label: "Local Buddy first name",
+        message: "First name is required",
+      });
+    }
+    if (!localBuddy.lastName.trim()) {
+      blocking.push({
+        key: "localBuddy.lastName",
+        label: "Local Buddy last name",
+        message: "Last name is required",
+      });
+    }
+    const buddyWa = validateRequiredWhatsAppNumber(localBuddy.whatsappNumber);
+    if (!buddyWa.ok) {
+      blocking.push({
+        key: "localBuddy.whatsappNumber",
+        label: "Local Buddy WhatsApp number",
+        message: buddyWa.error,
+      });
+    }
+  }
+
+  if (doctorEngaged) {
+    if (!doctor.firstName.trim()) {
+      blocking.push({
+        key: "doctor.firstName",
+        label: "Family Doctor first name",
+        message: "First name is required",
+      });
+    }
+    if (!doctor.lastName.trim()) {
+      blocking.push({
+        key: "doctor.lastName",
+        label: "Family Doctor last name",
+        message: "Last name is required",
+      });
+    }
+    if (!doctor.clinicName.trim()) {
+      blocking.push({
+        key: "doctor.clinicName",
+        label: "clinic or hospital",
+        message: "Clinic or hospital is required",
+      });
+    }
+    const doctorWa = validateOptionalWhatsAppNumber(doctor.whatsappNumber);
+    if (!doctorWa.ok) {
+      blocking.push({
+        key: "doctor.whatsappNumber",
+        label: "Family Doctor WhatsApp number",
+        message: doctorWa.error,
+      });
+    }
+  }
+
+  return blocking;
+}
+
 export function CareCircleStep() {
   const { draft, patchDraft, setStepId, additionalMode } = useOnboarding();
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [attemptedProceed, setAttemptedProceed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [conflictOpen, setConflictOpen] = useState(false);
 
@@ -62,50 +211,31 @@ export function CareCircleStep() {
   const buddyEngaged = isLocalBuddyEngaged(localBuddy);
   const doctorEngaged = isDoctorEngaged(doctor);
 
-  const canProceed = useMemo(() => {
-    const cpWa = validateRequiredWhatsAppNumber(carePartner.whatsappNumber);
-    if (!cpWa.ok || !carePartner.timeZone.trim()) return false;
-
-    const loWa = validateRequiredWhatsAppNumber(lovedOne.whatsappNumber);
-    if (
-      !loWa.ok ||
-      !lovedOne.firstName.trim() ||
-      !lovedOne.lastName.trim() ||
-      !lovedOne.timeZone.trim() ||
-      !lovedOne.relationshipToCarePartner.trim() ||
-      !lovedOne.address.trim() ||
-      !Number.isInteger(lovedOne.age) ||
-      lovedOne.age < 1 ||
-      lovedOne.age > 120
-    ) {
-      return false;
+  const blocking = useMemo(
+    () =>
+      careCircleBlockingFields({
+        carePartner,
+        lovedOne,
+        buddyEngaged,
+        localBuddy,
+        doctorEngaged,
+        doctor,
+      }),
+    [buddyEngaged, carePartner, doctor, doctorEngaged, localBuddy, lovedOne],
+  );
+  const canProceed = blocking.length === 0;
+  const displayErrors = useMemo(() => {
+    if (!attemptedProceed) return errors;
+    const next = { ...errors };
+    for (const field of blocking) {
+      if (!next[field.key]) next[field.key] = field.message;
     }
-
-    if (buddyEngaged) {
-      const buddyWa = validateRequiredWhatsAppNumber(localBuddy.whatsappNumber);
-      if (
-        !buddyWa.ok ||
-        !localBuddy.firstName.trim() ||
-        !localBuddy.lastName.trim()
-      ) {
-        return false;
-      }
-    }
-
-    if (doctorEngaged) {
-      const doctorWa = validateOptionalWhatsAppNumber(doctor.whatsappNumber);
-      if (
-        !doctorWa.ok ||
-        !doctor.firstName.trim() ||
-        !doctor.lastName.trim() ||
-        !doctor.clinicName.trim()
-      ) {
-        return false;
-      }
-    }
-
-    return true;
-  }, [buddyEngaged, carePartner, doctor, doctorEngaged, localBuddy, lovedOne]);
+    return next;
+  }, [attemptedProceed, blocking, errors]);
+  const nextHint =
+    attemptedProceed && blocking.length > 0
+      ? `Still needed: ${blocking.map((field) => field.label).join(", ")}.`
+      : undefined;
 
   const runSave = async (): Promise<boolean> => {
     const cpParsed = carePartnerCircleSchema.safeParse(carePartner);
@@ -248,7 +378,13 @@ export function CareCircleStep() {
   };
 
   return (
-    <WizardShell onNext={onNext} busy={busy} nextDisabled={!canProceed}>
+    <WizardShell
+      onNext={onNext}
+      busy={busy}
+      nextDisabled={!canProceed}
+      nextHint={nextHint}
+      onBlockedNext={() => setAttemptedProceed(true)}
+    >
       <div className="space-y-6">
         <section className="space-y-4 rounded-2xl border bg-background/70 p-4">
           <h3 className="font-display text-xl">Care Partner (you)</h3>
@@ -304,7 +440,7 @@ export function CareCircleStep() {
                       return next;
                     })
                   }
-                  error={errors["carePartner.whatsappNumber"]}
+                  error={displayErrors["carePartner.whatsappNumber"]}
                 />
               </div>
               <div className="space-y-2">
@@ -316,7 +452,7 @@ export function CareCircleStep() {
                     patchDraft({ carePartner: { ...carePartner, timeZone } })
                   }
                 />
-                <FieldError message={errors["carePartner.timeZone"]} />
+                <FieldError message={displayErrors["carePartner.timeZone"]} />
               </div>
             </div>
           )}
@@ -341,7 +477,7 @@ export function CareCircleStep() {
                   return next;
                 })
               }
-              error={errors["lovedOne.whatsappNumber"]}
+              error={displayErrors["lovedOne.whatsappNumber"]}
             />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -352,7 +488,7 @@ export function CareCircleStep() {
                 value={lovedOne.firstName}
                 onChange={(e) => patchDraft({ lovedOne: { ...lovedOne, firstName: e.target.value } })}
               />
-              <FieldError message={errors["lovedOne.firstName"]} />
+              <FieldError message={displayErrors["lovedOne.firstName"]} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="lo-last">Last name</Label>
@@ -361,7 +497,7 @@ export function CareCircleStep() {
                 value={lovedOne.lastName}
                 onChange={(e) => patchDraft({ lovedOne: { ...lovedOne, lastName: e.target.value } })}
               />
-              <FieldError message={errors["lovedOne.lastName"]} />
+              <FieldError message={displayErrors["lovedOne.lastName"]} />
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -377,7 +513,7 @@ export function CareCircleStep() {
                   patchDraft({ lovedOne: { ...lovedOne, age: Number(e.target.value) || 0 } })
                 }
               />
-              <FieldError message={errors["lovedOne.age"]} />
+              <FieldError message={displayErrors["lovedOne.age"]} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="lo-tz">Time zone</Label>
@@ -388,7 +524,7 @@ export function CareCircleStep() {
                   patchDraft({ lovedOne: { ...lovedOne, timeZone } })
                 }
               />
-              <FieldError message={errors["lovedOne.timeZone"]} />
+              <FieldError message={displayErrors["lovedOne.timeZone"]} />
             </div>
           </div>
           <div className="space-y-2">
@@ -403,7 +539,7 @@ export function CareCircleStep() {
                 })
               }
             />
-            <FieldError message={errors["lovedOne.relationshipToCarePartner"]} />
+            <FieldError message={displayErrors["lovedOne.relationshipToCarePartner"]} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="lo-address">Address</Label>
@@ -416,7 +552,7 @@ export function CareCircleStep() {
             <p className="text-xs text-muted-foreground">
               We only share this with your Local Buddy during an emergency.
             </p>
-            <FieldError message={errors["lovedOne.address"]} />
+            <FieldError message={displayErrors["lovedOne.address"]} />
           </div>
         </section>
 
@@ -446,7 +582,7 @@ export function CareCircleStep() {
                 value={localBuddy.firstName}
                 onChange={(e) => patchDraft({ localBuddy: { ...localBuddy, firstName: e.target.value } })}
               />
-              <FieldError message={errors["localBuddy.firstName"]} />
+              <FieldError message={displayErrors["localBuddy.firstName"]} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="buddy-last">Last name</Label>
@@ -455,7 +591,7 @@ export function CareCircleStep() {
                 value={localBuddy.lastName}
                 onChange={(e) => patchDraft({ localBuddy: { ...localBuddy, lastName: e.target.value } })}
               />
-              <FieldError message={errors["localBuddy.lastName"]} />
+              <FieldError message={displayErrors["localBuddy.lastName"]} />
             </div>
           </div>
           <div className="space-y-2">
@@ -474,7 +610,7 @@ export function CareCircleStep() {
                   return next;
                 })
               }
-              error={errors["localBuddy.whatsappNumber"]}
+              error={displayErrors["localBuddy.whatsappNumber"]}
             />
           </div>
         </section>
@@ -504,7 +640,7 @@ export function CareCircleStep() {
                 value={doctor.firstName}
                 onChange={(e) => patchDraft({ doctor: { ...doctor, firstName: e.target.value } })}
               />
-              <FieldError message={errors["doctor.firstName"]} />
+              <FieldError message={displayErrors["doctor.firstName"]} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="doc-last">Last name</Label>
@@ -513,7 +649,7 @@ export function CareCircleStep() {
                 value={doctor.lastName}
                 onChange={(e) => patchDraft({ doctor: { ...doctor, lastName: e.target.value } })}
               />
-              <FieldError message={errors["doctor.lastName"]} />
+              <FieldError message={displayErrors["doctor.lastName"]} />
             </div>
           </div>
           <div className="space-y-2">
@@ -523,7 +659,7 @@ export function CareCircleStep() {
               value={doctor.clinicName}
               onChange={(e) => patchDraft({ doctor: { ...doctor, clinicName: e.target.value } })}
             />
-            <FieldError message={errors["doctor.clinicName"]} />
+            <FieldError message={displayErrors["doctor.clinicName"]} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="doc-wa">WhatsApp number (optional)</Label>
@@ -542,7 +678,7 @@ export function CareCircleStep() {
                   return next;
                 })
               }
-              error={errors["doctor.whatsappNumber"]}
+              error={displayErrors["doctor.whatsappNumber"]}
             />
           </div>
         </section>

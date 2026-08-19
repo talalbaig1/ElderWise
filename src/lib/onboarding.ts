@@ -374,7 +374,7 @@ export function createDefaultDraft(
     firstName?: string;
     lastName?: string;
     email?: string;
-    /** Care Partner only — used when adding another Loved One (additional mode). */
+    /** Care Partner WhatsApp — from care_partners when that row already exists. */
     whatsappNumber?: string;
     timeZone?: string;
   },
