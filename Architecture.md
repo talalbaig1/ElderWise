@@ -5,8 +5,8 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.52 |
-| **Date** | 17 August 2026 |
+| **Document** | Architecture.md — v1.53 |
+| **Date** | 19 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
 
@@ -519,6 +519,7 @@ The front-end type model defines several fields ahead of scope. They are allowed
 | `HealthRoutine.answerType` = `number` / `mood` / `short_text` | **Should/Could** | MVP health check-ins are **Yes/No** (`yes_no`). Richer answer types are later. |
 | `SOSEvent.averageResponseMinutes`, `callsMade` | Demo/analytics | Not core MVP logic. |
 | `dateOfBirth`, `gender` on Loved One | Optional | Collected if offered; not required by any MVP workflow. |
+| Persisted `reports` entity / report history | **Do not build** | There is no `reports` table. `/reports` generates PDF and CSV on demand from check-in data. The Loved One **Reports** tab is an entry point to that page with the current Loved One selected — not a list of stored report rows. History of generated files is post-demo (`PostDemoEnhancements.md` PD-27). |
 
 ## 5.5 Canonical glossary
 
@@ -1297,7 +1298,7 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 
 | Date | Version | Change |
 |---|---|---|
-| 17 Aug 2026 | 1.52 | **Routine default time +2 min.** `ROUTINE_DEFAULT_TIME_OFFSET_MINUTES` = 2 so a live-demo create is not swept to missed before dispatch. **`deletion_events.storage_remaining`:** `0` = verified empty; `-1` = sweep failed, count unknown. |
+| 19 Aug 2026 | 1.53 | **No persisted reports entity.** Loved One Reports tab is an entry point to on-demand `/reports` generation (check-in history). Do not add a `reports` table. Onboarding re-seeds Care Partner WhatsApp + timezone from `care_partners` whenever that row exists, not only `?mode=additional`. |
 | 17 Aug 2026 | 1.51 | **Care Partner account delete.** `DELETE /api/account`: collect elders / counts / audio paths with the admin client, then one `auth.admin.deleteUser()` (the cascade root). `deletion_events` `source='account'` — one row per elder plus a summary. Re-onboarding with the same email and WhatsApp numbers is the purpose. |
 | 17 Aug 2026 | 1.50 | **`deletion_events` + WF-11 on the map.** Append-only audit of hard deletes; no FKs to `elders` or `auth.users` (CASCADE would erase the audit). App insert is service-role after the storage re-list; failure does not fail the request. WF-11 (15-minute cron, `source='wf11'`) is the leftover-object backstop. |
 | 17 Aug 2026 | 1.49 | **Product Loved One hard delete.** `DELETE /api/loved-ones/[id]`: session RLS then Storage API + `{elder_id}/` prefix sweep (`storage.objects` has no RLS, so cascade cannot clear `voice-notes`). Soft delete rejected (Talal). Accepted scheduler race documented. WF-11 is the leftover-object backstop. Profile-page delete control → PD-24. |

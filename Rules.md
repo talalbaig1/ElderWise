@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.33 |
-| **Date** | 17 August 2026 |
+| **Document** | Rules.md — v1.34 |
+| **Date** | 19 August 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
 
@@ -198,6 +198,7 @@ Defaults, not dogma. Consistency across ten contributors matters more than any i
 | **C20** | **Read the OpenAI Responses API at `output[0].content[0].text`, and treat it as possibly an object.** With `json_object` format n8n hands back a parsed object; with text format, a string. A normaliser must accept both and must **reject arrays** — an array will `JSON.parse` successfully and then silently yield every default. Verified on WF-9, 17 August 2026. |
 | **C21** | **A classification that cannot be read is not a quiet default.** Where an LLM result drives a safety-relevant branch, validate the specific fields (`mood`, `urgency`) rather than "did something parse", and raise the human-attention flag when validation fails. Never let an unreadable result look like a calm result. |
 | **C22** | **Whole-message exact match for every command trigger.** `sos`, `help` and `cancel` all match on the full normalised message (`text_norm`), never a substring. A contains-match on `help` would fire a three-person emergency on *"can you help me with my tablets?"*. Extends the 3 August 2026 ruling. |
+| **C23** | **An onboarding gate that disables Next must name the fields it is blocking on.** A bare boolean with no inline error and no summary next to the button leaves the Care Partner staring at a dead control. Show field-level errors after they attempt to proceed (not on first paint of an untouched form); keep the button disabled until the same rules pass. Do not enable-and-fail. |
 
 ---
 
@@ -342,7 +343,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
-| 17 Aug 2026 | 1.33 | **SEC13 — `storage_remaining` `-1` vs `0`.** `-1` = sweep failed, count unknown. `0` = re-listed and verified empty. Do not record a failed sweep as empty. |
+| 19 Aug 2026 | 1.34 | **C23 — onboarding gate must name the fields it blocks on.** Disabled Next without a field list is a defect. Errors after attempted proceed; button stays disabled. |
 | 17 Aug 2026 | 1.32 | **SEC12 — collect storage keys before `deleteUser`.** Elder rows are the only index of `voice-notes` objects. Account delete collects, then removes the auth user, then sweeps storage. |
 | 17 Aug 2026 | 1.31 | **SEC10 amend.** `storage.objects` is a metadata index; deleting a row leaves the file behind, unreachable and still billed. Remove objects through the Storage API only. |
 | 17 Aug 2026 | 1.30 | **SEC10 / SEC11 — Loved One hard delete.** Remove storage objects via the Storage API only, never `storage.objects`. Session-client ownership before `createAdminClient()`. **D11 amend:** product elder is hard-deleted; routines stay soft-deleted. |

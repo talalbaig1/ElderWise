@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { formatDistanceToNow, parseISO } from "date-fns";
+import { parseISO } from "date-fns";
 import {
   ArrowLeft,
   FileBarChart,
@@ -60,7 +60,6 @@ export default function LovedOneProfilePage() {
       sos: store.sosEvents
         .filter((e) => e.lovedOneId === lovedOne.id)
         .sort((a, b) => +parseISO(b.triggeredAt) - +parseISO(a.triggeredAt)),
-      reports: store.reports.filter((r) => r.lovedOneId === lovedOne.id),
       buddy: store.localBuddies.find((b) => b.lovedOneId === lovedOne.id),
       doctor: store.doctors.find((d) => d.lovedOneId === lovedOne.id),
     };
@@ -427,33 +426,16 @@ export default function LovedOneProfilePage() {
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-3">
-          {related.reports.length === 0 ? (
-            <EmptyState
-              icon={FileBarChart}
-              title="No reports yet"
-              description="Generated wellbeing reports for this Loved One will appear here."
-            />
-          ) : (
-            related.reports.map((report) => (
-              <Card key={report.id}>
-                <CardContent className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="font-semibold capitalize">
-                      {report.type.replaceAll("_", " ")}
-                    </p>
-                    <p className="text-sm text-muted-foreground">{report.summary}</p>
-                    <p className="font-mono text-xs text-muted-foreground">
-                      {report.rangeLabel} ·{" "}
-                      {formatDistanceToNow(parseISO(report.generatedAt), { addSuffix: true })}
-                    </p>
-                  </div>
-                  <Button size="sm" variant="outline" asChild>
-                    <Link href="/reports">Open reports</Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            ))
-          )}
+          <EmptyState
+            icon={FileBarChart}
+            title="Wellbeing reports"
+            description="Wellbeing reports are generated on demand from this Loved One's check-in history."
+            actionLabel="Generate a report"
+            onAction={() => {
+              setSelectedLovedOneId(lovedOne.id);
+              router.push("/reports");
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="circle">

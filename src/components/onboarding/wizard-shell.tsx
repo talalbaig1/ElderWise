@@ -29,6 +29,10 @@ interface WizardShellProps {
   hideNext?: boolean;
   hideBack?: boolean;
   nextDisabled?: boolean;
+  /** Shown next to Next when the gate is blocking after an attempted proceed. */
+  nextHint?: string;
+  /** Fires when the user clicks Next while it is disabled (overlay capture). */
+  onBlockedNext?: () => void;
   secondaryAction?: ReactNode;
   busy?: boolean;
 }
@@ -57,6 +61,8 @@ export function WizardShell({
   hideNext,
   hideBack,
   nextDisabled,
+  nextHint,
+  onBlockedNext,
   secondaryAction,
   busy,
 }: WizardShellProps) {
@@ -197,14 +203,29 @@ export function WizardShell({
                 Save and continue later
               </Button>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {secondaryAction}
-              {!hideNext ? (
-                <Button type="button" onClick={onNext} disabled={busy || nextDisabled}>
-                  {busy ? "Saving…" : nextLabel}
-                  {!busy ? <ArrowRight className="h-4 w-4" /> : null}
-                </Button>
+            <div className="flex flex-col items-stretch gap-2 sm:items-end">
+              {nextHint ? (
+                <p className="max-w-sm text-sm text-sos sm:text-right">{nextHint}</p>
               ) : null}
+              <div className="flex flex-wrap justify-end gap-2">
+                {secondaryAction}
+                {!hideNext ? (
+                  <div className="relative inline-flex">
+                    {nextDisabled && !busy && onBlockedNext ? (
+                      <button
+                        type="button"
+                        className="absolute inset-0 z-10 cursor-not-allowed"
+                        aria-label={nextHint ?? "Complete the required fields to continue"}
+                        onClick={onBlockedNext}
+                      />
+                    ) : null}
+                    <Button type="button" onClick={onNext} disabled={busy || nextDisabled}>
+                      {busy ? "Saving…" : nextLabel}
+                      {!busy ? <ArrowRight className="h-4 w-4" /> : null}
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>

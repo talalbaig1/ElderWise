@@ -1,8 +1,8 @@
 | Field | Value |
 | --- | --- |
-| **Document** | PostDemoEnhancements.md — v1.9 |
+| **Document** | PostDemoEnhancements.md — v1.10 |
 | **Project** | ElderWise · AIGF Cohort 7 · Group 7 |
-| **Date** | 17 August 2026 |
+| **Date** | 19 August 2026 |
 | **Status** | Deferred by ruling — scheduled to begin after Demo Day, 29 August 2026 |
 
 ## Purpose
@@ -295,6 +295,12 @@ Hard delete of a Loved One shipped on the list page only (`/loved-ones` dialog �
 
 Settings → Account "Log out" is `variant="destructive"` (red), same as "Delete account". Delete account is distinguished by the card chrome (destructive border and tint). After Demo Day, demote Log out to a non-destructive variant so red is reserved for irreversible actions.
 
+### PD-27 · Persisted report history
+
+**Layer:** frontend / optional table · **Owner:** Cursor · **Deferred 19 August 2026**
+
+The Loved One Reports tab and `/reports` generate PDF/CSV on demand from check-in rows. Nothing is stored. A history of previously generated reports (who generated, range, type, download again) is a post-demo feature. Do not add a `reports` table before Demo Day.
+
 ## Explicitly NOT deferred
 
 Recorded here so nobody mistakes them for register items:
@@ -310,6 +316,7 @@ Recorded here so nobody mistakes them for register items:
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 19 Aug 2026 | 1.10 | **PD-27 added.** Persisted report history — on-demand PDF/CSV stays; no `reports` table before Demo Day. |
 | 17 Aug 2026 | 1.9 | **PD-25 / PD-26 added.** Account delete has no export-before-delete. Settings "Log out" uses the destructive variant — demote so red is reserved for irreversible actions. |
 | 17 Aug 2026 | 1.8 | **PD-24 added.** Delete control on `/loved-ones/[id]` — deliberately out of scope of the list-page hard delete (17 August 2026). |
 | 17 Aug 2026 | 1.7 | **PD-20–PD-23 added.** `duration_seconds` always NULL (Meta payload has no duration). WF-4c no phone-number dedupe (observed three identical stand-downs to one handset). Frontend `SOSStatus` vs DB `open\|resolved`. `resolved_by_role` has no `elder`. PD-6 updated: A-26 reply retired; redelivery after closure may ingest as a journal. |

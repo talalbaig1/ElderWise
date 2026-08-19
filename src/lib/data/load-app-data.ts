@@ -322,7 +322,6 @@ export function toAnalyticsStore(
     sosEvents: data.sosEvents,
     voiceJournals: data.voiceJournals,
     notifications: data.notifications,
-    reports: [],
     settings: settings ?? defaultSettings,
     selectedLovedOneId: selected,
   };

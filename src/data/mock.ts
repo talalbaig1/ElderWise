@@ -41,7 +41,6 @@ export function createEmptyStore(): ElderWiseStore {
     sosEvents: [],
     voiceJournals: [],
     notifications: [],
-    reports: [],
     settings: defaultSettings,
     selectedLovedOneId: null,
   };

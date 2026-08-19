@@ -400,7 +400,6 @@ export interface ElderWiseStore {
   sosEvents: SOSEvent[];
   voiceJournals: VoiceJournalEntry[];
   notifications: AppNotification[];
-  reports: ReportSnapshot[];
   settings: UserSettings;
   selectedLovedOneId: string | null;
 }
