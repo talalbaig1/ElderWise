@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.54 |
+| **Document** | Architecture.md — v1.55 |
 | **Date** | 20 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
@@ -74,7 +74,7 @@ Five rules govern every decision below. They are not negotiable without a decisi
 |---|---|---|
 | **Messaging** | **Meta WhatsApp Cloud API (direct)** | Not Twilio. Twilio adds a layer, a cost, and a second place templates can break. Interactive Yes/No buttons and list/dropdown replies are native and cleaner on the Cloud API. Twilio would earn its place only for SMS/voice fallback, which is Could-have (C8, C6). |
 | **Automation / message path** | **n8n** (self-hosted) | Robert has servers ready. The message path is inherently event- and timer-driven, which is n8n's home turf. It is also the layer most of the team can contribute to without deep coding. |
-| **Database / Auth / Storage** | **Supabase** (Postgres) | ElderWise's data is strongly relational (care partner → elders → check-ins / SOS / medications). Postgres + RLS gives data isolation as a database guarantee rather than an application hope. Auth, Storage, and Realtime in the same product removes three integrations. |
+| **Database / Auth / Storage** | **Supabase** (Postgres) | ElderWise's data is strongly relational (care partner → elders → check-ins / SOS / medications). Postgres + RLS gives data isolation as a database guarantee rather than an application hope. Auth and Storage in the same product removes extra integrations. **Realtime is not used** — nothing in `src/` subscribes to a channel. |
 | **Front-end + app backend** | **Next.js (App Router) + Tailwind + shadcn/ui**, on **Vercel** | Locked in Meeting 12. Server components + route handlers cover the dashboard's needs without a separate API service. |
 | **LLM** | **OpenAI** | For message generation and interpreting free-text/transcribed replies. |
 | **Speech-to-text** | **OpenAI (Whisper via the OpenAI transcription API)** | Voice replies are Must-have (M4a). **Superseded 2 August 2026 by Talal** (was: Google STT vs ElevenLabs; prior wording that Whisper was not the choice is withdrawn). Rationale: MVP is English-only (NFR-9) so multi-language coverage is a v2 benefit; n8n has a native OpenAI node whereas Google STT would require raw HTTP with service-account JWT signing; one fewer vendor in Security Gate Pass 2. |
@@ -457,7 +457,7 @@ Index: `(elder_id, domain, scheduled_for)` and `(status, scheduled_for)` — the
 
 **`storage.objects` has zero RLS policies.** The `voice-notes` bucket is unreadable by `anon` and `authenticated`. Any playback must be signed server-side.
 
-**`voice_journal_entries`** — **never created.** Do not invent this name. Live table is `voice_journals`. The Voice Journal **dashboard screen** remains a placeholder (FR-DB-6); ingest is live.
+**`voice_journal_entries`** — **never created.** Do not invent this name. Live table is `voice_journals`. The dashboard **Voice Journal** screen lists those rows for a Loved One. Audio is served via short-lived signed URLs after ownership is proven server-side (`GET /api/voice-journal/[id]/audio`).
 
 **`waitlist`** — public marketing signups. **No foreign keys and no dependents.** n8n reads and stamps it over the Postgres credential (bypasses RLS).
 
@@ -1298,6 +1298,7 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 
 | Date | Version | Change |
 |---|---|---|
+| 20 Aug 2026 | 1.55 | **§5.2 Voice Journal dashboard is live** (same correction as §5.4). **§3: Supabase Realtime is not used** — dropped from the stack. |
 | 20 Aug 2026 | 1.54 | **§5.4 Voice Journal dashboard is live.** List of `voice_journals` for a Loved One; audio via short-lived signed URLs after server-side ownership. FR-DB-6 placeholder wording struck. |
 | 17 Aug 2026 | 1.51 | **Care Partner account delete.** `DELETE /api/account`: collect elders / counts / audio paths with the admin client, then one `auth.admin.deleteUser()` (the cascade root). `deletion_events` `source='account'` — one row per elder plus a summary. Re-onboarding with the same email and WhatsApp numbers is the purpose. |
 | 17 Aug 2026 | 1.50 | **`deletion_events` + WF-11 on the map.** Append-only audit of hard deletes; no FKs to `elders` or `auth.users` (CASCADE would erase the audit). App insert is service-role after the storage re-list; failure does not fail the request. WF-11 (15-minute cron, `source='wf11'`) is the leftover-object backstop. |
