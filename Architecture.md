@@ -5,8 +5,8 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.53 |
-| **Date** | 19 August 2026 |
+| **Document** | Architecture.md — v1.54 |
+| **Date** | 20 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
 
@@ -514,7 +514,7 @@ The front-end type model defines several fields ahead of scope. They are allowed
 | Front-end concept | Status | Note |
 |---|---|---|
 | `NotificationMethod` = `sms` / `email` / `push` | **Could-have (C8)** | MVP is **WhatsApp only**. The enum may exist; only `whatsapp` is wired. |
-| `VoiceJournalEntry.transcript` / `aiSummary` / `mood` / `themes` | **Ingest live (17 Aug 2026)** | Unprompted voice is stored in `voice_journals` (WF-9). The dashboard Voice Journal screen remains a placeholder (FR-DB-6). Voice **reply** transcription for check-ins is M4a / WF-5 → `voice_replies`. |
+| `VoiceJournalEntry.transcript` / `aiSummary` / `mood` / `themes` | **Shipped (17 Aug 2026)** | Unprompted voice is stored in `voice_journals` (WF-9). The dashboard **Voice Journal** screen lists those entries for a Loved One. Audio is served from the private `voice-notes` bucket via short-lived signed URLs **after ownership is proven server-side** (`GET /api/voice-journal/[id]/audio`: session + RLS, then sign). Voice **reply** transcription for check-ins is M4a / WF-5 → `voice_replies`. |
 | `UserSettings` WhatsApp quiet hours / daily digest | **Out of scope** | Not in the PRD. Render if present, but no backend. |
 | `HealthRoutine.answerType` = `number` / `mood` / `short_text` | **Should/Could** | MVP health check-ins are **Yes/No** (`yes_no`). Richer answer types are later. |
 | `SOSEvent.averageResponseMinutes`, `callsMade` | Demo/analytics | Not core MVP logic. |
@@ -1298,7 +1298,7 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 
 | Date | Version | Change |
 |---|---|---|
-| 19 Aug 2026 | 1.53 | **No persisted reports entity.** Loved One Reports tab is an entry point to on-demand `/reports` generation (check-in history). Do not add a `reports` table. Onboarding re-seeds Care Partner WhatsApp + timezone from `care_partners` whenever that row exists, not only `?mode=additional`. |
+| 20 Aug 2026 | 1.54 | **§5.4 Voice Journal dashboard is live.** List of `voice_journals` for a Loved One; audio via short-lived signed URLs after server-side ownership. FR-DB-6 placeholder wording struck. |
 | 17 Aug 2026 | 1.51 | **Care Partner account delete.** `DELETE /api/account`: collect elders / counts / audio paths with the admin client, then one `auth.admin.deleteUser()` (the cascade root). `deletion_events` `source='account'` — one row per elder plus a summary. Re-onboarding with the same email and WhatsApp numbers is the purpose. |
 | 17 Aug 2026 | 1.50 | **`deletion_events` + WF-11 on the map.** Append-only audit of hard deletes; no FKs to `elders` or `auth.users` (CASCADE would erase the audit). App insert is service-role after the storage re-list; failure does not fail the request. WF-11 (15-minute cron, `source='wf11'`) is the leftover-object backstop. |
 | 17 Aug 2026 | 1.49 | **Product Loved One hard delete.** `DELETE /api/loved-ones/[id]`: session RLS then Storage API + `{elder_id}/` prefix sweep (`storage.objects` has no RLS, so cascade cannot clear `voice-notes`). Soft delete rejected (Talal). Accepted scheduler race documented. WF-11 is the leftover-object backstop. Profile-page delete control → PD-24. |
