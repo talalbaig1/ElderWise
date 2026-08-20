@@ -5,7 +5,7 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Architecture.md — v1.55 |
+| **Document** | Architecture.md — v1.56 |
 | **Date** | 20 August 2026 |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Companion docs** | `PRD.md` · `Rules.md` · `Phases.md` · `Templates.md` |
@@ -48,7 +48,7 @@ Five rules govern every decision below. They are not negotiable without a decisi
 │                  │◀───────────────────▶  ┌──────────────────────────┐
 └──────────────────┘                       │        Supabase          │
                                            │  Postgres · Auth · RLS   │
-┌──────────────────┐                       │  Storage · Realtime      │
+┌──────────────────┐                       │  Storage                 │
 │ Local Caregiver  │◀──── WhatsApp ───────▶└────────────▲─────────────┘
 │  (LCT, SOS only) │                                    │ read / write
 └──────────────────┘                                    │
@@ -127,7 +127,7 @@ This is written down explicitly because a team of 10 reading "RAG" in the flow d
 
 ### 4.3 Supabase — the only thing both sides touch
 
-Postgres tables (§5) · Auth (§7) · Storage bucket for voice audio · Realtime for live dashboard updates · RLS as the isolation boundary (§6).
+Postgres tables (§5) · Auth (§7) · Storage bucket for voice audio · RLS as the isolation boundary (§6).
 
 ---
 
@@ -507,9 +507,9 @@ The front end uses friendly UI labels; the schema and the rest of the docs use r
 
 Field-name convention: the front end is `camelCase` (`whatsappNumber`, `escalationMinutes`); the database is `snake_case` (`whatsapp_number`, `escalation_minutes`). The API/data layer maps between them.
 
-## 5.4 Front-end concepts that are v2 / Could-have stubs — do NOT build the backend for these yet
+## 5.4 Front-end concepts ahead of the MVP backend — status is per row
 
-The front-end type model defines several fields ahead of scope. They are allowed to exist as **typed stubs** so the UI compiles, but **no backend, workflow, or table should be built for them in the MVP** unless listed as Must-have.
+The front-end type model defines several fields ahead of scope so the UI compiles. **Do not treat this whole section as unbuilt.** Shipped rows already have a backend. Rows marked Could-have, out of scope, or Do not build must not gain a table, workflow, or backend unless listed as Must-have.
 
 | Front-end concept | Status | Note |
 |---|---|---|
@@ -1298,7 +1298,8 @@ Items deferred to after Demo Day (29 August 2026) are held in **`PostDemoEnhance
 
 | Date | Version | Change |
 |---|---|---|
-| 20 Aug 2026 | 1.55 | **§5.2 Voice Journal dashboard is live** (same correction as §5.4). **§3: Supabase Realtime is not used** — dropped from the stack. |
+| 20 Aug 2026 | 1.56 | **§2 diagram and §4.3** no longer list a live-dashboard channel that §3 already said is unused. **§5.4 heading** no longer forbids building shipped rows; status is per-row. |
+| 20 Aug 2026 | 1.55 | **§5.2 Voice Journal dashboard is live** (same correction as §5.4). **§3:** unused live-dashboard channel dropped from the stack. |
 | 20 Aug 2026 | 1.54 | **§5.4 Voice Journal dashboard is live.** List of `voice_journals` for a Loved One; audio via short-lived signed URLs after server-side ownership. FR-DB-6 placeholder wording struck. |
 | 17 Aug 2026 | 1.51 | **Care Partner account delete.** `DELETE /api/account`: collect elders / counts / audio paths with the admin client, then one `auth.admin.deleteUser()` (the cascade root). `deletion_events` `source='account'` — one row per elder plus a summary. Re-onboarding with the same email and WhatsApp numbers is the purpose. |
 | 17 Aug 2026 | 1.50 | **`deletion_events` + WF-11 on the map.** Append-only audit of hard deletes; no FKs to `elders` or `auth.users` (CASCADE would erase the audit). App insert is service-role after the storage re-list; failure does not fail the request. WF-11 (15-minute cron, `source='wf11'`) is the leftover-object backstop. |
