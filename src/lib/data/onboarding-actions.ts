@@ -30,16 +30,40 @@ export type ElderWriteResult =
   | { ok: true; elderId: string }
   | { ok: false; error: string };
 
-const WHATSAPP_TAKEN =
+const LOVED_ONE_WHATSAPP_TAKEN =
+  "This WhatsApp number is already registered to another Loved One. Each Loved One needs their own number.";
+
+const CARE_CIRCLE_CONFLICT =
+  "Could not save the Care Circle — a conflicting record already exists";
+
+/** Text raised by save_care_circle_draft when elders_whatsapp_number_unique fires. */
+const RPC_LOVED_ONE_WHATSAPP_UNIQUE =
   "This WhatsApp number is already registered to a Loved One";
 
-/** Postgres unique_violation — globally UNIQUE elders.whatsapp_number. */
-function isWhatsappUniqueViolation(error: {
+/**
+ * Loved One WhatsApp unique only — not every Postgres 23505.
+ * The RPC can also raise 23505 from doctors_elder_id_key, local_caregivers_elder_id_key,
+ * domain_configs_elder_domain_unique, console_access_care_partner_id_key.
+ */
+function isLovedOneWhatsappUniqueViolation(error: {
   code?: string;
   message?: string;
+  details?: string;
+  hint?: string;
 }): boolean {
-  if (error.code === "23505") return true;
-  return /whatsapp_number|duplicate key/i.test(error.message ?? "");
+  const text = [error.message, error.details, error.hint]
+    .filter(Boolean)
+    .join("\n");
+  if (/elders_whatsapp_number_unique/i.test(text)) return true;
+  if (text.includes(RPC_LOVED_ONE_WHATSAPP_UNIQUE)) return true;
+  // Column fallback: only with a unique-violation signal, not a CHECK (e164).
+  const unique =
+    error.code === "23505" ||
+    /duplicate key value violates unique constraint/i.test(text);
+  if (unique && /whatsapp_number/i.test(text) && !/whatsapp_e164/i.test(text)) {
+    return true;
+  }
+  return false;
 }
 
 function fail(error: string): OnboardingActionResult {
@@ -49,8 +73,6 @@ function fail(error: string): OnboardingActionResult {
 function failElder(error: string): ElderWriteResult {
   return { ok: false, error };
 }
-
-
 
 async function requireUser() {
   const supabase = await createClient();
@@ -553,7 +575,10 @@ export async function saveCareCircleDraft(input: {
   });
 
   if (error) {
-    if (isWhatsappUniqueViolation(error)) return failElder(WHATSAPP_TAKEN);
+    if (isLovedOneWhatsappUniqueViolation(error)) {
+      return failElder(LOVED_ONE_WHATSAPP_TAKEN);
+    }
+    if (error.code === "23505") return failElder(CARE_CIRCLE_CONFLICT);
     return failElder(mapWhatsAppDbError(error.message));
   }
 

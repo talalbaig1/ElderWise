@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | Rules.md — v1.34 |
-| **Date** | 19 August 2026 |
+| **Document** | Rules.md — v1.35 |
+| **Date** | 22 August 2026 |
 | **Audience** | **Every human on this team, and every AI agent (Cursor, Claude Code) working in this repo.** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Phases.md` |
 
@@ -199,6 +199,7 @@ Defaults, not dogma. Consistency across ten contributors matters more than any i
 | **C21** | **A classification that cannot be read is not a quiet default.** Where an LLM result drives a safety-relevant branch, validate the specific fields (`mood`, `urgency`) rather than "did something parse", and raise the human-attention flag when validation fails. Never let an unreadable result look like a calm result. |
 | **C22** | **Whole-message exact match for every command trigger.** `sos`, `help` and `cancel` all match on the full normalised message (`text_norm`), never a substring. A contains-match on `help` would fire a three-person emergency on *"can you help me with my tablets?"*. Extends the 3 August 2026 ruling. |
 | **C23** | **An onboarding gate that disables Next must name the fields it is blocking on.** A bare boolean with no inline error and no summary next to the button leaves the Care Partner staring at a dead control. Show field-level errors after they attempt to proceed (not on first paint of an untouched form); keep the button disabled until the same rules pass. Do not enable-and-fail. |
+| **C24** | **An error shown to a user must not blame a field that was not the cause.** Unique-violation handling must match the **specific constraint** (name, or the column as a fallback). A bare Postgres `23505` is not enough — `save_care_circle_draft` can raise that code from several uniques. Do not attribute every one to Loved One WhatsApp. |
 
 ---
 
@@ -343,6 +344,7 @@ Named so nobody wastes a day on them, and so nobody assumes we forgot:
 
 | Date | Version | Change |
 |---|---|---|
+| 22 Aug 2026 | 1.35 | **C24 — do not blame the wrong field.** Unique-violation handling must match the specific constraint. A bare `23505` is not a WhatsApp error. |
 | 19 Aug 2026 | 1.34 | **C23 — onboarding gate must name the fields it blocks on.** Disabled Next without a field list is a defect. Errors after attempted proceed; button stays disabled. |
 | 17 Aug 2026 | 1.32 | **SEC12 — collect storage keys before `deleteUser`.** Elder rows are the only index of `voice-notes` objects. Account delete collects, then removes the auth user, then sweeps storage. |
 | 17 Aug 2026 | 1.31 | **SEC10 amend.** `storage.objects` is a metadata index; deleting a row leaves the file behind, unreachable and still billed. Remove objects through the Storage API only. |

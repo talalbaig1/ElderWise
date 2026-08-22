@@ -4,8 +4,8 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · **10 members** (Patrick Correya has left the team) · Team Lead: Talal Baig |
-| **Document** | Phases.md — v1.26 |
-| **Date** | 20 August 2026 |
+| **Document** | Phases.md — v1.27 |
+| **Date** | 22 August 2026 |
 | **Demo Day** | **Saturday 29 August 2026** |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Templates.md` |
 
@@ -130,6 +130,7 @@ Build all 8 screens against hardcoded fixtures. **No database. No auth. No API.*
 | A2.12 | ~~**Hard delete Care Partner account** — `DELETE /api/account`, collect-then-`deleteUser`, Settings → Account card.~~ — **DONE 17 August 2026.** Re-onboarding with the same email and WhatsApp numbers is the purpose. Export-before-delete deferred (PD-25). |
 | A2.13 | ~~**Onboarding gate names blocking fields; Reports tab is an entry point.**~~ — **DONE 19 August 2026.** Care Circle Next lists missing fields. Established Care Partner WhatsApp + timezone seed from `care_partners` even without `?mode=additional`. Loved One Reports tab links to on-demand `/reports` (no persisted reports entity). |
 | A2.14 | ~~**Public README + proprietary LICENSE.**~~ — **DONE 20 August 2026.** Repo-root README rewritten for reviewers; all-rights-reserved LICENSE. |
+| A2.15 | ~~**Care Circle unique-violation copy names the right field.**~~ — **DONE 22 August 2026.** Loved One WhatsApp unique only when the error names `elders_whatsapp_number_unique` (column fallback). Any other `23505` is a generic conflict, not a WhatsApp error. |
 
 **Owner:** Ferdous (schema) + TBD (application wiring).
 
@@ -344,6 +345,7 @@ Work deferred until after Demo Day (29 August 2026) is tracked in **`PostDemoEnh
 
 | Date | Version | Change |
 |---|---|---|
+| 22 Aug 2026 | 1.27 | **A2.15.** Care Circle unique-violation: Loved One WhatsApp message only for `elders_whatsapp_number_unique`; other `23505`s get a generic conflict line. |
 | 20 Aug 2026 | 1.26 | **A2.14.** Public README rewritten (product as shipped). Proprietary all-rights-reserved LICENSE at repo root. |
 | 17 Aug 2026 | 1.23 | **Care Partner account delete delivered.** A2.12: `DELETE /api/account` (collect elders / storage keys, then `auth.admin.deleteUser`). |
 | 17 Aug 2026 | 1.22 | **Loved One hard delete delivered.** A2.11: `DELETE /api/loved-ones/[id]` (session RLS, then `voice-notes` Storage API + prefix sweep). Soft delete rejected. |
