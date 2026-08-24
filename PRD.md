@@ -5,8 +5,8 @@
 | **Product** | ElderWise |
 | **Programme** | AI Generalist Fellowship (AIGF) — Outskill, Cohort 7 · Capstone Project |
 | **Team** | Group 7 (10 members) · Team Lead: Talal Baig |
-| **Document** | PRD.md — v1.15 |
-| **Date** | 17 August 2026 |
+| **Document** | PRD.md — v1.16 |
+| **Date** | 24 August 2026 |
 | **Format** | AIGF Framework 9 (F9) PRD structure + technical build sections |
 | **Audience** | Development team, Cursor, Claude Code |
 | **Demo Day** | 29 August 2026 |
@@ -97,7 +97,9 @@ Families can join a waitlist from `/waitlist` and from the landing page (above t
 
 The elder can speak unprompted on WhatsApp. ElderWise transcribes the note, summarises it, and stores mood, themes and an attention flag for the Care Partner. A message that describes an emergency **happening now** escalates to the SOS cascade.
 
-**This is not a reliable emergency detector** and does **not** replace emergency services. It is an LLM reading a transcript. Keyword SOS (`sos`, `help`) remains the reliable path. Detail: `Architecture.md` §8 WF-9. The dashboard Voice Journal screen remains a placeholder (FR-DB-6 / C2).
+**This is not a reliable emergency detector** and does **not** replace emergency services. It is an LLM reading a transcript. Keyword SOS (`sos`, `help`) remains the reliable path. Detail: `Architecture.md` §8 WF-9.
+
+The dashboard Voice Journal screen is **live**. It lists stored `voice_journals` entries per Loved One. Audio is served from the private `voice-notes` bucket via short-lived signed URLs after ownership is proven server-side (`GET /api/voice-journal/[id]/audio`: session + RLS, then sign).
 
 ---
 
@@ -164,7 +166,7 @@ The elder can speak unprompted on WhatsApp. ElderWise transcribes the note, summ
 | # | Feature |
 |---|---|
 | C1 | Patient disease/condition profiling → condition-aware reminder logic. |
-| C2 | **Voice-note health journaling** → free-form voice notes summarised into a doctor-ready journal (**no AI diagnosis**). *(Note: the underlying STT capability is now in the MVP as M4a — what remains Could-have is the free-form journaling, summarisation, and the live Voice Journal screen.)* In the MVP the Voice Journal screen is a **hard-coded demo placeholder** only. |
+| C2 | **Voice-note health journaling** → free-form voice notes summarised into a doctor-ready journal (**no AI diagnosis**). **Delivered early — live in MVP as of 17 Aug 2026.** Dashboard screen lists `voice_journals` per Loved One; audio via `GET /api/voice-journal/[id]/audio` after session + RLS. STT for check-in replies remains M4a. |
 | C3 | Doctor-type differentiation (GP / physician / surgeon / specialist). |
 | C4 | Multiple check types + multiple notification types. |
 | C5 | Food-quality validation, photos. |
@@ -316,7 +318,7 @@ When the CT selects **Not Required**, show an inline warning **beneath the notif
 | FR-DB-3 | Edit Profile ("Loved One") — EP name card → Food Routine profile, Medication profile, Wellness profile; Save/Submit. |
 | FR-DB-4 | Care Circle — Local Buddy (definition + action plan) and Doctor. The CT can **issue and revoke the Doctor's read-only share link** from this screen. |
 | FR-DB-5 | SOS History — list of triggered SOS events with timeline + filters; Get Report. |
-| FR-DB-6 | Voice Journal — **hard-coded demo placeholder** for the MVP: voice summary cards with timeline and filter. Not wired to live data. |
+| FR-DB-6 | Voice Journal — **shipped.** Lists `voice_journals` for a Loved One (filters, timeline, summary cards). Fields rendered: mood, themes, aiSummary, transcript, attentionFlag, recordedAt, Loved One name, audio player, `durationSeconds` when present. Audio: `GET /api/voice-journal/[id]/audio` proves session ownership (session + RLS) then signs a short-lived URL from the private `voice-notes` bucket. |
 | FR-DB-7 | Reports — dropdown by timeline (Medication / Food / Wellness / SOS history) + Download (PDF). |
 | FR-DB-8 | Personal Profile / Settings — first/last name, **timezone**, change password, WhatsApp; **frequency and escalation overrides**. No non-WhatsApp phone capture. Local Buddy / Doctor may be completed here if skipped at onboarding. |
 | FR-DB-9 | Home button in header and footer on every page. |
@@ -412,7 +414,7 @@ No non-WhatsApp phone numbers on the SOS record.
 | 3 | **Edit Profile — "Loved One"** | EP name card → Food Routine profile · Medication profile · Wellness profile · Save |
 | 4 | **Care Circle** | Local Buddy · Doctor (complete-later if skipped at onboarding) |
 | 5 | **SOS History** | SOS events with timeline · filters · Get Report |
-| 6 | **Voice Journal** | Hard-coded demo cards with timeline + filter *(placeholder — Could-have feature)* |
+| 6 | **Voice Journal** | Live list of `voice_journals` per Loved One · mood / themes / AI summary / transcript · audio via signed URL after ownership |
 | 7 | **Reports** | Timeline dropdown (Medication / Food / Wellness / SOS) · Download |
 | 8 | **Personal Profile / Settings** | First/last name · timezone · change password · WhatsApp · frequency + escalation overrides |
 | 9 | **Privacy / Terms** | `/privacy` · `/terms` — **currently factually false; rewrite blocking** (see §12.4) |
@@ -516,7 +518,7 @@ Everything in §6.4 (Won't-have), plus:
 |---|---|---|
 | **MVP (v1)** | All **Must-have** features (§6.1) — the demoable product. | **29 August 2026 (Demo Day)** |
 | **v2** | All **Should-have** features (§6.2) — incl. multi-language, richer analytics, multi-step escalation. | Post-Demo Day |
-| **v3** | All **Could-have** features (§6.3) — incl. live voice journaling, condition profiling, extra channels, SIP escalation. | Post-Demo Day |
+| **v3** | All **Could-have** features (§6.3) — incl. live voice journaling (**delivered early — live in MVP as of 17 August 2026, verified at `020386c`; C2 fully shipped, no remaining v3 work under this item**), condition profiling, extra channels, SIP escalation. | Post-Demo Day |
 
 Demo Day ships the **MVP**. Should- and Could-have items are not permitted to enter the MVP scope without an explicit decision by the team lead (both mentors flagged feature overload as the team's main risk).
 
@@ -544,6 +546,7 @@ Demo Day ships the **MVP**. Should- and Could-have items are not permitted to en
 
 | Date | Version | Change |
 |---|---|---|
+| 24 Aug 2026 | 1.16 | **Voice Journal dashboard is live, not a placeholder.** PRD was stale against shipped code (verified on `main` at `020386c`). §4.4 / FR-DB-6 / §10 updated. **C2 remains Could-have, annotated delivered early — live in MVP as of 17 Aug 2026** (not promoted to Must-have). **C2 completeness:** (a) free-form journaling, (b) summarisation, (c) live screen — all shipped; no remaining v3 work under this item. §14 v3 line kept as the original scoping record and annotated the same way. |
 | 17 Aug 2026 | 1.15 | **Voice Journal as a product surface (§4.4).** Unprompted speech is transcribed and summarised; CT sees mood / themes / attention flag; a "happening now" emergency escalates to SOS. Stated limitation: not a reliable emergency detector and does not replace emergency services. Dashboard screen remains FR-DB-6 placeholder. |
 | 17 Aug 2026 | 1.14 | **Public waitlist.** §4.3: name / email / phone / WhatsApp + consent; confirmation email live; WhatsApp confirmation pending Meta. Detail in `Architecture.md`. |
 | 11 Aug 2026 | 1.13 | **OQ-7 closed — superseded.** Branch-per-member was never adopted; `main` is the sole branch. Closes with `Architecture.md` A-6 (10 Aug 2026). |
