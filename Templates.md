@@ -4,19 +4,19 @@
 |---|---|
 | **Product** | ElderWise |
 | **Team** | AIGF Cohort 7 · Group 7 · Team Lead: Talal Baig |
-| **Document** | Templates.md — v1.15 |
-| **Date** | 17 August 2026 |
+| **Document** | Templates.md — v1.16 |
+| **Date** | 25 August 2026 |
 | **Purpose** | Every message ElderWise sends. **Reconciled against the live Meta WABA — this document now records what Meta actually approved, not what was drafted.** |
 | **WABA** | `1495493002256968` · display number **966503330619** |
 | **Owner** | Talal (submission) · Sama + Reema (copy & tone) |
-| **Status** | 16 UTILITY templates **APPROVED** in the WABA · **1 MARKETING pending** (`elderwise_wl_confirmation`) |
+| **Status** | 17 UTILITY templates **APPROVED** + 1 MARKETING template **APPROVED** in the WABA. |
 | **Companion docs** | `PRD.md` · `Architecture.md` · `Rules.md` · `Phases.md` |
 
 > **⚠️ Authority note.** §4–6 below are **transcribed verbatim from the Meta Graph API**
-> (`GET /v23.0/1495493002256968/message_templates`, re-verified 7 August 2026). Where this
-> document and Meta disagree, **Meta wins** and this document is wrong. Do not edit the
-> body text here to make it read better — edit it in Meta first, accept the re-review, then
-> transcribe the result back.
+> (`GET /v23.0/1495493002256968/message_templates`, re-verified 25 August 2026 via audit
+> workflow `PADE2m75e6xVGS2e` execution `237026`). Where this document and Meta disagree,
+> **Meta wins** and this document is wrong. Do not edit the body text here to make it read
+> better — edit it in Meta first, accept the re-review, then transcribe the result back.
 
 ---
 
@@ -71,9 +71,9 @@ The Local Buddy exists to physically reach her; without the address they cannot.
 
 | | |
 |---|---|
-| **Category** | All ElderWise templates are **UTILITY**. Confirmed on all 14. |
-| **Language** | **`en`** on all 14 ElderWise templates. **Not `en_US`.** Sending `en_US` fails. (Meta's `hello_world` sample in this account *is* `en_US` — that is the trap.) |
-| **Headers** | **All 14 carry a static TEXT header** (added during submission). No header variables, so **no header parameter object is required** in the send payload. |
+| **Category** | **17 UTILITY + 1 MARKETING** (`elderwise_wl_confirmation`). Not all UTILITY. |
+| **Language** | **`en`** on all 18 ElderWise templates. **Not `en_US`.** Sending `en_US` fails. (Meta's `hello_world` sample in this account *is* `en_US` — that is the trap.) |
+| **Headers** | **All 18 carry a static TEXT header** (added during submission). No header variables, so **no header parameter object is required** in the send payload. |
 | **Buttons** | Max 3, quick-reply only in this set. Labels are listed verbatim in §4–6 — see §3.2. |
 | **Variables** | Positional `{{n}}`. **Every variable must be supplied on every send.** There is no way to omit one — see §3.3. |
 | **24-hour window** | Once the elder sends us anything, free-form messages (including interactive lists) are allowed for 24 hours with no approval. |
@@ -109,38 +109,45 @@ review, and the SOS set must not be disturbed.
 
 ## 3. Template registry — live status
 
-Retrieved from Meta **7 August 2026** via the read-only audit workflow `PADE2m75e6xVGS2e` (execution `40237`). Those 16 remain APPROVED. `elderwise_wl_confirmation` (below) is pending and was not in that snapshot.
+Retrieved from Meta **25 August 2026** via the read-only audit workflow `PADE2m75e6xVGS2e` (execution `237026`). **18 templates APPROVED** (17 UTILITY + 1 MARKETING).
 
 | # | Template name | Audience | Status | Vars | Buttons | Meta template ID |
 |---|---|---|---|---|---|---|
-| 1 | `elderwise_ep_welcome` | Elder | ✅ APPROVED | 2 | 2 | `1570002504537382` |
-| 2 | `elderwise_ep_medication_checkin` | Elder | ✅ APPROVED | 3 | 3 | `1350421319938779` |
-| 3 | `elderwise_ep_health_checkin` | Elder | ✅ APPROVED | 1 | 2 | `1346690020990894` |
-| 4 | `elderwise_ep_food_checkin` | Elder | ✅ APPROVED | 2 | 2 | `27095485663462531` |
-| 5 | `elderwise_ep_medication_reminder` | Elder | ✅ APPROVED | 3 | 3 | `1236555055217203` |
-| 6 | `elderwise_ep_health_reminder` | Elder | ✅ APPROVED | 1 | 2 | `2078212969431571` |
-| 7 | `elderwise_ep_food_reminder` | Elder | ✅ APPROVED | 2 | 2 | `1509495867123853` |
-| 8 | `elderwise_ct_interaction_notice` | Care Partner | ✅ APPROVED | 4 | 0 | `1380438020687088` |
-| 9 | `elderwise_ct_missed_notice` | Care Partner | ✅ APPROVED | 3 | 0 | `3121885814676749` |
-| 10 | `elderwise_sos_alert_ct` | Care Partner | ✅ APPROVED | 4 | 1 | `1289025163308840` |
-| 11 | `elderwise_sos_alert_lct` | Local Buddy | ✅ APPROVED | **5** | 1 | `1372423371082977` |
-| 12 | `elderwise_sos_alert_doctor` | Doctor | ✅ APPROVED | **7** | 1 | `2431697744021678` |
-| 13 | `elderwise_sos_nudge` | CT / LCT / DR | ✅ APPROVED | 2 | 1 | `2044073236223703` |
-| 14 | `elderwise_sos_resolved` | CT / LCT / DR | ✅ APPROVED | 3 | 0 | `1380761780602851` |
-| 15 | `elderwise_ep_health_checkin_v2` | Elder | ✅ APPROVED | 2 | 2 | `1736094100935290` |
-| 16 | `elderwise_ep_health_reminder_v2` | Elder | ✅ APPROVED | 2 | 2 | `1057601289992008` |
-| — | `elderwise_wl_confirmation` | Waitlist registrant (`wl`) | ⏳ PENDING | — | — | — |
+| 1 | `elderwise_ep_welcome` | Elder | ✅ APPROVED | 2 | `Yes, that's fine` · `No, thank you` | `1570002504537382` |
+| 2 | `elderwise_ep_medication_checkin` | Elder | ✅ APPROVED | 3 | `Yes, All` · `Some of them` · `Not Yet` | `1350421319938779` |
+| 3 | `elderwise_ep_health_checkin` | Elder | ✅ APPROVED | 1 | `Yes` · `No` | `1346690020990894` |
+| 4 | `elderwise_ep_food_checkin` | Elder | ✅ APPROVED | 2 | `Yes` · `No` | `27095485663462531` |
+| 5 | `elderwise_ep_medication_reminder` | Elder | ✅ APPROVED | 3 | `Yes, All` · `Some of them` · `Not Yet` | `1236555055217203` |
+| 6 | `elderwise_ep_health_reminder` | Elder | ✅ APPROVED | 1 | `Yes` · `No` | `2078212969431571` |
+| 7 | `elderwise_ep_food_reminder` | Elder | ✅ APPROVED | 2 | `Yes` · `No` | `1509495867123853` |
+| 8 | `elderwise_ct_interaction_notice` | Care Partner | ✅ APPROVED | 4 | none | `1380438020687088` |
+| 9 | `elderwise_ct_missed_notice` | Care Partner | ✅ APPROVED | 3 | none | `3121885814676749` |
+| 10 | `elderwise_sos_alert_ct` | Care Partner | ✅ APPROVED | 4 | `I Am Responding` | `1289025163308840` |
+| 11 | `elderwise_sos_alert_lct` | Local Buddy | ✅ APPROVED | **5** | `I'm on my way` | `1372423371082977` |
+| 12 | `elderwise_sos_alert_doctor` | Doctor | ✅ APPROVED | **7** | `Acknowledge` | `2431697744021678` |
+| 13 | `elderwise_sos_nudge` | CT / LCT / DR | ✅ APPROVED | 2 | `I'm Responding` | `2044073236223703` |
+| 14 | `elderwise_sos_resolved` | CT / LCT / DR | ✅ APPROVED | 3 | none | `1380761780602851` |
+| 15 | `elderwise_ep_health_checkin_v2` | Elder | ✅ APPROVED | 2 | `Yes` · `No` | `1736094100935290` |
+| 16 | `elderwise_ep_health_reminder_v2` | Elder | ✅ APPROVED | 2 | `Yes` · `No` | `1057601289992008` |
+| 17 | `elderwise_ct_interaction_notice_v2` | Care Partner | ✅ APPROVED | 4 | none | `2568978943542289` |
+| 18 | `elderwise_wl_confirmation` | Waitlist registrant (`wl`) | ✅ APPROVED (MARKETING) | 1 | none | `1629319865429272` |
+
+Row 18 is **MARKETING**. Every other ElderWise row is **UTILITY**.
 
 **Also present in the account:** `hello_world` (Meta's sample, `en_US`). Not ours, not used,
 harmless. Do not delete it — it is Meta's connectivity test message.
 
-### 3.0a Waitlist confirmation — ⏳ PENDING (submitted 17 August 2026)
+### 3.0a Waitlist confirmation — ✅ APPROVED (MARKETING)
 
-**`elderwise_wl_confirmation`.** Submitted to Meta 17 August 2026. **Reclassified by Meta as MARKETING.** Status **pending approval**. Purpose: waitlist signup confirmation.
+**`elderwise_wl_confirmation`.** Submitted 17 August 2026. **Approved as MARKETING.** Meta template ID `1629319865429272`. 1 variable. No buttons. Purpose: waitlist signup confirmation.
+
+**Header:** `ElderWise Waiting List Welcomes You`
+
+> Hello {{1}}, thank you for joining the ElderWise waitlist. We'll message you here as soon as early access opens.
 
 The recipient is a waitlist registrant — neither an elder (`ep`) nor a care partner (`ct`). This introduces a **fourth audience prefix** `wl`. Existing prefixes in this document: `ep`, `ct`, `sos`.
 
-WF-8 currently sends **email only**. The WhatsApp branch is not built until this template is APPROVED.
+WF-8 currently sends **email only**. The WhatsApp branch is no longer blocked by template approval. **The WhatsApp branch is not built.**
 
 ### 3.0 Health v2 pair — ✅ APPROVED 7 August 2026
 
@@ -153,7 +160,7 @@ WF-8 currently sends **email only**. The WhatsApp branch is not built until this
 
 > **⚠️ v1.10 recorded both bodies without the bold markers and recorded no headers.** Meta approved `*{{1}}*` and `*{{2}}*` on **both** templates, and both carry a static TEXT header. The rows above are the transcription from the live Graph API; v1.10 was wrong on both counts.
 
-**Static headers need no n8n parameter.** All 16 templates in this WABA carry a TEXT header with no variables. The existing WhatsApp nodes send `bodyParameters` only and have always worked, so the v2 swap adds no header component.
+**Static headers need no n8n parameter.** All 18 ElderWise templates in this WABA carry a TEXT header with no variables. The existing WhatsApp nodes send `bodyParameters` only and have always worked, so the v2 swap adds no header component.
 
 **Cutover — the two nodes that send these.** Neither needs a query change; both source queries already emit `routine_name`.
 
@@ -485,6 +492,21 @@ protected by the §7.3 click-through gate against WhatsApp's link-preview crawle
 
 ---
 
+### 17 · `elderwise_ct_interaction_notice_v2` — ✅ APPROVED
+**Header:** `Update` · **APPROVED BUT NOT IN USE.** WF-6 sends `elderwise_ct_interaction_notice` (v1). v2 differs from v1 only in header text.
+
+> Hi, this is to update you about
+> Your Loved one *{{1}}* 
+> Regarding: *{{2}}*
+> Status: *{{3}}*
+> Recorded at *{{4}}*
+> Hope this helps 💚
+
+**Samples:** `Fatima` · `Medication (Morning)` · `Taken` · `8:04 AM, 14 Jul`
+**Buttons:** none
+
+---
+
 ## 6. SOS templates — the most important messages in the product
 
 ### 10 · `elderwise_sos_alert_ct` — ✅ APPROVED
@@ -581,9 +603,20 @@ failure (W3).
 
 ---
 
+### 18 · `elderwise_wl_confirmation` — ✅ APPROVED (MARKETING)
+**Header:** `ElderWise Waiting List Welcomes You` · **Category:** MARKETING
+
+> Hello {{1}}, thank you for joining the ElderWise waitlist. We'll message you here as soon as early access opens.
+
+**Buttons:** none
+
+WF-8 currently sends **email only**. The WhatsApp branch is no longer blocked by template approval. **The WhatsApp branch is not built.**
+
+---
+
 ## 7. Free-form messages — no Meta approval required
 
-Sent inside the 24-hour customer-service window opened by the elder's own inbound message. Not Meta templates. Not submitted. Distinct from the 16 approved WABA templates. **These can never be used to initiate contact** — they depend on the elder having messaged first.
+Sent inside the 24-hour customer-service window opened by the elder's own inbound message. Not Meta templates. Not submitted. Distinct from the 18 approved WABA templates (17 UTILITY + 1 MARKETING). **These can never be used to initiate contact** — they depend on the elder having messaged first.
 
 ### 7.1 Medication list picker *(interactive list)* — **NOT BUILT (MVP)**
 **Scope reduction, ruled by Talal 3 August 2026.** Spec retained for a future path. Live behaviour: *Some of them* → `response_value = 'some_of_them'`, `status = responded`, CT notified; which medicines were taken is not captured (`Architecture.md` A-12). Reason: native WhatsApp node has no interactive-list type; raw Graph HTTP ruled out.
@@ -699,7 +732,8 @@ Sent when a consented elder sends `cancel` and there is no open SOS.
 | **28 July** | **13 approved.** `elderwise_sos_alert_doctor` still in review. Live state reconciled into this document. | ✅ Done |
 | **2 August** | **All 14 approved.** `elderwise_sos_alert_doctor` cleared review unchanged. Verified via Graph API. | ✅ Done |
 | **7 August** | **Health v2 pair approved.** `elderwise_ep_health_checkin_v2` and `elderwise_ep_health_reminder_v2` cleared review as `UTILITY` / `en`. 16 approved. Verified via Graph API. | ✅ Done |
-| **17 August** | **`elderwise_wl_confirmation` submitted.** Meta reclassified as MARKETING. Pending approval. 16 approved remain in service; WhatsApp waitlist confirmation not live. | ▶️ Current |
+| **17 August** | **`elderwise_wl_confirmation` submitted.** Meta reclassified as MARKETING. Pending approval. 16 approved remain in service; WhatsApp waitlist confirmation not live. | ✅ Done |
+| **25 August** | **`elderwise_wl_confirmation` APPROVED as MARKETING** (`1629319865429272`). **`elderwise_ct_interaction_notice_v2` APPROVED** (`2568978943542289`). 18 templates total. Verified via audit `PADE2m75e6xVGS2e` execution `237026`. | ▶️ Current |
 | **🚦 9 August** | **Channel go/no-go.** Full set approved → **WhatsApp as planned.** | ✅ Cleared early |
 | ~~By 16 August~~ | ~~Template 12 approved, or SOS demo runs on the CT + LCT path alone~~ | ✅ Closed 2 Aug |
 
@@ -718,6 +752,7 @@ placeholder count not matching the samples · buttons over 20 characters.
 
 | Date | Version | Change |
 |---|---|---|
+| 25 Aug 2026 | **1.16** | **WABA re-verified** via audit `PADE2m75e6xVGS2e` execution `237026` (`GET /v23.0/1495493002256968/message_templates`). Header: 17 UTILITY APPROVED + 1 MARKETING APPROVED. Registry row 17 `elderwise_ct_interaction_notice_v2` (`2568978943542289`); row 18 `elderwise_wl_confirmation` (`1629319865429272`) APPROVED as MARKETING. Buttons column is now verbatim labels (or `none`). §3 intro and authority note dated 25 August. §3.0a rewritten pending → approved; WF-8 WhatsApp branch no longer blocked by approval — **not built**. §5 entry 17 transcribed (APPROVED, unused; WF-6 still sends v1). §18 `**Buttons:** none`. Timeline 25 August. `silacares_ep_welcome` ignored. **§7** free-form intro: 16 → 18 approved (17 UTILITY + 1 MARKETING). **Footer** transcription provenance: 25 August 2026 / 18 APPROVED / execution `237026`. **§1.4** constraint counts 14 → 18; category is no longer all UTILITY. **§3.0** static-header claim 16 → 18 ElderWise templates. Sweep left §8 OT-8 “All 14” and §3.5 row numbers 14/15/16 as historical. **No body rewording of existing templates.** |
 | 17 Aug 2026 | **1.15** | **Journal + cancel free-form replies.** §7.6 / §7.7 / §7.8 (WF-9 journal ack; WF-10 cancel ack and nothing-to-cancel). All three are 24-hour-window replies, not Meta templates — distinct from the 16 approved templates; cannot initiate contact. §7.5 retired — WF-5 no-check-in node orphaned. **No change to any WABA template body, variables, or buttons.** |
 | 17 Aug 2026 | **1.14** | **`elderwise_wl_confirmation` submitted** (Meta MARKETING, pending). Fourth audience prefix `wl`. Header status no longer “all approved”. 16 WABA-approved templates unchanged. |
 | 11 Aug 2026 | **1.13** | **"Not on Record" supersedes `NA` for absent Buddy/Doctor (§3.3).** Send-time substitution only; DB still untouched; no placeholder rows. Share-link mint failure (`{{3}}` of template 12) still fails open to `NA` (§3.4). Accepted demo defect on templates 10/12 prose recorded; real fix → PD-12. WF-4 Load Care Circle live with four `COALESCE(..., 'Not on Record')` defaults. |
@@ -738,5 +773,5 @@ placeholder count not matching the samples · buttons over 20 characters.
 
 ---
 
-*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 7 August 2026.*
-*Template bodies transcribed verbatim from Meta Graph API, WABA `1495493002256968` — transcribed 28 July 2026, health v2 pair transcribed and all statuses re-verified 7 August 2026 (all 16 APPROVED).*
+*Compiled by Claude (Anthropic) on behalf of Team Lead Talal Baig — AIGF Cohort 7, Group 7 — 25 August 2026.*
+*Template bodies transcribed verbatim from Meta Graph API, WABA `1495493002256968` — transcribed 28 July 2026, health v2 pair transcribed 7 August 2026, statuses re-verified 25 August 2026 via audit execution `237026` (18 APPROVED: 17 UTILITY + 1 MARKETING).*
